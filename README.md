@@ -1,86 +1,128 @@
-# Visualisateur de Données Métabolomiques
+# Visualisateur de Données Métabolomiques avec SPARQL et Vega-Lite
 
-Ce visualisateur permet d'explorer et d'analyser des données métabolomiques via des représentations graphiques interactives. Il est conçu pour s'intégrer au chatbot gen²kgbot et récupère les données directement depuis les cookies du navigateur.
+Ce projet est un visualisateur de données métabolomiques qui permet d'explorer et d'analyser des résultats de requêtes SPARQL via des représentations graphiques interactives. Il intègre:
+
+- Un visualisateur D3.js pour les données métabolomiques classiques
+- Un nouveau module utilisant Vega-Lite pour les visualisations de données SPARQL
+- Des Web Components pour faciliter l'intégration et la réutilisation
 
 ## Fonctionnalités
 
-- **Graphique à dispersion** : Visualisez les relations entre deux variables métabolomiques
-- **Carte de chaleur** : Identifiez les motifs et variations dans les données métabolomiques
-- **Réseau d'interactions** : Explorez les corrélations entre différents métabolites
-- **Diagramme à barres** : Analysez la distribution statistique d'une variable
+- Visualisation des données métabolomiques avec D3.js (graphiques à dispersion, cartes de chaleur, réseaux d'interactions, etc.)
+- Transformation des résultats de requêtes SPARQL en visualisations Vega-Lite
+- Web Components pour intégration facile des visualisations dans d'autres applications
+- Backend Express.js pour exécuter des requêtes SPARQL et transformer les données
+
+## Prérequis
+
+- Node.js >= 14.x
+- NPM >= 6.x
 
 ## Installation
 
-1. Clonez ce dépôt dans votre environnement de développement
-2. Intégrez les fichiers dans votre projet existant
-3. Assurez-vous que la bibliothèque D3.js est correctement chargée
+1. Cloner le dépôt:
+   ```bash
+   git clone https://github.com/yourusername/metabolomics-visualizer.git
+   cd metabolomics-visualizer
+   ```
+
+2. Installer les dépendances:
+   ```bash
+   npm install
+   ```
+
+3. Démarrer le serveur:
+   ```bash
+   npm start
+   ```
+
+4. Ouvrir l'application dans un navigateur:
+   ```
+   http://localhost:3000
+   ```
 
 ## Utilisation
 
-### Préparer les données
+### Visualisateur D3.js
 
-Le visualisateur attend un cookie nommé `metabolomicsData` contenant les données au format JSON suivant:
+1. Chargez les données d'exemple en cliquant sur "Charger données d'exemple"
+2. Sélectionnez les dimensions à visualiser (axes X, Y et couleur)
+3. Choisissez le type de visualisation (graphique à dispersion, carte de chaleur, etc.)
 
-```json
+### Visualisateur Vega-Lite SPARQL
+
+1. Cliquez sur l'onglet "Vega-Lite SPARQL"
+2. Sélectionnez la source de données (exemple ou endpoint SPARQL)
+3. Si vous choisissez un endpoint, entrez l'URL et la requête SPARQL
+4. Configurez la visualisation (type, dimensions, agrégation)
+5. Cliquez sur "Appliquer la visualisation"
+
+### Utilisation des Web Components
+
+Le projet inclut un Web Component `<bar-chart>` que vous pouvez utiliser de différentes manières:
+
+```html
+<!-- Avec un endpoint SPARQL -->
+<bar-chart sparql-endpoint="https://example.org/sparql" sparql-query="SELECT * WHERE { ?s ?p ?o } LIMIT 10"></bar-chart>
+
+<!-- Avec des résultats SPARQL prédéfinis -->
+<bar-chart sparql-results='{"head":{"vars":["s","p","o"]},"results":{"bindings":[...]}}'></bar-chart>
+```
+
+## API Serveur
+
+### Exécuter une requête SPARQL
+
+```
+GET /api/sparql?endpoint={endpoint}&query={query}
+```
+
+### Transformer des données SPARQL pour Vega-Lite
+
+```
+POST /api/transform-sparql
+Content-Type: application/json
+
 {
-  "columns": ["metabolite1", "metabolite2", "metabolite3", ...],
-  "values": [
-    {"metabolite1": 0.123, "metabolite2": 4.567, "metabolite3": 8.901, ...},
-    {"metabolite1": 2.345, "metabolite2": 6.789, "metabolite3": 0.123, ...},
-    ...
-  ]
+  "head": { "vars": [...] },
+  "results": { "bindings": [...] }
 }
 ```
 
-### Intégration avec gen²kgbot
+## Structure du projet
 
-Pour intégrer ce visualisateur au chatbot gen²kgbot, assurez-vous que:
+- `index.html` - Page HTML principale
+- `styles.css` - Styles CSS
+- `visualisator.js` - Visualisateur D3.js original
+- `sparql-vega.js` - Module de visualisation Vega-Lite avec Web Components
+- `sample-data.js` - Gestionnaire de données d'exemple
+- `server.js` - Serveur Express.js
 
-1. Le chatbot stocke les données métabolomiques dans un cookie nommé `metabolomicsData`
-2. Les fichiers HTML, CSS et JavaScript sont correctement chargés dans l'interface du chatbot
+## Développement
 
-## Personnalisation
+Pour le développement avec rechargement automatique:
 
-Vous pouvez personnaliser l'apparence et le comportement du visualisateur en modifiant:
-
-- `styles.css` pour l'apparence visuelle
-- `visualisator.js` pour les fonctionnalités et les visualisations
-
-## Structure des fichiers
-
-- `index.html` : Structure HTML du visualisateur
-- `styles.css` : Styles CSS pour l'apparence
-- `visualisator.js` : Code JavaScript utilisant D3.js pour les visualisations
-
-## Documentation technique
-
-Le code est entièrement documenté en style JavaDoc en français. Chaque fonction est expliquée en détail, avec ses paramètres et valeurs de retour.
-
-## Exemple d'utilisation
-
-Pour tester le visualisateur avec des données d'exemple, vous pouvez exécuter le code suivant dans la console de votre navigateur:
-
-```javascript
-// Données d'exemple
-const sampleData = {
-  columns: ["glucose", "lactate", "pyruvate", "citrate", "alanine", "glutamine"],
-  values: Array.from({length: 30}, () => ({
-    glucose: Math.random() * 10,
-    lactate: Math.random() * 8,
-    pyruvate: Math.random() * 5,
-    citrate: Math.random() * 7,
-    alanine: Math.random() * 6,
-    glutamine: Math.random() * 9
-  }))
-};
-
-// Stocker les données dans un cookie
-document.cookie = `metabolomicsData=${JSON.stringify(sampleData)}; path=/`;
-
-// Recharger la page
-location.reload();
+```bash
+npm run dev
 ```
 
-## Contact
+## Intégration avec d'autres projets
 
-Pour toute question concernant ce visualisateur, veuillez contacter l'équipe de développement. 
+Pour intégrer le visualisateur dans d'autres projets, utilisez le Web Component:
+
+1. Incluez les scripts nécessaires:
+   ```html
+   <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+   <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+   <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+   <script src="path/to/sparql-vega.js"></script>
+   ```
+
+2. Utilisez le composant:
+   ```html
+   <bar-chart sparql-endpoint="https://example.org/sparql" sparql-query="SELECT * WHERE { ?s ?p ?o }"></bar-chart>
+   ```
+
+## License
+
+MIT 

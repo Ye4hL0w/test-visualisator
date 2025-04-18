@@ -1,6 +1,6 @@
 /**
  * @fileOverview Visualisateur de données métabolomiques utilisant D3.js
- * @author Assistant IA
+ * @author Moncada Jérémy
  * @version 1.0.0
  */
 

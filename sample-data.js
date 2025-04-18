@@ -1,6 +1,6 @@
 /**
  * @fileOverview Données d'exemple pour le visualisateur métabolomique
- * @author Assistant IA
+ * @author Moncada Jérémy
  * @version 1.0.0
  */
 
