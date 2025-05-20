@@ -1,0 +1,201 @@
+.control-group {
+    margin-bottom: 15px;
+}
+.control-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+.control-panel {
+    background-color: #f5f5f5;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+.usage-examples {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+    margin-top: 20px;
+}
+.code-preview {
+    background-color: #272822;
+    color: #f8f8f2;
+    padding: 15px;
+    border-radius: 5px;
+    overflow: auto;
+    max-height: 500px;  /* Hauteur maximale avec barre de défilement */
+    font-family: monospace;
+    font-size: 13px;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+.button-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+.vis-type-btn {
+    padding: 8px 16px;
+    background-color: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.vis-type-btn.active {
+    background-color: #4CAF50;
+    color: white;
+    border-color: #4CAF50;
+}
+/* Styles pour les contrôles de requête serveur */
+.control-row {
+    margin-bottom: 10px;
+}
+.full-width {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+.primary-button, .secondary-button {
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    border: none;
+}
+.primary-button {
+    background-color: #4CAF50;
+    color: white;
+}
+.primary-button:hover {
+    background-color: #45a049;
+}
+.primary-button.highlight {
+    animation: pulse 1.5s;
+    box-shadow: 0 0 10px rgba(76, 175, 80, 0.8);
+}
+.secondary-button {
+    background-color: #f1f1f1;
+    color: #333;
+    border: 1px solid #ddd;
+}
+.secondary-button:hover {
+    background-color: #e7e7e7;
+}
+.status-message {
+    margin-top: 10px;
+    padding: 8px;
+    border-radius: 4px;
+    display: none;
+}
+.status-success {
+    display: block;
+    background-color: #e7f3e8;
+    color: #2e7d32;
+    border: 1px solid #c8e6c9;
+}
+.status-error {
+    display: block;
+    background-color: #fdeded;
+    color: #c62828;
+    border: 1px solid #ef9a9a;
+}
+.status-loading {
+    display: block;
+    background-color: #e3f2fd;
+    color: #1565c0;
+    border: 1px solid #bbdefb;
+}
+.layout-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+@media (min-width: 1024px) {
+    .layout-container {
+        flex-direction: row;
+    }
+    .sidebar {
+        width: 40%;
+        max-width: 400px;
+    }
+    .main-content {
+        flex: 1;
+    }
+}
+.info-message {
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+    margin: 20px 0;
+    text-align: center;
+    border: 1px solid #dee2e6;
+}
+.info-message h3 {
+    margin-top: 0;
+    color: #495057;
+}
+.loading-indicator {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+    font-style: italic;
+}
+.error {
+    padding: 15px;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 5px;
+    color: #721c24;
+    margin: 20px 0;
+}
+.data-transformation-preview {
+    margin-top: 30px;
+    border-top: 1px solid #ddd;
+    padding-top: 20px;
+}
+.data-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+.data-column h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+/* Styles pour le sélecteur d'exemples */
+#example-selector {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #ddd;
+}
+
+.example-description {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: #f0f8ff;
+    border-left: 3px solid #4CAF50;
+    font-style: italic;
+    color: #555;
+    line-height: 1.4;
+    font-size: 0.9em;
+}
+
+.example-description:empty {
+    display: none;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.8);
+    }
+    70% {
+        box-shadow: 0 0 10px 10px rgba(76, 175, 80, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
+    }
+} 

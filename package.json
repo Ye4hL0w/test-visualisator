@@ -1,7 +1,7 @@
 {
   "name": "metabolomics-visualizer",
   "version": "1.0.0",
-  "description": "Visualisateur de données métabolomiques avec support SPARQL et Vega-Lite",
+  "description": "Visualisateur de données métabolomiques.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

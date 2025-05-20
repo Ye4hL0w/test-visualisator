@@ -1,3 +1,9 @@
+/**
+ * @fileOverview Composant Web BarChart pour visualiser des données SPARQL
+ * @author Moncada Jérémy
+ * @version 1.0.0
+ */
+
 class BarChart extends HTMLElement {
   constructor() {
     super();
@@ -54,7 +60,7 @@ class BarChart extends HTMLElement {
     }
     
     // Apply sample data to the demo component
-    if (this.id === 'demo-component') {
+    if (this.id === 'demo-bar-chart') {
       this.data = window.SAMPLE_SPARQL_DATA || this.getSampleData();
     }
     
@@ -255,22 +261,20 @@ class BarChart extends HTMLElement {
       .attr('y', d => yScale(d.y))
       .attr('width', xScale.bandwidth())
       .attr('height', d => chartHeight - yScale(d.y))
-      .on('mouseover', function(event, d) {
-        tooltip.style('opacity', 1)
-          .html(`<strong>${xLabel}:</strong> ${d.x}<br><strong>${yLabel}:</strong> ${d.y}`)
-          .style('left', (event.pageX + 10) + 'px')
-          .style('top', (event.pageY - 30) + 'px');
-        
-        d3.select(this).style('fill', '#45a049');
+      .on('mouseover', (event, d) => {
+        tooltip
+          .style('opacity', 1)
+          .style('left', `${event.pageX}px`)
+          .style('top', `${event.pageY}px`)
+          .html(`${d.x}: ${d.y}`);
       })
-      .on('mouseout', function() {
+      .on('mouseout', () => {
         tooltip.style('opacity', 0);
-        d3.select(this).style('fill', null);
       });
   }
 }
 
-// Define the custom element
+// Register the custom element
 customElements.define('bar-chart', BarChart);
 
 // Export component (optional, for module usage)

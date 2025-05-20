@@ -3,32 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visualisateur</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Visualisateur - D3.js</title>
+    <link rel="stylesheet" href="css/styles.css">
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
-    <script src="sample-data.js"></script>
-    <script src="visualisator.js"></script>
-    <script src="sparql-vega.js"></script>
-    <script src="components/BarChart.js" type="module"></script>
+    <script src="js/sample-data.js"></script>
+    <script type="module" src="components/VisTable.js"></script>
+    <script type="module" src="components/VisGraph.js"></script>
 </head>
 <body>
     <header>
         <h1>Visualisateur de Données Métabolomiques</h1>
         <nav class="main-nav">
-            <button id="view-d3" class="active">D3 Visualisations</button>
-            <button id="view-vega">Vega-Lite SPARQL</button>
+            <a href="index.html" class="active">D3 Visualisations</a>
+            <a href="pages/sparql-vega.html">Vega-Lite SPARQL</a>
+            <a href="pages/web-components.html">Tests Web Components</a>
         </nav>
     </header>
 
     <div id="d3-container" class="view-container active">
         <nav class="sub-nav">
-            <button id="view-scatter">Graphique à dispersion</button>
+            <button id="view-scatter" class="active">Graphique à dispersion</button>
             <button id="view-heatmap">Carte de chaleur</button>
             <button id="view-network">Réseau d'interactions</button>
             <button id="view-barplot">Diagramme à barres</button>
+            <button id="view-table">Tableau de données</button>
         </nav>
 
         <main>
@@ -40,6 +38,9 @@
             <section id="visualization-container">
                 <div id="loading">Chargement des données...</div>
                 <div id="visualization"></div>
+                <div id="table-container" style="display: none;">
+                    <vis-table id="data-table" width="800" height="500" show-json="true"></vis-table>
+                </div>
             </section>
 
             <section id="controls">
@@ -47,23 +48,31 @@
                 <div id="help-message" class="info">
                     Sélectionnez les dimensions à visualiser puis cliquez sur un type de graphique ci-dessus.
                 </div>
-                <div class="control-group">
-                    <label for="x-axis-select">Axe X:</label>
-                    <select id="x-axis-select"></select>
+                <div id="visualization-controls">
+                    <div class="control-group">
+                        <label for="x-axis-select">Axe X:</label>
+                        <select id="x-axis-select"></select>
+                    </div>
+                    <div class="control-group">
+                        <label for="y-axis-select">Axe Y:</label>
+                        <select id="y-axis-select"></select>
+                    </div>
+                    <div class="control-group">
+                        <label for="color-by-select">Colorer par:</label>
+                        <select id="color-by-select"></select>
+                    </div>
+                    <div class="control-group">
+                        <label for="filter-select">Filtrer:</label>
+                        <select id="filter-select"></select>
+                        <input type="text" id="filter-value" placeholder="Valeur">
+                        <button id="apply-filter">Appliquer</button>
+                    </div>
                 </div>
-                <div class="control-group">
-                    <label for="y-axis-select">Axe Y:</label>
-                    <select id="y-axis-select"></select>
-                </div>
-                <div class="control-group">
-                    <label for="color-by-select">Colorer par:</label>
-                    <select id="color-by-select"></select>
-                </div>
-                <div class="control-group">
-                    <label for="filter-select">Filtrer:</label>
-                    <select id="filter-select"></select>
-                    <input type="text" id="filter-value" placeholder="Valeur">
-                    <button id="apply-filter">Appliquer</button>
+                <div id="table-controls" style="display: none;">
+                    <div class="control-group">
+                        <label for="show-json-checkbox">Afficher JSON:</label>
+                        <input type="checkbox" id="show-json-checkbox" checked>
+                    </div>
                 </div>
             </section>
             
@@ -78,396 +87,11 @@
         </main>
     </div>
 
-    <div id="vega-container" class="view-container">
-        <h2>Visualisation avec Vega-Lite et SPARQL</h2>
-        
-        <div class="vega-controls">
-            <div class="control-group">
-                <label for="sparql-source">Source des données:</label>
-                <select id="sparql-source">
-                    <option value="sample">Données exemple</option>
-                    <option value="endpoint">Endpoint SPARQL</option>
-                </select>
-            </div>
-            
-            <div class="control-group" id="endpoint-input" style="display: none;">
-                <label for="sparql-endpoint">Endpoint SPARQL:</label>
-                <input type="text" id="sparql-endpoint" placeholder="https://sparql.example.org/endpoint">
-                <label for="sparql-query">Requête SPARQL:</label>
-                <textarea id="sparql-query" rows="5" placeholder="SELECT * WHERE { ?s ?p ?o } LIMIT 10"></textarea>
-                <button id="execute-query">Exécuter</button>
-            </div>
-            
-            <div class="control-group">
-                <label for="visualization-type">Type de visualisation:</label>
-                <select id="visualization-type">
-                    <option value="bar">Diagramme à barres</option>
-                    <option value="pie">Diagramme circulaire</option>
-                    <option value="scatter">Nuage de points</option>
-                    <option value="heatmap">Carte de chaleur</option>
-                    <option value="network">Réseau d'interactions</option>
-                    <option value="line">Graphique linéaire</option>
-                    <option value="area">Graphique de zone</option>
-                </select>
-            </div>
-            
-            <div class="control-group">
-                <label for="x-field">Dimension X:</label>
-                <select id="x-field"></select>
-                
-                <label for="y-field">Dimension Y:</label>
-                <select id="y-field"></select>
-                
-                <label for="color-field">Colorer par:</label>
-                <select id="color-field"></select>
-            </div>
-            
-            <div class="control-group">
-                <label for="aggregate-type">Agrégation:</label>
-                <select id="aggregate-type">
-                    <option value="">Aucune</option>
-                    <option value="count">Comptage</option>
-                    <option value="sum">Somme</option>
-                    <option value="average">Moyenne</option>
-                    <option value="min">Minimum</option>
-                    <option value="max">Maximum</option>
-                </select>
-            </div>
-            
-            <button id="apply-visualization">Appliquer la visualisation</button>
-        </div>
-        
-        <div id="vega-visualization"></div>
-        
-        <!-- Nouvelle section pour visualiser les données avant/après transformation -->
-        <div class="data-transformation-preview">
-            <h3>Aperçu des données SPARQL et de leur transformation</h3>
-            <div class="data-comparison">
-                <div class="data-column">
-                    <h4>Données SPARQL brutes</h4>
-                    <pre id="raw-sparql-data" class="code-preview">
-// Exemple de données SPARQL brutes
-{
-  "head": {
-    "vars": ["metabolite", "xref"]
-  },
-  "results": {
-    "bindings": [
-      {
-        "metabolite": {
-          "type": "uri",
-          "value": "https://rdf.metanetx.org/chem/MNXM12406"
-        },
-        "xref": {
-          "type": "uri",
-          "value": "https://identifiers.org/CHEBI:82565"
-        }
-      }
-    ]
-  }
-}</pre>
-                </div>
-                <div class="data-column">
-                    <h4>Données transformées pour Vega-Lite</h4>
-                    <pre id="transformed-vega-data" class="code-preview">
-// Données transformées pour Vega-Lite
-[
-  {
-    "metabolite": "MNXM12406",
-    "xref": "CHEBI:82565"
-  }
-]</pre>
-                </div>
-            </div>
-            <div class="transformation-explanation">
-                <h4>Comment fonctionne la transformation</h4>
-                <ol>
-                    <li>Les variables sont extraites de <code>sparqlData.head.vars</code></li>
-                    <li>Pour chaque binding dans <code>sparqlData.results.bindings</code>:
-                        <ul>
-                            <li>Un objet plat est créé avec les variables comme clés</li>
-                            <li>Pour les valeurs de type URI, la dernière partie après le dernier <code>/</code> ou <code>#</code> est extraite</li>
-                        </ul>
-                    </li>
-                    <li>Le résultat est un tableau d'objets plats, prêt pour Vega-Lite</li>
-                </ol>
-                <button id="update-data-preview">Mettre à jour l'aperçu avec les données actuelles</button>
-            </div>
-        </div>
-        
-        <section class="web-component-demo">
-            <h3>Démonstration du Web Component</h3>
-            <p>Exemple d'utilisation du Web Component <code>&lt;bar-chart&gt;</code> avec des résultats SPARQL statiques :</p>
-            
-            <bar-chart id="demo-component" width="700" height="400"></bar-chart>
-            
-            <div class="code-example">
-                <h4>Exemple de code HTML :</h4>
-                <pre><code>&lt;bar-chart sparql-endpoint="https://endpoint.example.org"&gt;&lt;/bar-chart&gt;</code></pre>
-                <pre><code>&lt;bar-chart sparql-query="SELECT * WHERE { ?s ?p ?o } LIMIT 10"&gt;&lt;/bar-chart&gt;</code></pre>
-                <pre><code>&lt;bar-chart sparql-results='{"head":{"vars":["s","p","o"]},"results":{"bindings":[]}}'&gt;&lt;/bar-chart&gt;</code></pre>
-            </div>
-            
-            <div class="code-example">
-                <h4>Intégration avec Express.js :</h4>
-                <pre><code>// Côté serveur (Express)
-app.get('/api/sparql', async (req, res) => {
-  try {
-    const query = req.query.q;
-    const endpoint = req.query.endpoint || 'https://sparql.default.org';
-    
-    // Exécuter la requête SPARQL avec fetch ou une bibliothèque SPARQL
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/sparql-query', 'Accept': 'application/json' },
-      body: query
-    });
-    
-    const results = await response.json();
-    res.json(results);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Côté client (JavaScript)
-async function loadData() {
-  const query = "SELECT * WHERE { ?s ?p ?o } LIMIT 10";
-  const response = await fetch(`/api/sparql?q=${encodeURIComponent(query)}`);
-  const data = await response.json();
-  
-  // Mettre à jour le composant
-  const chart = document.querySelector('bar-chart');
-  chart.setAttribute('sparql-results', JSON.stringify(data));
-}</code></pre>
-            </div>
-        </section>
-    </div>
-
     <footer>
         <p>Visualisateur intégré pour le chatbot gen²kgbot</p>
     </footer>
     
-    <script>
-        // Fonction pour vérifier si les données sont chargées
-        function checkDataStatus() {
-            const dataStatus = document.getElementById('data-status');
-            if (hasStoredData()) {
-                dataStatus.innerHTML = '<p>✅ Données chargées avec succès</p>';
-                dataStatus.className = 'success';
-                
-                // Masquer le message d'aide après un certain temps
-                setTimeout(() => {
-                    const helpMessage = document.getElementById('help-message');
-                    if (helpMessage) {
-                        helpMessage.style.display = 'none';
-                    }
-                }, 5000);
-            } else {
-                dataStatus.innerHTML = '<p>❌ Aucune donnée chargée</p><p>Cliquez sur "Charger données d\'exemple" pour commencer</p>';
-                dataStatus.className = 'error';
-            }
-        }
-        
-        // Gestionnaires pour les boutons de gestion des données
-        document.getElementById('load-sample-data').addEventListener('click', function() {
-            this.disabled = true;
-            this.textContent = 'Chargement en cours...';
-            
-            // Charger les données d'exemple
-            const data = loadSampleData();
-            
-            // Mettre à jour l'interface sans recharger la page
-            setTimeout(() => {
-                checkDataStatus();
-                initializeVisualizationIfNeeded();
-                this.disabled = false;
-                this.textContent = 'Charger données d\'exemple';
-            }, 500);
-        });
-        
-        document.getElementById('clear-data').addEventListener('click', function() {
-            // Supprimer les données
-            clearStoredData();
-            
-            // Mettre à jour l'interface
-            checkDataStatus();
-            
-            // Recharger la page pour vider la visualisation
-            location.reload();
-        });
-        
-        // Navigation entre onglets principaux
-        document.getElementById('view-d3').addEventListener('click', function() {
-            document.getElementById('d3-container').classList.add('active');
-            document.getElementById('vega-container').classList.remove('active');
-            document.getElementById('view-d3').classList.add('active');
-            document.getElementById('view-vega').classList.remove('active');
-        });
-        
-        document.getElementById('view-vega').addEventListener('click', function() {
-            document.getElementById('vega-container').classList.add('active');
-            document.getElementById('d3-container').classList.remove('active');
-            document.getElementById('view-vega').classList.add('active');
-            document.getElementById('view-d3').classList.remove('active');
-        });
-        
-        // Gestion de l'affichage des champs pour l'endpoint SPARQL
-        document.getElementById('sparql-source').addEventListener('change', function() {
-            if (this.value === 'endpoint') {
-                document.getElementById('endpoint-input').style.display = 'block';
-            } else {
-                document.getElementById('endpoint-input').style.display = 'none';
-            }
-        });
-        
-        // Nouveau code pour gérer l'aperçu des données
-        document.getElementById('update-data-preview').addEventListener('click', function() {
-            try {
-                // Vérifier si des données SPARQL sont disponibles
-                if (SparqlVegaVisualizer && SparqlVegaVisualizer.transformSparqlToVegaData && window.SAMPLE_SPARQL_DATA) {
-                    // Afficher les données SPARQL brutes
-                    const rawDataElement = document.getElementById('raw-sparql-data');
-                    rawDataElement.textContent = JSON.stringify(window.SAMPLE_SPARQL_DATA, null, 2);
-                    
-                    // Transformer et afficher les données transformées
-                    const transformedData = SparqlVegaVisualizer.transformSparqlToVegaData(window.SAMPLE_SPARQL_DATA);
-                    const transformedDataElement = document.getElementById('transformed-vega-data');
-                    transformedDataElement.textContent = JSON.stringify(transformedData, null, 2);
-                    
-                    // Ajouter un message de confirmation
-                    alert('Aperçu des données mis à jour avec succès !');
-                } else {
-                    alert('Aucune donnée SPARQL ou fonction de transformation disponible.');
-                }
-            } catch (error) {
-                console.error('Erreur lors de la mise à jour de l\'aperçu des données:', error);
-                alert('Erreur lors de la mise à jour de l\'aperçu des données. Voir la console pour plus de détails.');
-            }
-        });
-        
-        // Vérifier immédiatement l'état des données
-        document.addEventListener('DOMContentLoaded', function() {
-            checkDataStatus();
-        });
-    </script>
-    
-    <style>
-        /* Styles pour la nouvelle section de comparaison des données */
-        .data-transformation-preview {
-            margin-top: 40px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
-            background-color: #f9f9f9;
-        }
-        
-        .data-comparison {
-            display: flex;
-            flex-direction: row;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-        
-        .data-column {
-            flex: 1;
-            min-width: 0;
-        }
-        
-        .code-preview {
-            background-color: #282c34;
-            color: #abb2bf;
-            border-radius: 4px;
-            padding: 15px;
-            overflow: auto;
-            max-height: 400px;
-            font-family: 'Courier New', monospace;
-            font-size: 13px;
-            line-height: 1.4;
-        }
-        
-        .transformation-explanation {
-            background-color: #e8f4f8;
-            padding: 15px;
-            border-radius: 4px;
-            margin-top: 20px;
-        }
-        
-        #update-data-preview {
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            text-align: center;
-            text-decoration: none;
-            display: inline-block;
-            font-size: 14px;
-            margin-top: 15px;
-            cursor: pointer;
-            border-radius: 4px;
-        }
-        
-        #update-data-preview:hover {
-            background-color: #45a049;
-        }
-        
-        /* Styles pour l'indicateur de chargement */
-        .loading-indicator {
-            text-align: center;
-            padding: 20px;
-            color: #666;
-            font-style: italic;
-            background-color: #f8f9fa;
-            border-radius: 4px;
-            margin: 20px 0;
-            position: relative;
-        }
-        
-        .loading-indicator:after {
-            content: '';
-            display: block;
-            width: 50px;
-            height: 4px;
-            background-color: #4CAF50;
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            animation: loading-bar 1.5s infinite ease-in-out;
-        }
-        
-        @keyframes loading-bar {
-            0% {
-                width: 0;
-                left: 0;
-            }
-            50% {
-                width: 100%;
-                left: 0;
-            }
-            100% {
-                width: 0;
-                left: 100%;
-            }
-        }
-        
-        /* Style pour le bouton de débogage */
-        .debug-button {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 5px 10px;
-            margin-top: 10px;
-            cursor: pointer;
-            font-size: 12px;
-            display: block;
-            margin-left: auto;
-            margin-right: auto;
-        }
-        
-        .debug-button:hover {
-            background-color: #0056b3;
-        }
-    </style>
+    <script type="module" src="js/d3-visualizer.js"></script>
+    <script type="module" src="js/index.js"></script>
 </body>
 </html> 

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualisateur - Vega-Lite SPARQL</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/sparql-vega.css">
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+</head>
+<body>
+    <header>
+        <h1>Visualisateur de Données Métabolomiques</h1>
+        <nav class="main-nav">
+            <a href="../index.html">D3 Visualisations</a>
+            <a href="sparql-vega.html" class="active">Vega-Lite SPARQL</a>
+            <a href="web-components.html">Tests Web Components</a>
+        </nav>
+    </header>
+
+    <div class="view-container active">
+        <h2>Visualisation avec Vega-Lite et SPARQL</h2>
+        
+        <div class="vega-controls">
+            <div class="control-group">
+                <label for="sparql-source">Source des données:</label>
+                <select id="sparql-source">
+                    <option value="endpoint" selected>Endpoint SPARQL</option>
+                </select>
+            </div>
+            
+            <div class="control-group" id="endpoint-input">
+                <label for="sparql-endpoint">Endpoint SPARQL:</label>
+                <input type="text" id="sparql-endpoint" placeholder="https://sparql.example.org/endpoint">
+                <label for="sparql-query">Requête SPARQL:</label>
+                <textarea id="sparql-query" rows="5" placeholder="SELECT * WHERE { ?s ?p ?o } LIMIT 10"></textarea>
+                <button id="execute-query">Exécuter</button>
+            </div>
+            
+            <div class="control-group">
+                <label for="visualization-type">Type de visualisation:</label>
+                <select id="visualization-type">
+                    <option value="bar">Diagramme à barres</option>
+                    <option value="pie">Diagramme circulaire</option>
+                    <option value="scatter">Nuage de points</option>
+                    <option value="heatmap">Carte de chaleur</option>
+                    <option value="network">Réseau d'interactions</option>
+                    <option value="line">Graphique linéaire</option>
+                    <option value="area">Graphique de zone</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="x-field">Dimension X:</label>
+                <select id="x-field"></select>
+            </div>
+            
+            <div class="control-group">
+                <label for="y-field">Dimension Y:</label>
+                <select id="y-field"></select>
+            </div>
+
+            <div class="control-group">
+                <label for="color-field">Colorer par:</label>
+                <select id="color-field"></select>
+            </div>
+            
+            <div class="control-group">
+                <label for="aggregate-type">Agrégation:</label>
+                <select id="aggregate-type">
+                    <option value="">Aucune</option>
+                    <option value="count">Comptage</option>
+                    <option value="sum">Somme</option>
+                    <option value="average">Moyenne</option>
+                    <option value="min">Minimum</option>
+                    <option value="max">Maximum</option>
+                </select>
+            </div>
+            
+            <button id="apply-visualization">Appliquer la visualisation</button>
+        </div>
+        
+        <div id="vega-visualization"></div>
+        
+        <!-- Section pour visualiser les données avant/après transformation -->
+        <div class="data-transformation-preview">
+            <h3>Aperçu des données SPARQL et de leur transformation</h3>
+            <div class="data-comparison">
+                <div class="data-column">
+                    <h4>Données SPARQL brutes</h4>
+                    <pre id="raw-sparql-data" class="code-preview">
+// Exemple de données SPARQL brutes
+{
+  "head": {
+    "vars": ["metabolite", "xref"]
+  },
+  "results": {
+    "bindings": [
+      {
+        "metabolite": {
+          "type": "uri",
+          "value": "https://rdf.metanetx.org/chem/MNXM12406"
+        },
+        "xref": {
+          "type": "uri",
+          "value": "https://identifiers.org/CHEBI:82565"
+        }
+      }
+    ]
+  }
+}</pre>
+                </div>
+                <div class="data-column">
+                    <h4>Données transformées pour Vega-Lite</h4>
+                    <pre id="transformed-vega-data" class="code-preview">
+// Données transformées pour Vega-Lite
+[
+  {
+    "metabolite": "MNXM12406",
+    "xref": "CHEBI:82565"
+  }
+]</pre>
+                </div>
+            </div>
+            <div class="transformation-explanation">
+                <h4>Comment fonctionne la transformation</h4>
+                <ol>
+                    <li>Les variables sont extraites de <code>sparqlData.head.vars</code></li>
+                    <li>Pour chaque binding dans <code>sparqlData.results.bindings</code>:
+                        <ul>
+                            <li>Un objet plat est créé avec les variables comme clés</li>
+                            <li>Pour les valeurs de type URI, la dernière partie après le dernier <code>/</code> ou <code>#</code> est extraite</li>
+                        </ul>
+                    </li>
+                    <li>Le résultat est un tableau d'objets plats, prêt pour Vega-Lite</li>
+                </ol>
+                <button id="update-data-preview">Mettre à jour l'aperçu avec les données actuelles</button>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>Visualisateur intégré pour le chatbot gen²kgbot</p>
+    </footer>
+    
+    <!-- Script pour exposer les fonctions globalement -->
+    <script>
+        // Cette fonction sera appelée par le module pour exposer des fonctions globalement
+        window.initSparqlVegaGlobals = function(functions) {
+            window.SparqlVegaVisualizer = functions;
+        };
+    </script>
+    
+    <script type="module" src="../js/sparql-vega.js"></script>
+</body>
+</html> 

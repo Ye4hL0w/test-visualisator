@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualisateur - Composants Web</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/web-components.css">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1>Visualisateur de Données Métabolomiques</h1>
+        <nav class="main-nav">
+            <a href="../index.html">D3 Visualisations</a>
+            <a href="sparql-vega.html">Vega-Lite SPARQL</a>
+            <a href="web-components.html" class="active">Composants Web</a>
+        </nav>
+    </header>
+
+    <div class="view-container active">
+        <h2>Visualisation de données métabolomiques avec Web Components</h2>
+        
+        <div class="layout-container">
+            <div class="sidebar">
+                <div class="button-container">
+                    <button id="btn-graph" class="vis-type-btn active">Graphe</button>
+                    <button id="btn-table" class="vis-type-btn">Tableau</button>
+                </div>
+                
+                <div class="control-panel">
+                    <h3>Paramètres de visualisation</h3>
+                    <div class="control-group">
+                        <label for="component-width">Largeur:</label>
+                        <input type="range" id="component-width" min="600" max="1200" value="800" step="10">
+                        <span id="component-width-value">800</span>px
+                    </div>
+                    <div class="control-group">
+                        <label for="component-height">Hauteur:</label>
+                        <input type="range" id="component-height" min="400" max="800" value="600" step="10">
+                        <span id="component-height-value">600</span>px
+                    </div>
+                    <div class="control-group" id="table-controls" style="display: none;">
+                        <label for="show-json">Afficher JSON:</label>
+                        <input type="checkbox" id="show-json" checked>
+                    </div>
+                </div>
+                
+                <div class="control-panel">
+                    <h3>Source de données SPARQL</h3>
+                    
+                    <!-- Nouveau sélecteur d'exemples SPARQL -->
+                    <div class="control-group" id="example-selector">
+                        <label for="example-source">Source d'exemples:</label>
+                        <select id="example-source" class="full-width">
+                            <option value="">-- Sélectionner une source --</option>
+                            <!-- Les options seront ajoutées dynamiquement -->
+                        </select>
+                        
+                        <div class="control-row">
+                            <label for="example-query">Exemples de requêtes:</label>
+                            <select id="example-query" class="full-width">
+                                <option value="">-- Sélectionner un exemple --</option>
+                                <!-- Les options seront ajoutées dynamiquement -->
+                            </select>
+                        </div>
+                        
+                        <div class="example-description" id="example-description">
+                            <!-- La description de l'exemple sélectionné sera affichée ici -->
+                        </div>
+                    </div>
+                    
+                    <div class="control-group" id="server-query-controls">
+                        <div class="control-row">
+                            <label for="endpoint-url">Endpoint URL:</label>
+                            <input type="text" id="endpoint-url" class="full-width" placeholder="https://example.com/api/endpoint" value="https://example.com/sparql">
+                        </div>
+                        
+                        <div class="control-row">
+                            <label for="query-input">Requête SPARQL:</label>
+                            <textarea id="query-input" class="full-width" rows="8" placeholder="Entrez votre requête ici...">PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+SELECT ?metabolite ?target ?correlation ?value
+WHERE {
+  ?metabolite rdf:type <http://example.org/Metabolite> .
+  ?metabolite <http://example.org/correlatesWith> ?correlation .
+  ?correlation <http://example.org/target> ?target .
+  ?correlation <http://example.org/value> ?value .
+}</textarea>
+                        </div>
+                        
+                        <div class="control-row">
+                            <button id="execute-query" class="primary-button">Exécuter la requête</button>
+                            <button id="clear-results" class="secondary-button">Effacer les résultats</button>
+                        </div>
+                        
+                        <div id="query-status" class="status-message"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="main-content">
+                <!-- Conteneur de visualisation -->
+                <div id="visualization-container">
+                    <vis-graph id="metabolite-graph" width="800" height="600" style="display: block;"></vis-graph>
+                    <vis-table id="metabolite-table" width="800" height="600" show-json="true" style="display: none;"></vis-table>
+                </div>
+                
+                <!-- Section de transformation des données -->
+                <div class="data-transformation-preview">
+                    <h3>Aperçu des données et de leur transformation</h3>
+                    <div class="data-comparison" style="display: flex; gap: 20px; overflow: auto;">
+                        <div class="data-column" style="flex: 1;">
+                            <h4>Données SPARQL brutes</h4>
+                            <pre id="raw-data" class="code-preview">
+// Aucune donnée SPARQL. Exécutez une requête pour voir les résultats.
+</pre>
+                        </div>
+                        <div class="data-column" style="flex: 1;">
+                            <h4>Données transformées pour la visualisation</h4>
+                            <pre id="transformed-data" class="code-preview">
+// Aucune donnée transformée. Exécutez une requête d'abord.
+</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Exemple d'utilisation -->
+        <div class="usage-examples">
+            <h3>Comment utiliser les composants</h3>
+            <pre class="code-preview">
+<!-- Graphe de relation -->
+&lt;script src="https://d3js.org/d3.v7.min.js">&lt;/script>
+&lt;script type="module" src="components/VisGraph.js">&lt;/script>
+
+&lt;vis-graph width="800" height="600">&lt;/vis-graph>
+
+<!-- Tableau de données avec JSON -->
+&lt;script type="module" src="components/VisTable.js">&lt;/script>
+
+&lt;vis-table width="800" height="600" show-json="true">&lt;/vis-table>
+
+<!-- JavaScript: Définir des données personnalisées -->
+const data = [
+  { id: "Glucose", group: "metabolite", enzyme: "Hexokinase", value: 42 },
+  { id: "Pyruvate", group: "metabolite", enzyme: "Pyruvate Kinase", value: 35 }
+];
+document.querySelector('vis-table').setData(data);
+            </pre>
+        </div>
+    </div>
+
+    <footer>
+        <p>Visualisateur intégré pour le chatbot gen²kgbot</p>
+    </footer>
+    
+    <!-- Chargement des composants de visualisation -->
+    <script type="module" src="../components/VisGraph.js"></script>
+    <script type="module" src="../components/VisTable.js"></script>
+    <script src="../js/example-loader.js"></script>
+    <script type="module" src="../js/web-components.js"></script>
+</body>
+</html> 

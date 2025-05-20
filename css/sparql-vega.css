@@ -1,0 +1,100 @@
+.info-message {
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+    margin: 20px 0;
+    text-align: center;
+    border: 1px solid #dee2e6;
+}
+.info-message h3 {
+    margin-top: 0;
+    color: #495057;
+}
+.loading-indicator {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+    font-style: italic;
+}
+.error {
+    padding: 15px;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 5px;
+    color: #721c24;
+    margin: 20px 0;
+}
+.code-preview {
+    background-color: #272822;
+    color: #f8f8f2;
+    padding: 15px;
+    border-radius: 5px;
+    overflow: auto;
+    max-height: 500px;  /* Hauteur maximale avec barre de défilement */
+    font-family: monospace;
+    font-size: 13px;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+.data-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+.data-column h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+/* Styles spécifiques aux contrôles de visualisation */
+.vega-controls {
+    margin-bottom: 20px;
+}
+.control-group {
+    margin-bottom: 15px;
+}
+.control-group label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+.control-group input, 
+.control-group select, 
+.control-group textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 5px;
+}
+.control-group button {
+    padding: 8px 16px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+.control-group button:hover {
+    background-color: #45a049;
+}
+.data-transformation-preview {
+    margin-top: 30px;
+    border-top: 1px solid #ddd;
+    padding-top: 20px;
+}
+.data-comparison {
+    display: flex;
+    gap: 20px;
+}
+.transformation-explanation {
+    margin-top: 20px;
+}
+#vega-visualization {
+    margin-top: 20px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 10px;
+    min-height: 400px;
+} 
