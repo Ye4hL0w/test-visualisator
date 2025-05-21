@@ -198,4 +198,60 @@
     100% {
         box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
     }
+}
+
+/* Styles pour la documentation des composants */
+.component-docs {
+    margin: 2rem 0;
+    padding: 1.5rem;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.component-docs h2 {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    color: #333;
+}
+
+.doc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.doc-card {
+    background-color: white;
+    padding: 1.2rem;
+    border-radius: 6px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+
+.doc-card h3 {
+    margin-top: 0;
+    color: #2c5282;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 0.5rem;
+}
+
+.doc-card p {
+    margin-bottom: 0.8rem;
+}
+
+.doc-card ul {
+    padding-left: 1.2rem;
+}
+
+.doc-card li {
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
+}
+
+.doc-card code {
+    background-color: #f1f1f1;
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 0.9em;
 } 
