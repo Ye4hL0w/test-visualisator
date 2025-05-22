@@ -50,59 +50,6 @@ document.addEventListener('DOMContentLoaded', function() {
         table.setAttribute('show-json', this.checked);
     });
     
-    // Partager les mêmes données entre les composants
-    const sharedData = [
-        { id: "glucose", group: "1", pathway: "Glycolysis", correlates_with: "glutamine:0.7,pyruvate:0.8", value: 42 },
-        { id: "lactate", group: "1", pathway: "Fermentation", correlates_with: "pyruvate:0.5", value: 28 },
-        { id: "pyruvate", group: "1", pathway: "Glycolysis", correlates_with: "glucose:0.8,lactate:0.5", value: 35 },
-        { id: "glutamine", group: "1", pathway: "Glutaminolysis", correlates_with: "glucose:0.7,serine:-0.6,glutamate:0.7", value: 45 },
-        { id: "serine", group: "1", pathway: "One-carbon", correlates_with: "glutamine:-0.6,glycine:0.9", value: 22 },
-        { id: "glycine", group: "1", pathway: "One-carbon", correlates_with: "serine:0.9", value: 18 },
-        { id: "glutamate", group: "1", pathway: "Glutaminolysis", correlates_with: "glutamine:0.7,aspartate:0.4", value: 30 },
-        { id: "aspartate", group: "1", pathway: "TCA cycle", correlates_with: "glutamate:0.4", value: 25 }
-    ];
-    
-    // Adapter les données pour le graphe (nœuds et liens)
-    const nodes = sharedData.map(item => ({
-        id: item.id,
-        group: parseInt(item.group),
-        count: item.value / 10
-    }));
-    
-    const links = [];
-    
-    // Créer des liens avec corrélation positive/négative
-    sharedData.forEach(item => {
-        if (item.correlates_with) {
-            // Format: "metabolite:correlation,metabolite:correlation"
-            const correlations = item.correlates_with.split(',');
-            
-            correlations.forEach(correlation => {
-                const [target, value] = correlation.split(':');
-                const correlationValue = parseFloat(value);
-                
-                // Ne créer le lien qu'une seule fois (éviter les doublons)
-                const linkExists = links.some(link => 
-                    (link.source === item.id && link.target === target) || 
-                    (link.source === target && link.target === item.id)
-                );
-                
-                if (!linkExists) {
-                    links.push({
-                        source: item.id,
-                        target: target,
-                        value: Math.abs(correlationValue),
-                        sign: correlationValue >= 0 ? 1 : -1
-                    });
-                }
-            });
-        }
-    });
-    
-    // Définir les données pour les deux composants
-    graph.setData(nodes, links);
-    table.setData(sharedData);
-    
     // Gestion des exemples SPARQL
     const exampleLoader = new SparqlExampleLoader();
     const exampleSourceSelect = document.getElementById('example-source');
@@ -198,31 +145,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Mettre à jour les aperçus de données
                 updateDataPreviews(result.rawData, result.data);
                 
-                // Si nous avons des données, les passer au tableau également
-                if (result.data && result.data.nodes) {
-                    // Créer un format de données compatible avec le tableau
-                    const tableData = result.data.nodes.map(node => {
-                        // Trouver les liens associés à ce nœud
-                        const nodeLinks = result.data.links.filter(link => 
-                            link.source === node.id || link.target === node.id
-                        );
-                        
-                        // Créer une chaîne de corrélations pour ce nœud
-                        const correlationStr = nodeLinks.map(link => {
-                            const otherId = link.source === node.id ? link.target : link.source;
-                            return `${otherId}:${(link.value * link.sign).toFixed(2)}`;
-                        }).join(',');
-                        
-                        return {
-                            id: node.id,
-                            group: "1",
-                            pathway: "Métabolisme",
-                            correlates_with: correlationStr,
-                            value: node.count * 10
-                        };
+                // Transformer les données SPARQL pour le tableau
+                if (result.rawData && result.rawData.results && result.rawData.results.bindings) {
+                    const tableData = result.rawData.results.bindings.map(binding => {
+                        const row = {};
+                        Object.keys(binding).forEach(key => {
+                            row[key] = binding[key].value;
+                        });
+                        return row;
                     });
-                    
-                    // Mettre à jour le tableau
+                    // Mettre à jour le tableau avec les données transformées
                     table.setData(tableData);
                 }
             } else {
@@ -232,23 +164,22 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             queryStatus.textContent = `Erreur: ${error.message}`;
             queryStatus.className = 'status-message status-error';
-            console.error('Erreur lors de l\'exécution de la requête:', error);
         }
     });
     
     // Effacer les résultats
     clearButton.addEventListener('click', function() {
-        // Réinitialiser le graphe avec les données d'exemple
-        graph.setData(nodes, links);
-        table.setData(sharedData);
+        // Réinitialiser les composants
+        graph.setData([], []);
+        table.setData([]);
         
-        // Effacer le statut
-        queryStatus.textContent = '';
-        queryStatus.className = 'status-message';
-        
-        // Réinitialiser les aperçus de données
+        // Réinitialiser les aperçus
         rawDataPreview.textContent = '// Aucune donnée SPARQL. Exécutez une requête pour voir les résultats.';
         transformedDataPreview.textContent = '// Aucune donnée transformée. Exécutez une requête d\'abord.';
+        
+        // Réinitialiser le statut
+        queryStatus.textContent = '';
+        queryStatus.className = 'status-message';
     });
     
     // Fonction pour mettre à jour les aperçus de données

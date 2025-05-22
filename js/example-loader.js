@@ -20,7 +20,7 @@ class SparqlExampleLoader {
             'SwissLipids', 
         ];
         
-        // Sources connues pour avoir des fichiers avec le suffixe "-biosodafrontend"
+        // pour avoir des fichiers avec le suffixe "-biosodafrontend"
         this.sourcesWithBiosodaFrontend = ['Bgee'];
         
         // Garde la liste des fichiers scannés pour éviter les doublons
