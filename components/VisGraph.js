@@ -655,6 +655,20 @@ export class VisGraph extends HTMLElement {
     title.style.marginBottom = '15px';
     section.appendChild(title);
     
+    // Expliquer la différence avec les connexions du graphe
+    const explanation = document.createElement('div');
+    explanation.style.backgroundColor = '#fff3cd';
+    explanation.style.border = '1px solid #ffeaa7';
+    explanation.style.borderRadius = '4px';
+    explanation.style.padding = '8px';
+    explanation.style.marginBottom = '15px';
+    explanation.style.fontSize = '12px';
+    explanation.innerHTML = `
+      <strong>ℹ️ Note:</strong> These are <strong>semantic relationships</strong> from ontologies (what this term IS), 
+      different from the <strong>graph connections</strong> (which entities are associated with this term in your data).
+    `;
+    section.appendChild(explanation);
+    
     bindings.forEach((binding, index) => {
       const relationContainer = document.createElement('div');
       relationContainer.style.marginBottom = '15px';
@@ -663,7 +677,7 @@ export class VisGraph extends HTMLElement {
       relationContainer.style.borderRadius = '5px';
       relationContainer.style.backgroundColor = index % 2 === 0 ? '#fff8e1' : '#ffffff';
       
-      // Type de relation
+      // Type de relation avec explication
       const relationHeader = document.createElement('div');
       relationHeader.style.display = 'flex';
       relationHeader.style.justifyContent = 'space-between';
@@ -677,7 +691,7 @@ export class VisGraph extends HTMLElement {
       relationHeader.appendChild(relationType);
       
       const relationBadge = document.createElement('span');
-      relationBadge.textContent = '[RELATION]';
+      relationBadge.textContent = '[SEMANTIC]';
       relationBadge.style.fontSize = '10px';
       relationBadge.style.color = '#856404';
       relationBadge.style.backgroundColor = '#ffc107';
@@ -696,29 +710,41 @@ export class VisGraph extends HTMLElement {
       propUri.innerHTML = `Relation URI: <a href="${binding.property.value}" target="_blank" style="color: #007cba;">${binding.property.value}</a>`;
       relationContainer.appendChild(propUri);
       
-      // Entité liée avec son label ET son URI
+      // Entité liée
       const targetContainer = document.createElement('div');
-      targetContainer.style.padding = '8px';
+      targetContainer.style.padding = '10px';
       targetContainer.style.backgroundColor = 'rgba(255, 193, 7, 0.1)';
-      targetContainer.style.borderRadius = '3px';
+      targetContainer.style.borderRadius = '4px';
+      targetContainer.style.border = '1px solid rgba(255, 193, 7, 0.3)';
       
       // Label de l'entité liée (si disponible)
       if (binding.valueLabel && binding.valueLabel.value) {
         const targetLabel = document.createElement('div');
         targetLabel.style.fontWeight = 'bold';
         targetLabel.style.color = '#212529';
-        targetLabel.style.fontSize = '13px';
-        targetLabel.style.marginBottom = '4px';
+        targetLabel.style.fontSize = '14px';
+        targetLabel.style.marginBottom = '6px';
         targetLabel.textContent = `➤ ${binding.valueLabel.value}`;
         targetContainer.appendChild(targetLabel);
+        
+        // Source ontologique extraite de l'URI
+        const ontologySource = this.extractOntologySource(binding.value.value);
+        if (ontologySource) {
+          const sourceDiv = document.createElement('div');
+          sourceDiv.style.fontSize = '11px';
+          sourceDiv.style.color = '#6c757d';
+          sourceDiv.style.marginBottom = '6px';
+          sourceDiv.innerHTML = `📚 <strong>Ontology:</strong> ${ontologySource}`;
+          targetContainer.appendChild(sourceDiv);
+        }
       }
       
       // URI de l'entité liée
       const targetUri = document.createElement('div');
-      targetUri.style.fontSize = '12px';
+      targetUri.style.fontSize = '11px';
       targetUri.style.color = '#495057';
       targetUri.style.wordBreak = 'break-all';
-      targetUri.innerHTML = `Target URI: <a href="${binding.value.value}" target="_blank" style="color: #007cba;">${binding.value.value}</a>`;
+      targetUri.innerHTML = `🔗 Target URI: <a href="${binding.value.value}" target="_blank" style="color: #007cba;">${binding.value.value}</a>`;
       targetContainer.appendChild(targetUri);
       
       relationContainer.appendChild(targetContainer);
@@ -726,6 +752,137 @@ export class VisGraph extends HTMLElement {
     });
     
     container.appendChild(section);
+  }
+  
+  /**
+   * Extrait dynamiquement la source d'ontologie depuis une URI
+   */
+  extractOntologySource(uri) {
+    if (!uri || typeof uri !== 'string') return null;
+    
+    try {
+      const url = new URL(uri);
+      const domain = url.hostname;
+      const path = url.pathname;
+      
+      // Analyser le domaine
+      let sourceInfo = this.getDomainInfo(domain);
+      
+      // Analyser le chemin pour des indices supplémentaires
+      const pathInfo = this.getPathInfo(path);
+      if (pathInfo) {
+        sourceInfo = sourceInfo ? `${sourceInfo} - ${pathInfo}` : pathInfo;
+      }
+      
+      // Si on n'a pas trouvé d'info spécifique, extraire de manière générique
+      if (!sourceInfo) {
+        sourceInfo = this.extractGenericOntologyInfo(uri);
+      }
+      
+      return sourceInfo;
+    } catch (error) {
+      // Si l'URI n'est pas valide, essayer d'extraire des informations basiques
+      return this.extractGenericOntologyInfo(uri);
+    }
+  }
+  
+  /**
+   * Obtient les informations basées sur le domaine
+   */
+  getDomainInfo(domain) {
+    // Analyser les domaines connus
+    if (domain.includes('purl.obolibrary.org')) {
+      return 'OBO Library (Open Biological and Biomedical Ontologies)';
+    }
+    if (domain.includes('ebi.ac.uk')) {
+      return 'EBI (European Bioinformatics Institute)';
+    }
+    if (domain.includes('w3.org')) {
+      return 'W3C (World Wide Web Consortium)';
+    }
+    if (domain.includes('ifomis.org')) {
+      return 'IFOMIS (Institute for Formal Ontology and Medical Information Science)';
+    }
+    if (domain.includes('purl.org')) {
+      return 'PURL (Persistent URL)';
+    }
+    if (domain.includes('bio2rdf.org')) {
+      return 'Bio2RDF (Linked Data for Life Sciences)';
+    }
+    if (domain.includes('ncbi.nlm.nih.gov')) {
+      return 'NCBI (National Center for Biotechnology Information)';
+    }
+    if (domain.includes('uniprot.org')) {
+      return 'UniProt (Universal Protein Resource)';
+    }
+    
+    return null;
+  }
+  
+  /**
+   * Analyse le chemin pour extraire des informations sur l'ontologie
+   */
+  getPathInfo(path) {
+    // Extraire les codes d'ontologie du chemin
+    const ontologyPatterns = [
+      { pattern: /\/obo\/([A-Z]+)_/, name: 'code' },
+      { pattern: /\/([A-Z]{2,10})\//, name: 'acronym' },
+      { pattern: /\/(go|GO)\//, name: 'Gene Ontology' },
+      { pattern: /\/(efo|EFO)\//, name: 'Experimental Factor Ontology' },
+      { pattern: /\/(uberon|UBERON)\//, name: 'Uber Anatomy Ontology' },
+      { pattern: /\/(caro|CARO)\//, name: 'Common Anatomy Reference Ontology' },
+      { pattern: /\/(bfo|BFO)\//, name: 'Basic Formal Ontology' },
+      { pattern: /\/(cl|CL)\//, name: 'Cell Ontology' },
+      { pattern: /\/(pato|PATO)\//, name: 'Phenotype and Trait Ontology' },
+      { pattern: /\/rdf-syntax-ns/, name: 'RDF Syntax' },
+      { pattern: /\/rdf-schema/, name: 'RDF Schema' }
+    ];
+    
+    for (const { pattern, name } of ontologyPatterns) {
+      const match = path.match(pattern);
+      if (match) {
+        if (name === 'code' && match[1]) {
+          return `${match[1]} Ontology`;
+        } else if (name === 'acronym' && match[1]) {
+          return `${match[1]} Ontology`;
+        } else if (name !== 'code' && name !== 'acronym') {
+          return name;
+        }
+      }
+    }
+    
+    return null;
+  }
+  
+  /**
+   * Extraction générique d'informations d'ontologie
+   */
+  extractGenericOntologyInfo(uri) {
+    // Dernière tentative : analyser l'URI complète pour des motifs
+    const patterns = [
+      { regex: /([A-Z]{2,6})_\d+/, label: 'ontology' },
+      { regex: /\/([a-zA-Z]+)#/, label: 'namespace' },
+      { regex: /\/([a-zA-Z]+)\//g, label: 'segment' }
+    ];
+    
+    for (const { regex, label } of patterns) {
+      const matches = uri.match(regex);
+      if (matches) {
+        if (label === 'ontology') {
+          return `${matches[1]} (Ontology)`;
+        } else if (label === 'namespace') {
+          return `${matches[1]} (Namespace)`;
+        }
+      }
+    }
+    
+    // Extraire le domaine de base comme dernier recours
+    try {
+      const domain = new URL(uri).hostname;
+      return `${domain} (External Resource)`;
+    } catch {
+      return 'Unknown Source';
+    }
   }
   
   /**
