@@ -78,6 +78,7 @@ export class VisGraph extends HTMLElement {
       }
       
       const rawData = await response.json();
+      this.lastSparqlData = rawData; // Stocker les données brutes pour référence future
       const transformedData = this.transformSparqlResults(rawData);
       
       this.nodes = transformedData.nodes;
@@ -102,6 +103,88 @@ export class VisGraph extends HTMLElement {
   }
   
   /**
+   * Essaie de déterminer le label le plus pertinent pour un nœud à partir d'un binding SPARQL.
+   * @param {object} entityBindingValue - L'objet binding pour l'entité (ex: binding[sourceVar]).
+   * @param {string} entityVarName - Le nom de la variable SPARQL pour l'entité (ex: "gene", "proteinOrtholog").
+   * @param {object} currentBinding - L'ensemble du binding (la ligne de résultat SPARQL).
+   * @param {string[]} allVars - Toutes les variables de la requête SPARQL.
+   */
+  _determineNodeLabelFromBinding(entityBindingValue, entityVarName, currentBinding, allVars) {
+    const defaultId = this.extractIdFromBinding(entityBindingValue);
+
+    if (!entityBindingValue) return defaultId;
+
+    // Priorité 1: Valeur littérale de l'entité elle-même.
+    if (entityBindingValue.type === 'literal') {
+      return entityBindingValue.value;
+    }
+
+    // Si c'est une URI, chercher des labels associés.
+    if (entityBindingValue.type === 'uri') {
+      // Priorité 2: Labels conventionnels directs (ex: geneLabel pour gene).
+      const directLabelSuffixes = ['Label', 'Name', 'Title', 'Term', 'Identifier', 'Id', 'Description'];
+      for (const suffix of directLabelSuffixes) {
+        const directLabelKey = entityVarName + suffix;
+        if (currentBinding[directLabelKey] && currentBinding[directLabelKey].type === 'literal') {
+          return currentBinding[directLabelKey].value;
+        }
+        // Essayer aussi avec la première lettre en minuscule pour le suffixe (ex: entityVarName + 'label')
+        const directLabelKeyLowerSuffix = entityVarName + suffix.charAt(0).toLowerCase() + suffix.slice(1);
+        if (currentBinding[directLabelKeyLowerSuffix] && currentBinding[directLabelKeyLowerSuffix].type === 'literal') {
+          return currentBinding[directLabelKeyLowerSuffix].value;
+        }
+      }
+      
+      // Priorité 3: Labels descriptifs d'autres colonnes.
+      let bestOtherLabel = null;
+      let bestOtherLabelScore = -1;
+
+      const descriptiveKeywords = {
+        label: 5, name: 5, title: 5, term: 4, // Forte pertinence
+        description: 3, summary: 3, comment: 3, text: 2, // Pertinence moyenne
+        taxon: 2, species: 2, organism: 2, // Contexte taxonomique
+        disease: 2, condition: 2, syndrome: 2, // Contexte maladie
+        gene: 1, protein: 1, ensembl: 1, uniprot: 1, // Identifiants/types communs
+        annotation: 1
+      };
+
+      for (const otherVar of allVars) {
+        if (otherVar === entityVarName) continue; // Ne pas se considérer soi-même
+
+        const otherVarBinding = currentBinding[otherVar];
+        if (otherVarBinding && otherVarBinding.type === 'literal' && otherVarBinding.value) {
+          const otherVarLower = otherVar.toLowerCase();
+          let currentScore = 0;
+
+          for (const keyword in descriptiveKeywords) {
+            if (otherVarLower.includes(keyword)) {
+              currentScore = Math.max(currentScore, descriptiveKeywords[keyword]);
+            }
+          }
+          
+          // Bonus si la variable est simplement "label", "name", "title"
+          if (['label', 'name', 'title'].includes(otherVarLower)) currentScore += 2;
+
+          if (currentScore > bestOtherLabelScore) {
+            bestOtherLabelScore = currentScore;
+            bestOtherLabel = otherVarBinding.value;
+          } else if (currentScore === bestOtherLabelScore && bestOtherLabel && otherVarBinding.value.length < bestOtherLabel.length) {
+            // En cas d'égalité de score, préférer le label le plus court (moins verbeux)
+            bestOtherLabel = otherVarBinding.value;
+          }
+        }
+      }
+
+      if (bestOtherLabel) {
+        return bestOtherLabel;
+      }
+    }
+
+    // Priorité 4: Identifiant extrait.
+    return defaultId;
+  }
+
+  /**
    * Transforme les résultats SPARQL en format compatible avec le graphe
    */
   transformSparqlResults(results) {
@@ -118,12 +201,11 @@ export class VisGraph extends HTMLElement {
     
     const sourceVar = vars[0];
     const targetVar = vars.length > 1 ? vars[1] : null;
-    const labelVar = vars.find(v => v.includes('name') || v.includes('label') || v.includes('title'));
     
     results.results.bindings.forEach(binding => {
       if (binding[sourceVar]) {
         const sourceId = this.extractIdFromBinding(binding[sourceVar]);
-        const sourceLabel = labelVar && binding[labelVar] ? binding[labelVar].value : sourceId;
+        const sourceLabel = this._determineNodeLabelFromBinding(binding[sourceVar], sourceVar, binding, vars);
         const sourceUri = binding[sourceVar].type === 'uri' ? binding[sourceVar].value : null;
         
         if (!nodesMap.has(sourceId)) {
@@ -137,12 +219,13 @@ export class VisGraph extends HTMLElement {
         
         if (targetVar && binding[targetVar]) {
           const targetId = this.extractIdFromBinding(binding[targetVar]);
+          const targetLabel = this._determineNodeLabelFromBinding(binding[targetVar], targetVar, binding, vars);
           const targetUri = binding[targetVar].type === 'uri' ? binding[targetVar].value : null;
           
           if (!nodesMap.has(targetId)) {
             nodesMap.set(targetId, {
               id: targetId,
-              label: targetId,
+              label: targetLabel,
               uri: targetUri,
               originalData: { ...binding }
             });
@@ -170,13 +253,45 @@ export class VisGraph extends HTMLElement {
    */
   extractIdFromBinding(binding) {
     if (!binding) return "unknown";
-    
-    if (binding.type === 'uri') {
-      const parts = binding.value.split(/[/#]/);
-      return parts[parts.length - 1];
-    } else {
-      return binding.value;
+    // Si la valeur liée est un littéral, sa "valeur" est son identifiant pour l'affichage si aucun autre label n'est trouvé.
+    if (binding.type === 'literal') return binding.value;
+
+    const value = binding.value;
+    if (!value) return "unknown";
+
+    // Gestion spécifique pour les liens OMA gateway.pl
+    if (value.includes('gateway.pl') && value.includes('p1=')) {
+      try {
+        // Essayer d'extraire p1 proprement avec URLSearchParams
+        // Il faut une base si l'URL est relative, mais ici on attend des URI complètes.
+        const urlObj = new URL(value);
+        const params = new URLSearchParams(urlObj.search);
+        if (params.has('p1')) {
+          return params.get('p1');
+        }
+      } catch (e) {
+        // En cas d'échec du parsing d'URL (ex: URI malformée), tenter une extraction par regex
+        const regexMatch = value.match(/p1=([^&]+)/);
+        if (regexMatch && regexMatch[1]) {
+          return regexMatch[1];
+        }
+      }
     }
+
+    // Extraction générique par split sur / et #
+    const parts = value.split(/[/#]/);
+    let lastPart = parts.pop(); 
+
+    // Si la dernière partie contient encore des paramètres query (ex: ?foo=bar), les enlever.
+    if (lastPart && lastPart.includes('?')) {
+        lastPart = lastPart.split('?')[0];
+    }
+    // Si lastPart est vide (ex: URI se terminant par /), essayer de prendre l'avant-dernière partie si elle existe.
+    if (!lastPart && parts.length > 0) {
+        lastPart = parts.pop();
+    }
+
+    return lastPart || value; // Retourner la dernière partie, ou la valeur originale en dernier recours.
   }
 
   /**
@@ -192,10 +307,7 @@ export class VisGraph extends HTMLElement {
     try {
       this.showNotification(`Récupération des détails pour ${node.label}...`);
       
-      // Utiliser l'endpoint actif si disponible, sinon DBpedia par défaut
       const endpoint = this.currentEndpoint || this.getAttribute('endpoint') || 'https://dbpedia.org/sparql';
-      
-      // Faire plusieurs requêtes pour obtenir des informations riches
       const queries = this.buildInformativeQueries(node.uri);
       
       let allData = {
@@ -204,27 +316,26 @@ export class VisGraph extends HTMLElement {
         relationships: null
       };
       
-      // Exécuter les requêtes une par une
-      for (const [queryType, query] of Object.entries(queries)) {
+      console.log(`[VisGraph] Requêtes pour les détails du nœud ${node.label} (URI: ${node.uri}) sur l'endpoint: ${endpoint}`);
+
+      for (const [queryType, queryContent] of Object.entries(queries)) {
+        console.log(`[VisGraph] Exécution de la requête de type "${queryType}":\n${queryContent}`);
         try {
-          console.log(`Exécution de la requête ${queryType}...`);
-          const data = await this.executeSparqlQuery(endpoint, query);
+          const data = await this.executeSparqlQuery(endpoint, queryContent);
           allData[queryType] = data;
         } catch (error) {
-          console.warn(`Erreur pour la requête ${queryType}:`, error);
+          console.warn(`[VisGraph] Erreur pour la requête ${queryType}:`, error);
+          this.showNotification(`Erreur lors de la récupération des données de type ${queryType}.`, 'error');
         }
       }
       
       this.displayRichNodeDetails(node, allData);
-      
       return { status: 'success', data: allData };
+
     } catch (error) {
-      console.error('Erreur lors de la récupération des détails:', error);
+      console.error('[VisGraph] Erreur majeure lors de la récupération des détails du nœud:', error);
       this.showNotification(`Erreur: ${error.message}`, 'error');
-      
-      // Fallback : afficher les données disponibles du nœud
-      this.displayBasicNodeDetails(node);
-      
+      this.displayBasicNodeDetails(node); // Fallback
       return { status: 'error', message: error.message };
     }
   }
@@ -235,39 +346,32 @@ export class VisGraph extends HTMLElement {
   buildInformativeQueries(uri) {
     const queries = {};
     
-    // Requête pour informations descriptives (labels, définitions, commentaires, synonymes)
+    // Requête pour informations descriptives (labels, définitions, commentaires)
     queries.descriptive = `
       PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
       PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
       PREFIX dc: <http://purl.org/dc/elements/1.1/>
       PREFIX dcterms: <http://purl.org/dc/terms/>
-      PREFIX oboInOwl: <http://www.geneontology.org/formats/oboInOwl#>
-      PREFIX obo: <http://purl.obolibrary.org/obo/>
+      PREFIX foaf: <http://xmlns.com/foaf/0.1/>
       
       SELECT DISTINCT ?property ?value ?lang
       WHERE {
         <${uri}> ?property ?value .
         
-        # Filtrer pour les propriétés informatives
         FILTER (
           ?property = rdfs:label ||
           ?property = rdfs:comment ||
-          ?property = dc:description ||
-          ?property = dcterms:description ||
-          ?property = skos:definition ||
-          ?property = oboInOwl:hasDefinition ||
-          ?property = oboInOwl:hasExactSynonym ||
-          ?property = oboInOwl:hasRelatedSynonym ||
-          ?property = oboInOwl:hasBroadSynonym ||
-          ?property = oboInOwl:hasNarrowSynonym ||
           ?property = skos:prefLabel ||
           ?property = skos:altLabel ||
+          ?property = skos:definition ||
+          ?property = skos:note ||
           ?property = dc:title ||
           ?property = dcterms:title ||
-          ?property = oboInOwl:id
+          ?property = dc:description ||
+          ?property = dcterms:description ||
+          ?property = foaf:name
         )
         
-        # Capturer la langue si c'est un literal
         BIND(LANG(?value) as ?lang)
       }
       ORDER BY ?property
@@ -280,13 +384,11 @@ export class VisGraph extends HTMLElement {
       PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
       PREFIX owl: <http://www.w3.org/2002/07/owl#>
       PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-      PREFIX obo: <http://purl.obolibrary.org/obo/>
       
       SELECT DISTINCT ?property ?value ?valueLabel
       WHERE {
         <${uri}> ?property ?value .
         
-        # Filtrer pour les relations importantes
         FILTER (
           ?property = rdfs:subClassOf ||
           ?property = rdf:type ||
@@ -295,17 +397,21 @@ export class VisGraph extends HTMLElement {
           ?property = skos:related ||
           ?property = owl:sameAs ||
           ?property = owl:equivalentClass ||
-          ?property = obo:BFO_0000050 ||  # part_of
-          ?property = obo:RO_0002211 ||   # regulates
-          ?property = obo:RO_0002212 ||   # negatively_regulates
-          ?property = obo:RO_0002213      # positively_regulates
+          ?property = rdfs:seeAlso ||
+          ?property = dcterms:isPartOf ||
+          ?property = dcterms:hasPart
         )
         
-        # Essayer de récupérer le label de la valeur si c'est une URI
         OPTIONAL {
           ?value rdfs:label ?valueLabel .
           FILTER(LANG(?valueLabel) = "" || LANGMATCHES(LANG(?valueLabel), "en") || LANGMATCHES(LANG(?valueLabel), "fr"))
         }
+        OPTIONAL {
+            ?value skos:prefLabel ?prefLabel .
+            FILTER(LANG(?prefLabel) = "" || LANGMATCHES(LANG(?prefLabel), "en") || LANGMATCHES(LANG(?prefLabel), "fr"))
+        }
+        BIND(COALESCE(?valueLabel, ?prefLabel, "") AS ?valueLabel)
+
       }
       ORDER BY ?property
       LIMIT 50
@@ -318,19 +424,34 @@ export class VisGraph extends HTMLElement {
       PREFIX owl: <http://www.w3.org/2002/07/owl#>
       PREFIX dc: <http://purl.org/dc/elements/1.1/>
       PREFIX dcterms: <http://purl.org/dc/terms/>
+      PREFIX foaf: <http://xmlns.com/foaf/0.1/>
       
       SELECT DISTINCT ?property ?value ?valueType
       WHERE {
         <${uri}> ?property ?value .
         
-        # Exclure les propriétés déjà couvertes dans les autres requêtes
         FILTER (
           ?property != rdfs:label &&
           ?property != rdfs:comment &&
+          ?property != skos:prefLabel &&
+          ?property != skos:altLabel &&
+          ?property != skos:definition &&
+          ?property != skos:note &&
+          ?property != dc:title &&
+          ?property != dcterms:title &&
           ?property != dc:description &&
           ?property != dcterms:description &&
+          ?property != foaf:name &&
           ?property != rdfs:subClassOf &&
-          ?property != rdf:type
+          ?property != rdf:type &&
+          ?property != skos:broader &&
+          ?property != skos:narrower &&
+          ?property != skos:related &&
+          ?property != owl:sameAs &&
+          ?property != owl:equivalentClass &&
+          ?property != rdfs:seeAlso &&
+          ?property != dcterms:isPartOf &&
+          ?property != dcterms:hasPart
         )
         
         BIND(
@@ -408,8 +529,8 @@ export class VisGraph extends HTMLElement {
     // Section informations de base (toujours affichée)
     this.addBasicInfoSection(content, node);
     
-    // Section contexte biologique (à partir des données originales du graphe)
-    this.addBiologicalContextSection(content, node);
+    // Section contexte du graphe (à partir des données originales du graphe)
+    this.addGraphContextSection(content, node);
     
     // Section informations descriptives complètes
     if (allData.descriptive && allData.descriptive.results && allData.descriptive.results.bindings.length > 0) {
@@ -461,109 +582,75 @@ export class VisGraph extends HTMLElement {
   }
   
   /**
-   * Ajoute une section de contexte biologique basée sur les données originales
+   * Ajoute une section de contexte du graphe basée sur les données originales.
    */
-  addBiologicalContextSection(container, node) {
-    // Chercher dans les données originales du nœud s'il y a des informations contextuelles
-    if (!node.originalData && !this.lastSparqlData) return;
-    
+  addGraphContextSection(container, node) {
+    if (!node.originalData) return;
+
+    const graphContextInfo = this.extractGraphContext(node);
+    if (graphContextInfo.length === 0) return;
+
     const section = document.createElement('div');
     section.className = 'info-section';
     section.style.marginBottom = '20px';
     
     const title = document.createElement('h3');
-    title.textContent = 'Biological Context (from original data)';
+    title.textContent = 'Graph Context (from original data)';
     title.style.borderBottom = '2px solid #17a2b8';
     title.style.paddingBottom = '5px';
     title.style.marginBottom = '15px';
     section.appendChild(title);
     
-    // Analyser les données pour trouver des associations biologiques
-    const biologicalInfo = this.extractBiologicalContext(node);
-    
-    if (biologicalInfo.length > 0) {
-      biologicalInfo.forEach(info => {
-        this.addDetailedInfoRow(section, info.type, info.value);
-      });
-    } else {
-      const noInfo = document.createElement('div');
-      noInfo.style.fontStyle = 'italic';
-      noInfo.style.color = '#6c757d';
-      noInfo.style.fontSize = '12px';
-      noInfo.textContent = 'No specific biological context found in graph data';
-      section.appendChild(noInfo);
-    }
+    graphContextInfo.forEach(info => {
+      this.addDetailedInfoRow(section, info.type, info.value, info.isUri);
+    });
     
     container.appendChild(section);
   }
   
   /**
-   * Extrait le contexte biologique d'un nœud
+   * Extrait le contexte du graphe d'un nœud à partir de ses données originales.
    */
-  extractBiologicalContext(node) {
+  extractGraphContext(node) {
     const context = [];
-    
-    // Si on a des données originales dans le nœud
-    if (node.originalData) {
-      for (const [key, value] of Object.entries(node.originalData)) {
-        if (key.includes('anatomical') || key.includes('Anatomical')) {
-          context.push({
-            type: 'Associated Anatomical Entity',
-            value: value.value || value
-          });
-        }
-        if (key.includes('goLabel') || key.includes('GoLabel')) {
-          context.push({
-            type: 'GO Function Description',
-            value: value.value || value
-          });
-        }
-        if (key.includes('tissue') || key.includes('cell') || key.includes('organ')) {
-          context.push({
-            type: 'Biological Structure',
-            value: value.value || value
-          });
-        }
-      }
+    if (!node.originalData || !this.lastSparqlData || !this.lastSparqlData.head || !this.lastSparqlData.head.vars) {
+      return context;
     }
-    
-    // Analyser les connexions dans le graphe pour le contexte
-    const connectedNodes = this.getConnectedNodes(node);
-    if (connectedNodes.length > 0) {
-      const nodeNames = connectedNodes.map(n => n.label || n.id).join(', ');
-      context.push({
-        type: 'Connected Nodes in Graph',
-        value: `Related to: ${nodeNames}`
-      });
-    }
-    
-    // Extraire des informations depuis l'URI
-    if (node.uri && node.uri.includes('GO_')) {
-      const goId = node.uri.match(/GO_(\d+)/);
-      if (goId) {
+
+    const mainSparqlVars = this.lastSparqlData.head.vars;
+    const sourceVar = mainSparqlVars[0];
+    const targetVar = mainSparqlVars.length > 1 ? mainSparqlVars[1] : null;
+
+    // Identifier les variables qui pourraient être des labels déjà utilisés pour le nœud principal
+    // (pour éviter de les répéter dans le contexte)
+    const potentialLabelVars = mainSparqlVars.filter(v => 
+        v.toLowerCase().includes('label') || 
+        v.toLowerCase().includes('name') || 
+        v.toLowerCase().includes('title')
+    );
+
+    for (const [key, valueObj] of Object.entries(node.originalData)) {
+      // Exclure les variables principales (source, target) et les variables de label probables
+      // ainsi que les "meta-variables" comme type et lang qui sont attachées aux valeurs elles-mêmes.
+      if (key !== sourceVar && 
+          key !== targetVar && 
+          !potentialLabelVars.includes(key) &&
+          key !== 'type' && key !== 'lang' && // Clés ajoutées par SPARQL JSON pour le type/lang de la valeur
+          valueObj && typeof valueObj.value !== 'undefined') { 
+        
         context.push({
-          type: 'Gene Ontology ID',
-          value: `GO:${goId[1]} (Gene Ontology term)`
+          type: this.getReadablePropertyName(key), 
+          value: valueObj.value,
+          isUri: valueObj.type === 'uri'
         });
       }
     }
     
+    // Ne pas ajouter les "Connected Nodes in Graph" ici, car cela peut être redondant
+    // avec les informations de base et le graphe lui-même.
+    // Si on veut les remettre, il faudrait une logique plus fine.
+    
     return context;
-  }
-  
-  /**
-   * Obtient les nœuds connectés à un nœud donné
-   */
-  getConnectedNodes(node) {
-    const connected = [];
-    this.links.forEach(link => {
-      if (link.source.id === node.id && !connected.find(n => n.id === link.target.id)) {
-        connected.push(link.target);
-      } else if (link.target.id === node.id && !connected.find(n => n.id === link.source.id)) {
-        connected.push(link.source);
-      }
-    });
-    return connected.slice(0, 5); // Limiter à 5 pour ne pas surcharger
   }
   
   /**
@@ -727,14 +814,13 @@ export class VisGraph extends HTMLElement {
         targetLabel.textContent = `➤ ${binding.valueLabel.value}`;
         targetContainer.appendChild(targetLabel);
         
-        // Source ontologique extraite de l'URI
-        const ontologySource = this.extractOntologySource(binding.value.value);
-        if (ontologySource) {
+        const ontologySourceText = this.getSimpleOntologySource(binding.value.value);
+        if (ontologySourceText) {
           const sourceDiv = document.createElement('div');
           sourceDiv.style.fontSize = '11px';
           sourceDiv.style.color = '#6c757d';
           sourceDiv.style.marginBottom = '6px';
-          sourceDiv.innerHTML = `📚 <strong>Ontology:</strong> ${ontologySource}`;
+          sourceDiv.innerHTML = `📚 <strong>Source:</strong> ${ontologySourceText}`;
           targetContainer.appendChild(sourceDiv);
         }
       }
@@ -755,136 +841,72 @@ export class VisGraph extends HTMLElement {
   }
   
   /**
-   * Extrait dynamiquement la source d'ontologie depuis une URI
+   * Extrait une information de source simplifiée depuis une URI (domaine ou préfixe connu).
    */
-  extractOntologySource(uri) {
-    if (!uri || typeof uri !== 'string') return null;
-    
+  getSimpleOntologySource(uri) {
+    if (!uri || typeof uri !== 'string') return 'Unknown Source';
+
+    // Priorité aux préfixes bien connus pour les ontologies courantes
+    const knownPrefixes = {
+      'http://www.w3.org/1999/02/22-rdf-syntax-ns#': 'RDF',
+      'http://www.w3.org/2000/01/rdf-schema#': 'RDFS',
+      'http://www.w3.org/2002/07/owl#': 'OWL',
+      'http://www.w3.org/2004/02/skos/core#': 'SKOS',
+      'http://purl.org/dc/elements/1.1/': 'DC',
+      'http://purl.org/dc/terms/': 'DCTERMS',
+      'http://xmlns.com/foaf/0.1/': 'FOAF',
+      'http://purl.obolibrary.org/obo/GO_': 'GO (OBO)',       // Gene Ontology
+      'http://purl.obolibrary.org/obo/DOID_': 'DOID (OBO)',   // Human Disease Ontology
+      'http://purl.obolibrary.org/obo/CHEBI_': 'ChEBI (OBO)', // Chemical Entities of Biological Interest
+      'http://purl.obolibrary.org/obo/CL_': 'CL (OBO)',       // Cell Ontology
+      'http://purl.obolibrary.org/obo/PR_': 'PRO (OBO)',      // Protein Ontology
+      'http://purl.obolibrary.org/obo/UBERON_': 'Uberon (OBO)', // Uber-anatomy ontology
+      'http://purl.obolibrary.org/obo/SO_': 'SO (OBO)',       // Sequence Ontology
+      'http://purl.obolibrary.org/obo/NCBITaxon_': 'NCBI Taxonomy (OBO)',
+      'http://purl.obolibrary.org/obo/RO_': 'RO (OBO)', // Relations Ontology
+      'http://purl.obolibrary.org/obo/BFO_': 'BFO (OBO)', // Basic Formal Ontology
+      'http://purl.uniprot.org/core/': 'UniProt Core',
+      'http://rdf.ebi.ac.uk/terms/ensembl/' : 'Ensembl (EBI)',
+      'http://www.ebi.ac.uk/ols/ontologies/': 'OLS (EBI)'
+    };
+
+    for (const prefix in knownPrefixes) {
+      if (uri.startsWith(prefix)) {
+        return knownPrefixes[prefix];
+      }
+    }
+
+    // Si aucun préfixe connu, essayer d'extraire le nom de domaine
     try {
       const url = new URL(uri);
-      const domain = url.hostname;
-      const path = url.pathname;
-      
-      // Analyser le domaine
-      let sourceInfo = this.getDomainInfo(domain);
-      
-      // Analyser le chemin pour des indices supplémentaires
-      const pathInfo = this.getPathInfo(path);
-      if (pathInfo) {
-        sourceInfo = sourceInfo ? `${sourceInfo} - ${pathInfo}` : pathInfo;
+      // Cas spécifique pour purl.obolibrary.org si non capturé par préfixe direct
+      if (url.hostname === 'purl.obolibrary.org' && url.pathname.startsWith('/obo/')) {
+        const pathParts = url.pathname.split('/');
+        if (pathParts.length > 2 && pathParts[1] === 'obo') {
+            const oboTermPart = pathParts[2];
+            const oboNamespace = oboTermPart.split('_')[0];
+            if (oboNamespace) return `${oboNamespace.toUpperCase()} (OBO Library)`;
+        }
+        return 'OBO Library';
       }
-      
-      // Si on n'a pas trouvé d'info spécifique, extraire de manière générique
-      if (!sourceInfo) {
-        sourceInfo = this.extractGenericOntologyInfo(uri);
-      }
-      
-      return sourceInfo;
+      return url.hostname; // Retourne le nom de domaine comme source générique
     } catch (error) {
-      // Si l'URI n'est pas valide, essayer d'extraire des informations basiques
-      return this.extractGenericOntologyInfo(uri);
-    }
-  }
-  
-  /**
-   * Obtient les informations basées sur le domaine
-   */
-  getDomainInfo(domain) {
-    // Analyser les domaines connus
-    if (domain.includes('purl.obolibrary.org')) {
-      return 'OBO Library (Open Biological and Biomedical Ontologies)';
-    }
-    if (domain.includes('ebi.ac.uk')) {
-      return 'EBI (European Bioinformatics Institute)';
-    }
-    if (domain.includes('w3.org')) {
-      return 'W3C (World Wide Web Consortium)';
-    }
-    if (domain.includes('ifomis.org')) {
-      return 'IFOMIS (Institute for Formal Ontology and Medical Information Science)';
-    }
-    if (domain.includes('purl.org')) {
-      return 'PURL (Persistent URL)';
-    }
-    if (domain.includes('bio2rdf.org')) {
-      return 'Bio2RDF (Linked Data for Life Sciences)';
-    }
-    if (domain.includes('ncbi.nlm.nih.gov')) {
-      return 'NCBI (National Center for Biotechnology Information)';
-    }
-    if (domain.includes('uniprot.org')) {
-      return 'UniProt (Universal Protein Resource)';
-    }
-    
-    return null;
-  }
-  
-  /**
-   * Analyse le chemin pour extraire des informations sur l'ontologie
-   */
-  getPathInfo(path) {
-    // Extraire les codes d'ontologie du chemin
-    const ontologyPatterns = [
-      { pattern: /\/obo\/([A-Z]+)_/, name: 'code' },
-      { pattern: /\/([A-Z]{2,10})\//, name: 'acronym' },
-      { pattern: /\/(go|GO)\//, name: 'Gene Ontology' },
-      { pattern: /\/(efo|EFO)\//, name: 'Experimental Factor Ontology' },
-      { pattern: /\/(uberon|UBERON)\//, name: 'Uber Anatomy Ontology' },
-      { pattern: /\/(caro|CARO)\//, name: 'Common Anatomy Reference Ontology' },
-      { pattern: /\/(bfo|BFO)\//, name: 'Basic Formal Ontology' },
-      { pattern: /\/(cl|CL)\//, name: 'Cell Ontology' },
-      { pattern: /\/(pato|PATO)\//, name: 'Phenotype and Trait Ontology' },
-      { pattern: /\/rdf-syntax-ns/, name: 'RDF Syntax' },
-      { pattern: /\/rdf-schema/, name: 'RDF Schema' }
-    ];
-    
-    for (const { pattern, name } of ontologyPatterns) {
-      const match = path.match(pattern);
-      if (match) {
-        if (name === 'code' && match[1]) {
-          return `${match[1]} Ontology`;
-        } else if (name === 'acronym' && match[1]) {
-          return `${match[1]} Ontology`;
-        } else if (name !== 'code' && name !== 'acronym') {
-          return name;
-        }
+      // En cas d'URI invalide ou relative (peu probable ici car on attend une URI de ?value)
+      // Tenter une extraction simple du "namespace" avant le # ou le dernier /
+      const hashIndex = uri.lastIndexOf('#');
+      if (hashIndex > 0) {
+        const potentialNs = uri.substring(0, hashIndex);
+        if (potentialNs.length > 5) return potentialNs; // Éviter les "http:"
       }
-    }
-    
-    return null;
-  }
-  
-  /**
-   * Extraction générique d'informations d'ontologie
-   */
-  extractGenericOntologyInfo(uri) {
-    // Dernière tentative : analyser l'URI complète pour des motifs
-    const patterns = [
-      { regex: /([A-Z]{2,6})_\d+/, label: 'ontology' },
-      { regex: /\/([a-zA-Z]+)#/, label: 'namespace' },
-      { regex: /\/([a-zA-Z]+)\//g, label: 'segment' }
-    ];
-    
-    for (const { regex, label } of patterns) {
-      const matches = uri.match(regex);
-      if (matches) {
-        if (label === 'ontology') {
-          return `${matches[1]} (Ontology)`;
-        } else if (label === 'namespace') {
-          return `${matches[1]} (Namespace)`;
-        }
+      const slashIndex = uri.lastIndexOf('/');
+      if (slashIndex > 0) {
+        const potentialNs = uri.substring(0, slashIndex);
+        if (potentialNs.length > 5 && potentialNs.includes(':/')) return potentialNs;
       }
-    }
-    
-    // Extraire le domaine de base comme dernier recours
-    try {
-      const domain = new URL(uri).hostname;
-      return `${domain} (External Resource)`;
-    } catch {
-      return 'Unknown Source';
+      return 'Unknown Source'; // Fallback final
     }
   }
-  
+
   /**
    * Ajoute la section propriétés techniques complètes
    */
