@@ -1065,12 +1065,6 @@ export class VisGraph extends HTMLElement {
   extractAccessionFromURI(uri) {
     if (!uri) return 'N/A';
     
-    // Pour Gene Ontology
-    const goMatch = uri.match(/GO_(\d+)/);
-    if (goMatch) {
-      return `GO:${goMatch[1]}`;
-    }
-    
     // Pour d'autres ontologies
     const oboMatch = uri.match(/([A-Z]+)_(\d+)/);
     if (oboMatch) {
