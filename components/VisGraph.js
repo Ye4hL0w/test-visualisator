@@ -44,41 +44,215 @@ export class VisGraph extends HTMLElement {
   }
 
   /**
-   * Définit manuellement les données
+   * Définit manuellement les données (priorité absolue)
    */
   setData(nodes, links) {
+    console.log('[VisGraph] 📋 Définition manuelle des données');
     this.nodes = nodes;
     this.links = links;
     this.render();
   }
 
   /**
-   * Charge les données depuis un endpoint SPARQL
+   * Charge des données JSON pré-formatées
    */
-  async loadFromSparqlEndpoint(endpoint, query) {
+  setJsonData(jsonData) {
+    console.log('[VisGraph] 📄 Chargement de données JSON pré-formatées');
+    return this.loadFromSparqlEndpoint(null, null, jsonData);
+  }
+
+  /**
+   * Vérifie si le proxy est disponible
+   */
+  async checkProxyAvailability() {
     try {
-      // Stocker l'endpoint pour les requêtes futures
-      this.currentEndpoint = endpoint;
+      const response = await fetch('/js/proxy.js');
+      if (response.ok) {
+        // Importer le module proxy
+        const proxyModule = await import('/js/proxy.js');
+        return proxyModule.default || proxyModule;
+      }
+      return null;
+    } catch (error) {
+      console.warn('[VisGraph] Proxy non disponible:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Affiche une erreur personnalisée avec redirection vers la documentation
+   */
+  showCustomProxyError() {
+    console.error('🚫 [VisGraph] Problème de CORS détecté');
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error('❌ Le composant ne peut pas accéder directement à l\'endpoint SPARQL');
+    console.error('🔧 SOLUTION: Créez le fichier js/proxy.js pour contourner CORS');
+    console.error('📖 Guide complet: https://github.com/your-repo/docs/proxy-setup.md');
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error('💡 Code à copier-coller dans js/proxy.js:');
+    console.error(`
+// Configuration du proxy SPARQL pour VisGraph
+const PROXY_CONFIG = {
+  corsAnywhereUrl: 'https://cors-anywhere.herokuapp.com/',
+  allOriginsUrl: 'https://api.allorigins.win/get?url=',
+  preferredMethod: 'allorigins',
+  timeout: 30000
+};
+
+export default {
+  async query(endpoint, sparqlQuery) {
+    // Méthode AllOrigins (recommandée)
+    const params = new URLSearchParams({ query: sparqlQuery, format: 'json' });
+    const targetUrl = \`\${endpoint}?\${params.toString()}\`;
+    const proxyUrl = PROXY_CONFIG.allOriginsUrl + encodeURIComponent(targetUrl);
+    
+    const response = await fetch(proxyUrl);
+    if (!response.ok) throw new Error(\`Proxy error: \${response.status}\`);
+    
+    const result = await response.json();
+    return JSON.parse(result.contents);
+  }
+};`);
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    const oldPanel = this.shadowRoot.querySelector('.node-details-panel');
+    if (oldPanel) {
+      oldPanel.remove();
+    }
+    
+    const errorPanel = document.createElement('div');
+    errorPanel.className = 'proxy-error-panel';
+    errorPanel.innerHTML = `
+      <div class="error-header">
+        <h2>🚫 Configuration CORS requise</h2>
+        <button class="close-btn">×</button>
+      </div>
+      <div class="error-content">
+        <div class="error-message">
+          <p><strong>Le composant ne peut pas accéder à l'endpoint SPARQL à cause des restrictions CORS.</strong></p>
+          <p>📋 Consultez la console pour voir le code complet à copier-coller.</p>
+        </div>
+        <div class="error-actions">
+          <button class="doc-button" onclick="window.open('https://github.com/your-repo/docs/proxy-setup.md', '_blank')">
+            📖 Guide complet
+          </button>
+          <button class="console-button" onclick="console.info('🔍 Consultez la console pour le code à copier-coller dans js/proxy.js')">
+            💻 Code dans la console
+          </button>
+        </div>
+        <div class="quick-solution">
+          <h4>Solution rapide :</h4>
+          <ol>
+            <li>Créez le fichier <code>js/proxy.js</code></li>
+            <li>Copiez le code depuis la console</li>
+            <li>Rechargez la page</li>
+          </ol>
+        </div>
+      </div>
+    `;
+    
+    // Gestionnaire de fermeture
+    errorPanel.querySelector('.close-btn').addEventListener('click', () => {
+      errorPanel.remove();
+    });
+    
+    this.shadowRoot.querySelector('.graph-container').appendChild(errorPanel);
+  }
+
+  /**
+   * Détecte si l'erreur est due à CORS
+   */
+  isCorsError(error) {
+    const corsIndicators = [
+      'Failed to fetch',
+      'NetworkError',
+      'CORS',
+      'Cross-Origin',
+      'blocked by CORS policy',
+      'Access-Control-Allow-Origin',
+      'TypeError: Failed to fetch'
+    ];
+    
+    return corsIndicators.some(indicator => 
+      error.message.includes(indicator) || error.toString().includes(indicator)
+    );
+  }
+
+  /**
+   * Exécute une requête SPARQL avec hiérarchie : endpoint direct puis proxy
+   */
+  async executeSparqlQueryWithFallback(endpoint, query) {
+    console.log('[VisGraph] Début de l\'exécution de la requête SPARQL');
+    console.log('[VisGraph] Endpoint cible:', endpoint);
+    
+    // Tentative 1: Endpoint direct
+    try {
+      console.log('[VisGraph] Tentative 1: Endpoint direct');
+      return await this.executeSparqlQuery(endpoint, query);
+    } catch (directError) {
+      console.warn('[VisGraph] Échec avec endpoint direct:', directError.message);
       
-      const params = new URLSearchParams();
-      params.append('query', query.trim());
-      params.append('format', 'json');
-      
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Accept': 'application/sparql-results+json'
-        },
-        body: params
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
+      // Vérifier si c'est bien une erreur CORS
+      if (this.isCorsError(directError)) {
+        console.log('[VisGraph] 🎯 Erreur CORS détectée - Tentative avec proxy...');
+        
+        // Tentative 2: Proxy
+        try {
+          console.log('[VisGraph] Tentative 2: Proxy');
+          const proxy = await this.checkProxyAvailability();
+          if (proxy && proxy.query) {
+            const result = await proxy.query(endpoint, query);
+            console.log('[VisGraph] ✅ Succès avec proxy');
+            return result;
+          } else {
+            throw new Error('Proxy non disponible - fichier js/proxy.js non trouvé ou mal configuré');
+          }
+        } catch (proxyError) {
+          console.error('[VisGraph] Échec avec proxy:', proxyError.message);
+          
+          // Afficher l'erreur personnalisée seulement si c'est bien CORS
+          this.showCustomProxyError();
+          
+          // Retourner une erreur structurée
+          throw new Error(`Problème CORS détecté. Veuillez configurer le fichier js/proxy.js (voir console pour le code)`);
+        }
+      } else {
+        // Si ce n'est pas CORS, re-lancer l'erreur originale
+        throw directError;
+      }
+    }
+  }
+
+  /**
+   * Charge les données avec hiérarchie : JSON direct > endpoint > proxy
+   */
+  async loadFromSparqlEndpoint(endpoint, query, jsonData = null) {
+    try {
+      // Priorité 1: Données JSON fournies directement
+      if (jsonData) {
+        console.log('[VisGraph] 🎯 Utilisation des données JSON fournies directement');
+        this.lastSparqlData = jsonData;
+        const transformedData = this.transformSparqlResults(jsonData);
+        
+        this.nodes = transformedData.nodes;
+        this.links = transformedData.links;
+        this.render();
+        
+        return {
+          status: 'success',
+          method: 'direct-json',
+          message: `Données chargées depuis JSON: ${this.nodes.length} nœuds, ${this.links.length} liens`,
+          data: transformedData,
+          rawData: jsonData
+        };
       }
       
-      const rawData = await response.json();
-      this.lastSparqlData = rawData; // Stocker les données brutes pour référence future
+      // Priorité 2 et 3: Endpoint puis proxy
+      console.log('[VisGraph] 🔍 Récupération des données depuis l\'endpoint...');
+      this.currentEndpoint = endpoint;
+      
+      const rawData = await this.executeSparqlQueryWithFallback(endpoint, query);
+      this.lastSparqlData = rawData;
       const transformedData = this.transformSparqlResults(rawData);
       
       this.nodes = transformedData.nodes;
@@ -87,12 +261,13 @@ export class VisGraph extends HTMLElement {
       
       return {
         status: 'success',
+        method: 'endpoint-or-proxy',
         message: `Données chargées: ${this.nodes.length} nœuds, ${this.links.length} liens`,
         data: transformedData,
         rawData: rawData
       };
     } catch (error) {
-      console.error('Erreur lors du chargement des données:', error);
+      console.error('[VisGraph] ❌ Erreur lors du chargement des données:', error.message);
       return {
         status: 'error',
         message: `Erreur: ${error.message}`,
@@ -101,7 +276,7 @@ export class VisGraph extends HTMLElement {
       };
     }
   }
-  
+
   /**
    * Essaie de déterminer le label le plus pertinent pour un nœud à partir d'un binding SPARQL.
    * @param {object} entityBindingValue - L'objet binding pour l'entité (ex: binding[sourceVar]).
@@ -295,16 +470,17 @@ export class VisGraph extends HTMLElement {
   }
 
   /**
-   * Exécute une requête SPARQL détaillée pour un nœud spécifique
+   * Exécute une requête SPARQL détaillée pour un nœud spécifique avec hiérarchie
    */
   async executeNodeQuery(node) {
     if (!node || !node.uri) {
-      console.error("Aucun URI disponible pour ce nœud");
+      console.error("[VisGraph] ❌ Aucun URI disponible pour ce nœud");
       this.showNotification("Ce nœud n'a pas d'URI associé", 'error');
       return;
     }
     
     try {
+      console.log(`[VisGraph] 🔍 Récupération des détails pour ${node.label}...`);
       this.showNotification(`Récupération des détails pour ${node.label}...`);
       
       const endpoint = this.currentEndpoint || this.getAttribute('endpoint') || 'https://dbpedia.org/sparql';
@@ -319,12 +495,14 @@ export class VisGraph extends HTMLElement {
       console.log(`[VisGraph] Requêtes pour les détails du nœud ${node.label} (URI: ${node.uri}) sur l'endpoint: ${endpoint}`);
 
       for (const [queryType, queryContent] of Object.entries(queries)) {
-        console.log(`[VisGraph] Exécution de la requête de type "${queryType}":\n${queryContent}`);
+        console.log(`[VisGraph] Exécution de la requête de type "${queryType}"`);
         try {
-          const data = await this.executeSparqlQuery(endpoint, queryContent);
+          // Utiliser la méthode avec hiérarchie endpoint > proxy
+          const data = await this.executeSparqlQueryWithFallback(endpoint, queryContent);
           allData[queryType] = data;
+          console.log(`[VisGraph] ✅ Succès pour la requête ${queryType}`);
         } catch (error) {
-          console.warn(`[VisGraph] Erreur pour la requête ${queryType}:`, error);
+          console.warn(`[VisGraph] ⚠️ Erreur pour la requête ${queryType}:`, error.message);
           this.showNotification(`Erreur lors de la récupération des données de type ${queryType}.`, 'error');
         }
       }
@@ -333,7 +511,7 @@ export class VisGraph extends HTMLElement {
       return { status: 'success', data: allData };
 
     } catch (error) {
-      console.error('[VisGraph] Erreur majeure lors de la récupération des détails du nœud:', error);
+      console.error('[VisGraph] ❌ Erreur majeure lors de la récupération des détails du nœud:', error.message);
       this.showNotification(`Erreur: ${error.message}`, 'error');
       this.displayBasicNodeDetails(node); // Fallback
       return { status: 'error', message: error.message };
@@ -1386,6 +1564,111 @@ export class VisGraph extends HTMLElement {
           display: flex;
           flex-direction: column;
         }
+        .proxy-error-panel {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          width: 380px;
+          max-height: calc(100% - 20px);
+          background: linear-gradient(135deg, #fff3cd 0%, #fef5e7 100%);
+          border: 2px solid #f0ad4e;
+          border-radius: 8px;
+          overflow: auto;
+          box-shadow: 0 4px 12px rgba(240, 173, 78, 0.3);
+          z-index: 15;
+          display: flex;
+          flex-direction: column;
+          animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        .error-header {
+          padding: 15px;
+          background: linear-gradient(135deg, #f0ad4e 0%, #ec971f 100%);
+          color: white;
+          border-radius: 6px 6px 0 0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .error-header h2 {
+          margin: 0;
+          font-size: 16px;
+          font-weight: bold;
+        }
+        .error-content {
+          padding: 20px;
+        }
+        .error-message {
+          margin-bottom: 20px;
+          color: #8a6d3b;
+          line-height: 1.5;
+        }
+        .error-message p {
+          margin: 10px 0;
+        }
+        .error-actions {
+          display: flex;
+          gap: 10px;
+          margin-bottom: 20px;
+          flex-wrap: wrap;
+        }
+        .doc-button, .console-button {
+          padding: 10px 15px;
+          border: none;
+          border-radius: 5px;
+          cursor: pointer;
+          font-weight: bold;
+          transition: all 0.3s ease;
+          flex: 1;
+          min-width: 120px;
+        }
+        .doc-button {
+          background: linear-gradient(135deg, #5bc0de 0%, #31b0d5 100%);
+          color: white;
+        }
+        .doc-button:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 8px rgba(91, 192, 222, 0.3);
+        }
+        .console-button {
+          background: linear-gradient(135deg, #5cb85c 0%, #449d44 100%);
+          color: white;
+        }
+        .console-button:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 8px rgba(92, 184, 92, 0.3);
+        }
+        .quick-solution {
+          background: rgba(23, 162, 184, 0.1);
+          border: 1px solid rgba(23, 162, 184, 0.3);
+          border-radius: 5px;
+          padding: 15px;
+          margin-top: 15px;
+        }
+        .quick-solution h4 {
+          color: #117a8b;
+          margin: 0 0 10px 0;
+          font-size: 14px;
+        }
+        .quick-solution ol {
+          margin: 0;
+          padding-left: 20px;
+          color: #495057;
+        }
+        .quick-solution li {
+          margin: 5px 0;
+          font-size: 13px;
+        }
+        .quick-solution code {
+          background: rgba(0, 0, 0, 0.1);
+          padding: 2px 5px;
+          border-radius: 3px;
+          font-family: 'Courier New', monospace;
+          color: #e83e8c;
+        }
         .panel-header {
           padding: 10px;
           background: #f0f0f0;
@@ -1404,6 +1687,11 @@ export class VisGraph extends HTMLElement {
           font-size: 20px;
           cursor: pointer;
           padding: 0 5px;
+          color: white;
+        }
+        .close-btn:hover {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 3px;
         }
         .node-uri {
           padding: 10px;
