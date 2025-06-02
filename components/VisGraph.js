@@ -87,7 +87,7 @@ export class VisGraph extends HTMLElement {
     console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.error('❌ Le composant ne peut pas accéder directement à l\'endpoint SPARQL');
     console.error('🔧 SOLUTION: Créez le fichier js/proxy.js pour contourner CORS');
-    console.error('📖 Guide complet: https://github.com/your-repo/docs/proxy-setup.md');
+    console.error('📖 Guide complet: https://github.com/Ye4hL0w/test-visualisator/blob/main/docs/proxy-setup.md');
     console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.error('💡 Code à copier-coller dans js/proxy.js:');
     console.error(`
@@ -133,7 +133,7 @@ export default {
           <p>📋 Consultez la console pour voir le code complet à copier-coller.</p>
         </div>
         <div class="error-actions">
-          <button class="doc-button" onclick="window.open('https://github.com/your-repo/docs/proxy-setup.md', '_blank')">
+          <button class="doc-button" onclick="window.open('https://github.com/Ye4hL0w/test-visualisator/blob/main/docs/proxy-setup.md', '_blank')">
             📖 Guide complet
           </button>
           <button class="console-button" onclick="console.info('🔍 Consultez la console pour le code à copier-coller dans js/proxy.js')">
