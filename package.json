@@ -1,27 +1,35 @@
 {
-  "name": "metabolomics-visualizer",
+  "name": "vis-graph-component",
   "version": "1.0.0",
-  "description": "Visualisateur de données métabolomiques.",
-  "main": "server.js",
+  "description": "Composant pour visualiser des graphes de connaissances.",
+  "main": "dist/vis-graph.umd.js",
+  "module": "dist/vis-graph.esm.js",
+  "files": [
+    "dist",
+    "components/README.md"
+  ],
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "build": "rollup -c",
+    "dev": "rollup -c -w",
+    "prepare": "npm run build"
   },
   "keywords": [
-    "metabolomics",
-    "sparql",
-    "vega-lite",
+    "web-component",
+    "graph",
     "visualization",
-    "web-components"
+    "d3js",
+    "sparql"
   ],
-  "author": "Jérémy Moncada",
+  "author": "Moncada Jérémy",
   "license": "MIT",
-  "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^4.18.2",
-    "node-fetch": "^2.7.0"
-  },
   "devDependencies": {
-    "nodemon": "^3.0.1"
-  }
+    "@rollup/plugin-commonjs": "^25.0.0",
+    "@rollup/plugin-node-resolve": "^15.0.0",
+    "@rollup/plugin-terser": "^0.4.0",
+    "rollup": "^4.0.0"
+  },
+  "peerDependencies": {
+    "d3": "^7.0.0"
+  },
+  "type": "module"
 }

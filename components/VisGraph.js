@@ -183,7 +183,7 @@ export class VisGraph extends HTMLElement {
     // Priorité 4: Identifiant extrait.
     return defaultId;
   }
-
+  
   /**
    * Transforme les résultats SPARQL en format compatible avec le graphe
    */
@@ -982,7 +982,7 @@ export class VisGraph extends HTMLElement {
       
       if (valueType === 'uri') {
         valueDiv.innerHTML = `<a href="${binding.value.value}" target="_blank" style="color: #007cba;">${binding.value.value}</a>`;
-      } else {
+    } else {
         valueDiv.textContent = binding.value.value;
       }
       
