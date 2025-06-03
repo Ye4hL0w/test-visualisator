@@ -1,6 +1,9 @@
 /**
  * Composant simplifié de visualisation de graphe D3.js
  */
+import * as d3 from 'd3';
+import { SparqlDataFetcher } from './SparqlDataFetcher.js';
+
 export class VisGraph extends HTMLElement {
   constructor() {
     super();
@@ -12,6 +15,9 @@ export class VisGraph extends HTMLElement {
     this.selectedNode = null;
     this.tooltipTimeout = null;
     this.currentEndpoint = null; // Stocker l'endpoint actif
+    
+    // Instance du fetcher pour récupérer les données SPARQL
+    this.sparqlFetcher = new SparqlDataFetcher();
   }
 
   /**
@@ -58,158 +64,13 @@ export class VisGraph extends HTMLElement {
    */
   setJsonData(jsonData) {
     console.log('[VisGraph] 📄 Chargement de données JSON pré-formatées');
-    // Utilise loadFromSparqlEndpoint avec jsonData, pas besoin d'endpoint/query ici.
-    // Le troisième argument de loadFromSparqlEndpoint est jsonData.
     return this.loadFromSparqlEndpoint(null, null, jsonData);
   }
 
   /**
-   * Vérifie si le proxy est disponible
+   * Affiche une erreur proxy en créant un panneau dans l'interface
    */
-  async checkProxyAvailability() {
-    try {
-      const response = await fetch('/js/proxy.js');
-      if (response.ok) {
-        // Importer le module proxy
-        const proxyModule = await import('/js/proxy.js');
-        return proxyModule.default || proxyModule;
-      }
-      return null;
-    } catch (error) {
-      console.warn('[VisGraph] Proxy non disponible:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Affiche une erreur personnalisée avec des instructions pour configurer et lancer le proxy.js serveur.
-   */
-  showCustomProxyError() {
-    console.error('🚫 [VisGraph] Problème de CORS détecté ou proxy non fonctionnel.');
-    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.error('ℹ️ Pour résoudre ce problème, vous devez exécuter un petit serveur proxy local.');
-    console.error('✨ Suivez les étapes ci-dessous :');
-    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.error('1️⃣ CRÉEZ LE FICHIER PROXY:');
-    console.error('   Créez un fichier nommé `server/proxy.js` dans votre projet avec le contenu suivant:');
-    console.error("   (Copiez tout le bloc de code ci-dessous, y compris les `import`)");
-    console.error(`
-// --- DEBUT DU CODE POUR server/proxy.js ---
-import express from 'express';
-import fetch from 'node-fetch';
-import cors from 'cors';
-
-const app = express();
-const PORT = process.env.PROXY_PORT || 3001; // Le port sur lequel le proxy écoutera
-
-app.use(cors()); // Permettre les requêtes Cross-Origin
-app.use(express.json());
-
-app.get('/proxy-status', (req, res) => {
-  res.status(200).json({ status: 'Proxy is running' });
-});
-
-async function executeQuery(endpoint, sparqlQuery, method = 'POST', res) {
-  console.log(\`[Proxy] Tentative \${method} vers: \${endpoint}\`);
-  try {
-    const headers = {
-      'Accept': 'application/sparql-results+json, application/json',
-      'User-Agent': 'VisGraph-Proxy/1.0'
-    };
-    let body;
-    let targetUrl = endpoint;
-
-    if (method === 'POST') {
-      headers['Content-Type'] = 'application/x-www-form-urlencoded';
-      const params = new URLSearchParams();
-      params.append('query', sparqlQuery);
-      body = params;
-    } else { // GET
-      targetUrl = \`\${endpoint}?query=\${encodeURIComponent(sparqlQuery)}\`;
-    }
-
-    const response = await fetch(targetUrl, {
-      method: method,
-      headers: headers,
-      body: method === 'POST' ? body : undefined,
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(\`[Proxy] Erreur de l'endpoint (\${method} \${response.status}): \${errorText}\`);
-      throw new Error(\`Endpoint error (\${method} \${response.status}): \${response.statusText}. Body: \${errorText.substring(0, 200)}\`);
-    }
-
-    const data = await response.json();
-    console.log(\`[Proxy] Succès \${method} pour \${endpoint}\`);
-    res.json(data); // Envoie la réponse au client qui a appelé le proxy
-    return true; 
-
-  } catch (error) {
-    console.error(\`[Proxy] Échec de la requête \${method} vers \${endpoint}:\`, error.message);
-    throw error; 
-  }
-}
-
-app.all('/sparql-proxy', async (req, res) => {
-  const { endpoint, query: sparqlQuery } = { ...req.query, ...req.body };
-
-  if (!endpoint || !sparqlQuery) {
-    return res.status(400).json({
-      error: 'Les paramètres "endpoint" et "query" sont requis.',
-    });
-  }
-  console.log(\`[Proxy] Reçu pour proxy: Endpoint=\${endpoint}\`);
-
-  try {
-    console.log('[Proxy] Tentative avec POST...');
-    await executeQuery(endpoint, sparqlQuery, 'POST', res);
-  } catch (postError) {
-    console.warn('[Proxy] Échec POST, tentative avec GET...');
-    try {
-      await executeQuery(endpoint, sparqlQuery, 'GET', res);
-    } catch (getError) {
-      res.status(500).json({
-        error: 'Proxy failed for both POST and GET requests.',
-        postError: postError.message,
-        getError: getError.message
-      });
-    }
-  }
-});
-
-app.listen(PORT, () => {
-  console.log(\`Serveur proxy SPARQL démarré sur http://localhost:\${PORT}\`);
-  console.log(\`Utilisez http://localhost:\${PORT}/sparql-proxy?endpoint=YOUR_SPARQL_ENDPOINT&query=YOUR_SPARQL_QUERY\`);
-});
-
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
-});
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-});
-// --- FIN DU CODE POUR server/proxy.js ---
-`);
-    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.error('2️⃣ INSTALLEZ LES DÉPENDANCES (si ce n\'est pas déjà fait):');
-    console.error('   Ouvrez un terminal à la racine de votre projet et exécutez :');
-    console.error('   npm install express node-fetch@^2 cors');
-    console.error('   (Si vous utilisez yarn: yarn add express node-fetch@^2 cors)');
-    console.error('   Note: node-fetch@^2 est utilisé ici pour la compatibilité CommonJS avec import dynamique dans certains contextes, ou utilisez "type": "module" dans package.json et import direct pour v3+.');
-    console.error('   Pour utiliser les imports ESM directs dans server/proxy.js comme ci-dessus, assurez-vous que votre package.json contient "type": "module".');
-
-    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.error('3️⃣ LANCEZ LE SERVEUR PROXY:');
-    console.error('   Dans le même terminal, exécutez :');
-    console.error('   node server/proxy.js');
-    console.error('   Laissez ce terminal ouvert pendant que vous utilisez l\'application.');
-    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.error('4️⃣ RAFRAÎCHISSEZ & RÉESSAYEZ:');
-    console.error('   Une fois le proxy démarré, rafraîchissez cette page ou ré-exécutez l\'action.');
-    console.error('   Le composant tentera automatiquement d\'utiliser le proxy sur http://localhost:3001/sparql-proxy');
-    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    
+  showProxyErrorPanel() {
     const oldPanel = this.shadowRoot.querySelector('.node-details-panel');
     if (oldPanel) {
       oldPanel.remove();
@@ -244,137 +105,49 @@ process.on('unhandledRejection', (reason, promise) => {
   }
 
   /**
-   * Détecte si l'erreur est due à CORS
-   */
-  isCorsError(error) {
-    const corsIndicators = [
-      'Failed to fetch',
-      'NetworkError',
-      'CORS',
-      'Cross-Origin',
-      'blocked by CORS policy',
-      'Access-Control-Allow-Origin',
-      'TypeError: Failed to fetch'
-    ];
-    
-    return corsIndicators.some(indicator => 
-      error.message.includes(indicator) || error.toString().includes(indicator)
-    );
-  }
-
-  /**
-   * Exécute une requête SPARQL avec hiérarchie : endpoint direct puis proxy
-   */
-  async executeSparqlQueryWithFallback(endpoint, query) {
-    console.log('[VisGraph] Début de l\'exécution de la requête SPARQL');
-    console.log('[VisGraph] Endpoint cible:', endpoint);
-    
-    // Tentative 1: Endpoint direct
-    try {
-      console.log('[VisGraph] Tentative 1: Endpoint direct');
-      return await this.executeSparqlQuery(endpoint, query);
-    } catch (directError) {
-      console.warn('[VisGraph] Échec avec endpoint direct:', directError.message);
-      
-      // Vérifier si c'est bien une erreur CORS
-      if (this.isCorsError(directError)) {
-        console.log('[VisGraph] 🎯 Erreur CORS détectée - Tentative avec proxy local...');
-        // Ne plus appeler showCustomProxyError ici immédiatement
-
-        // Tentative 2: Proxy local sur http://localhost:3001/sparql-proxy
-        const proxyUrl = 'http://localhost:3001/sparql-proxy';
-        try {
-          console.log(`[VisGraph] Tentative 2: Proxy local via ${proxyUrl}`);
-          
-          // Construction de l'URL avec query parameters pour le proxy
-          const params = new URLSearchParams({ endpoint: endpoint, query: query });
-          const fullProxyUrl = `${proxyUrl}?${params.toString()}`;
-
-          const response = await fetch(fullProxyUrl, { // Le proxy local est appelé avec GET
-            method: 'GET', // Le serveur proxy.js peut gérer POST ou GET en interne
-            headers: {
-              'Accept': 'application/sparql-results+json, application/json'
-            }
-          });
-
-          if (!response.ok) {
-            const errorData = await response.text();
-            throw new Error(`Proxy local error (${response.status}): ${errorData}`);
-          }
-          const result = await response.json();
-          console.log('[VisGraph] ✅ Succès avec proxy local');
-          return result;
-        } catch (proxyError) {
-          console.error('[VisGraph] Échec avec proxy local:', proxyError.message);
-          
-          // Distinguer les vraies erreurs de proxy des erreurs d'endpoint
-          const isProxyConnectionError = proxyError.message.includes('Failed to fetch') || 
-                                        proxyError.message.includes('Connection refused') ||
-                                        proxyError.message.includes('Network Error');
-          
-          if (isProxyConnectionError) {
-            // Vrai problème de proxy (pas lancé, pas accessible)
-            this.showCustomProxyError();
-            this.showNotification(`Le proxy local sur ${proxyUrl} semble ne pas fonctionner. Vérifiez la console du proxy et les instructions affichées.`, 'error');
-          } else {
-            // Le proxy fonctionne mais l'endpoint distant a un problème
-            this.showNotification(`Erreur de l'endpoint SPARQL distant. Vérifiez l'URL de l'endpoint ou essayez une requête plus simple.`, 'error');
-            console.error('[VisGraph] L\'endpoint SPARQL distant a retourné une erreur:', proxyError.message);
-          }
-          
-          throw new Error(`Proxy local à ${proxyUrl} a échoué après une erreur CORS. Détails: ${proxyError.message}`);
-        }
-      } else {
-        // Si ce n'est pas CORS, re-lancer l'erreur originale
-        console.error('[VisGraph] Erreur non-CORS avec endpoint direct:', directError);
-        throw directError;
-      }
-    }
-  }
-
-  /**
    * Charge les données avec hiérarchie : JSON direct > endpoint > proxy
    */
   async loadFromSparqlEndpoint(endpoint, query, jsonData = null) {
     try {
-      // Priorité 1: Données JSON fournies directement
-      if (jsonData) {
-        console.log('[VisGraph] 🎯 Utilisation des données JSON fournies directement');
-        this.lastSparqlData = jsonData;
-        const transformedData = this.transformSparqlResults(jsonData);
-        
-        this.nodes = transformedData.nodes;
-        this.links = transformedData.links;
-        this.render();
-        
-        return {
-          status: 'success',
-          method: 'direct-json',
-          message: `Données chargées depuis JSON: ${this.nodes.length} nœuds, ${this.links.length} liens`,
-          data: transformedData,
-          rawData: jsonData
-        };
-      }
-      
-      // Priorité 2 et 3: Endpoint puis proxy
-      console.log('[VisGraph] 🔍 Récupération des données depuis l\'endpoint...');
       this.currentEndpoint = endpoint;
       
-      const rawData = await this.executeSparqlQueryWithFallback(endpoint, query);
-      this.lastSparqlData = rawData;
-      const transformedData = this.transformSparqlResults(rawData);
+      const result = await this.sparqlFetcher.loadFromSparqlEndpoint(
+        endpoint, 
+        query, 
+        jsonData,
+        () => this.showProxyErrorPanel(), // Callback pour afficher le panneau d'erreur proxy
+        (message, type) => this.showNotification(message, type) // Callback pour les notifications
+      );
       
-      this.nodes = transformedData.nodes;
-      this.links = transformedData.links;
-      this.render();
+      if (result.status === 'success') {
+        if (result.method === 'direct-json') {
+          // Données JSON directes
+          const transformedData = this.transformSparqlResults(result.data);
+          this.nodes = transformedData.nodes;
+          this.links = transformedData.links;
+          this.render();
+          
+          return {
+            ...result,
+            message: `Données chargées depuis JSON: ${this.nodes.length} nœuds, ${this.links.length} liens`,
+            data: transformedData
+          };
+        } else {
+          // Données depuis endpoint/proxy
+          const transformedData = this.transformSparqlResults(result.data);
+          this.nodes = transformedData.nodes;
+          this.links = transformedData.links;
+          this.render();
+          
+          return {
+            ...result,
+            message: `Données chargées: ${this.nodes.length} nœuds, ${this.links.length} liens`,
+            data: transformedData
+          };
+        }
+      }
       
-      return {
-        status: 'success',
-        method: 'endpoint-or-proxy',
-        message: `Données chargées: ${this.nodes.length} nœuds, ${this.links.length} liens`,
-        data: transformedData,
-        rawData: rawData
-      };
+      return result;
     } catch (error) {
       console.error('[VisGraph] ❌ Erreur lors du chargement des données:', error.message);
       return {
@@ -605,10 +378,15 @@ process.on('unhandledRejection', (reason, promise) => {
 
       for (const [queryType, queryContent] of Object.entries(queries)) {
         console.log(`[VisGraph] Exécution de la requête de type "${queryType}"`);
-        console.log(`[VisGraph] Contenu de la requête ${queryType}:\n${queryContent}`); // Ajout du log de la requête
+        console.log(`[VisGraph] Contenu de la requête ${queryType}:\n${queryContent}`);
         try {
-          // Utiliser la méthode avec hiérarchie endpoint > proxy
-          const data = await this.executeSparqlQueryWithFallback(endpoint, queryContent);
+          // Utiliser le sparqlFetcher avec hiérarchie endpoint > proxy
+          const data = await this.sparqlFetcher.executeSparqlQueryWithFallback(
+            endpoint, 
+            queryContent,
+            () => this.showProxyErrorPanel(),
+            (message, type) => this.showNotification(message, type)
+          );
           allData[queryType] = data;
           console.log(`[VisGraph] ✅ Succès pour la requête ${queryType}`);
         } catch (error) {
@@ -756,30 +534,6 @@ process.on('unhandledRejection', (reason, promise) => {
   }
   
   /**
-   * Exécute une requête SPARQL
-   */
-  async executeSparqlQuery(endpoint, query) {
-    const params = new URLSearchParams();
-    params.append('query', query.trim());
-    params.append('format', 'json');
-    
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Accept': 'application/sparql-results+json'
-      },
-      body: params
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Erreur HTTP: ${response.status}`);
-    }
-    
-    return await response.json();
-  }
-  
-  /**
    * Affiche les détails riches d'un nœud
    */
   displayRichNodeDetails(node, allData) {
@@ -901,11 +655,11 @@ process.on('unhandledRejection', (reason, promise) => {
    */
   extractGraphContext(node) {
     const context = [];
-    if (!node.originalData || !this.lastSparqlData || !this.lastSparqlData.head || !this.lastSparqlData.head.vars) {
+    if (!node.originalData || !this.sparqlFetcher.lastSparqlData || !this.sparqlFetcher.lastSparqlData.head || !this.sparqlFetcher.lastSparqlData.head.vars) {
       return context;
     }
 
-    const mainSparqlVars = this.lastSparqlData.head.vars;
+    const mainSparqlVars = this.sparqlFetcher.lastSparqlData.head.vars;
     const sourceVar = mainSparqlVars[0];
     const targetVar = mainSparqlVars.length > 1 ? mainSparqlVars[1] : null;
 
@@ -933,10 +687,6 @@ process.on('unhandledRejection', (reason, promise) => {
         });
       }
     }
-    
-    // Ne pas ajouter les "Connected Nodes in Graph" ici, car cela peut être redondant
-    // avec les informations de base et le graphe lui-même.
-    // Si on veut les remettre, il faudrait une logique plus fine.
     
     return context;
   }

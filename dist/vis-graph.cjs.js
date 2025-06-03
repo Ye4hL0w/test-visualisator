@@ -1,3 +1,5 @@
+'use strict';
+
 var noop = {value: () => {}};
 
 function dispatch() {
@@ -6145,5 +6147,5 @@ class VisGraph extends HTMLElement {
 // Enregistrer le composant
 customElements.define('vis-graph', VisGraph);
 
-export { VisGraph };
-//# sourceMappingURL=vis-graph.esm.js.map
+exports.VisGraph = VisGraph;
+//# sourceMappingURL=vis-graph.cjs.js.map

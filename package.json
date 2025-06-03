@@ -1,40 +1,47 @@
 {
-  "name": "vis-graph-component",
+  "name": "@jmoncada/vis-graph",
   "version": "1.0.0",
-  "description": "Composant pour visualiser des graphes de connaissances.",
-  "main": "dist/vis-graph.umd.js",
+  "description": "Un composant web pour visualiser des graphes de connaissances SPARQL avec D3.js",
+  "main": "dist/vis-graph.cjs.js",
   "module": "dist/vis-graph.esm.js",
+  "browser": "dist/vis-graph.umd.js",
+  "type": "module",
   "files": [
     "dist",
-    "components/README.md"
+    "docs/proxy-setup.md",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "rollup -c",
-    "dev": "rollup -c -w",
-    "prepare": "npm run build"
+    "prepublishOnly": "npm run build",
+    "start": "node server/proxy.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ye4hL0w/test-visualisator.git"
   },
   "keywords": [
-    "web-component",
-    "graph",
     "visualization",
-    "d3js",
-    "sparql"
+    "graph",
+    "sparql",
+    "webcomponent",
+    "d3",
+    "knowledge graph"
   ],
-  "author": "Moncada Jérémy",
+  "author": "Jérémy Moncada",
   "license": "MIT",
-  "devDependencies": {
-    "@rollup/plugin-commonjs": "^25.0.0",
-    "@rollup/plugin-node-resolve": "^15.0.0",
-    "@rollup/plugin-terser": "^0.4.0",
-    "rollup": "^4.0.0"
+  "bugs": {
+    "url": "https://github.com/Ye4hL0w/test-visualisator/issues"
   },
-  "peerDependencies": {
+  "homepage": "https://github.com/Ye4hL0w/test-visualisator#readme",
+  "dependencies": {
     "d3": "^7.0.0"
   },
-  "type": "module",
-  "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^5.1.0",
-    "node-fetch": "^2.7.0"
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.8",
+    "@rollup/plugin-node-resolve": "^15.3.1",
+    "@rollup/plugin-terser": "^0.4.4",
+    "rollup": "^4.41.1"
   }
 }
