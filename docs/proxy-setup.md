@@ -136,7 +136,6 @@ Le composant `VisGraph` attend le **format JSON SPARQL standard**. Votre proxy d
 Copiez l'intégralité du code ci-dessous et collez-le dans le fichier `server/proxy.js` que vous avez créé à la racine de votre projet.
 
 ```javascript
-// --- DEBUT DU CODE POUR server/proxy.js ---
 /**
  * Proxy SPARQL pour résoudre les problèmes CORS
  * Ce fichier doit être configuré selon votre environnement
@@ -243,7 +242,6 @@ process.on('uncaughtException', (error) => {
 process.on('unhandledRejection', (reason, promise) => {
   console.error('[Proxy] Unhandled Rejection at:', promise, 'reason:', reason);
 }); 
-// --- FIN DU CODE POUR server/proxy.js ---
 ```
 
 ---
