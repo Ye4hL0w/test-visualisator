@@ -58,6 +58,8 @@ export class VisGraph extends HTMLElement {
    */
   setJsonData(jsonData) {
     console.log('[VisGraph] 📄 Chargement de données JSON pré-formatées');
+    // Utilise loadFromSparqlEndpoint avec jsonData, pas besoin d'endpoint/query ici.
+    // Le troisième argument de loadFromSparqlEndpoint est jsonData.
     return this.loadFromSparqlEndpoint(null, null, jsonData);
   }
 
@@ -80,39 +82,132 @@ export class VisGraph extends HTMLElement {
   }
 
   /**
-   * Affiche une erreur personnalisée avec redirection vers la documentation
+   * Affiche une erreur personnalisée avec des instructions pour configurer et lancer le proxy.js serveur.
    */
   showCustomProxyError() {
-    console.error('🚫 [VisGraph] Problème de CORS détecté');
+    console.error('🚫 [VisGraph] Problème de CORS détecté ou proxy non fonctionnel.');
     console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.error('❌ Le composant ne peut pas accéder directement à l\'endpoint SPARQL');
-    console.error('🔧 SOLUTION: Créez le fichier js/proxy.js pour contourner CORS');
-    console.error('📖 Guide complet: https://github.com/Ye4hL0w/test-visualisator/blob/main/docs/proxy-setup.md');
+    console.error('ℹ️ Pour résoudre ce problème, vous devez exécuter un petit serveur proxy local.');
+    console.error('✨ Suivez les étapes ci-dessous :');
     console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.error('💡 Code à copier-coller dans js/proxy.js:');
+    console.error('1️⃣ CRÉEZ LE FICHIER PROXY:');
+    console.error('   Créez un fichier nommé `proxy.js` à la racine de votre projet avec le contenu suivant:');
+    console.error("   (Copiez tout le bloc de code ci-dessous, y compris les `import`)");
     console.error(`
-// Configuration du proxy SPARQL pour VisGraph
-const PROXY_CONFIG = {
-  corsAnywhereUrl: 'https://cors-anywhere.herokuapp.com/',
-  allOriginsUrl: 'https://api.allorigins.win/get?url=',
-  preferredMethod: 'allorigins',
-  timeout: 30000
-};
+// --- DEBUT DU CODE POUR proxy.js ---
+import express from 'express';
+import fetch from 'node-fetch';
+import cors from 'cors';
 
-export default {
-  async query(endpoint, sparqlQuery) {
-    // Méthode AllOrigins (recommandée)
-    const params = new URLSearchParams({ query: sparqlQuery, format: 'json' });
-    const targetUrl = \`\${endpoint}?\${params.toString()}\`;
-    const proxyUrl = PROXY_CONFIG.allOriginsUrl + encodeURIComponent(targetUrl);
-    
-    const response = await fetch(proxyUrl);
-    if (!response.ok) throw new Error(\`Proxy error: \${response.status}\`);
-    
-    const result = await response.json();
-    return JSON.parse(result.contents);
+const app = express();
+const PORT = process.env.PROXY_PORT || 3001; // Le port sur lequel le proxy écoutera
+
+app.use(cors()); // Permettre les requêtes Cross-Origin
+app.use(express.json());
+
+app.get('/proxy-status', (req, res) => {
+  res.status(200).json({ status: 'Proxy is running' });
+});
+
+async function executeQuery(endpoint, sparqlQuery, method = 'POST', res) {
+  console.log(\`[Proxy] Tentative \${method} vers: \${endpoint}\`);
+  try {
+    const headers = {
+      'Accept': 'application/sparql-results+json, application/json',
+      'User-Agent': 'VisGraph-Proxy/1.0'
+    };
+    let body;
+    let targetUrl = endpoint;
+
+    if (method === 'POST') {
+      headers['Content-Type'] = 'application/x-www-form-urlencoded';
+      const params = new URLSearchParams();
+      params.append('query', sparqlQuery);
+      body = params;
+    } else { // GET
+      targetUrl = \`\${endpoint}?query=\${encodeURIComponent(sparqlQuery)}\`;
+    }
+
+    const response = await fetch(targetUrl, {
+      method: method,
+      headers: headers,
+      body: method === 'POST' ? body : undefined,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(\`[Proxy] Erreur de l'endpoint (\${method} \${response.status}): \${errorText}\`);
+      throw new Error(\`Endpoint error (\${method} \${response.status}): \${response.statusText}. Body: \${errorText.substring(0, 200)}\`);
+    }
+
+    const data = await response.json();
+    console.log(\`[Proxy] Succès \${method} pour \${endpoint}\`);
+    res.json(data); // Envoie la réponse au client qui a appelé le proxy
+    return true; 
+
+  } catch (error) {
+    console.error(\`[Proxy] Échec de la requête \${method} vers \${endpoint}:\`, error.message);
+    throw error; 
   }
-};`);
+}
+
+app.all('/sparql-proxy', async (req, res) => {
+  const { endpoint, query: sparqlQuery } = { ...req.query, ...req.body };
+
+  if (!endpoint || !sparqlQuery) {
+    return res.status(400).json({
+      error: 'Les paramètres "endpoint" et "query" sont requis.',
+    });
+  }
+  console.log(\`[Proxy] Reçu pour proxy: Endpoint=\${endpoint}\`);
+
+  try {
+    console.log('[Proxy] Tentative avec POST...');
+    await executeQuery(endpoint, sparqlQuery, 'POST', res);
+  } catch (postError) {
+    console.warn('[Proxy] Échec POST, tentative avec GET...');
+    try {
+      await executeQuery(endpoint, sparqlQuery, 'GET', res);
+    } catch (getError) {
+      res.status(500).json({
+        error: 'Proxy failed for both POST and GET requests.',
+        postError: postError.message,
+        getError: getError.message
+      });
+    }
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(\`Serveur proxy SPARQL démarré sur http://localhost:\${PORT}\`);
+  console.log(\`Utilisez http://localhost:\${PORT}/sparql-proxy?endpoint=YOUR_SPARQL_ENDPOINT&query=YOUR_SPARQL_QUERY\`);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+// --- FIN DU CODE POUR proxy.js ---
+`);
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error('2️⃣ INSTALLEZ LES DÉPENDANCES (si ce n\'est pas déjà fait):');
+    console.error('   Ouvrez un terminal à la racine de votre projet et exécutez :');
+    console.error('   npm install express node-fetch@^2 cors');
+    console.error('   (Si vous utilisez yarn: yarn add express node-fetch@^2 cors)');
+    console.error('   Note: node-fetch@^2 est utilisé ici pour la compatibilité CommonJS avec import dynamique dans certains contextes, ou utilisez "type": "module" dans package.json et import direct pour v3+.');
+    console.error('   Pour utiliser les imports ESM directs dans proxy.js comme ci-dessus, assurez-vous que votre package.json contient "type": "module".');
+
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error('3️⃣ LANCEZ LE SERVEUR PROXY:');
+    console.error('   Dans le même terminal, exécutez :');
+    console.error('   node proxy.js');
+    console.error('   Laissez ce terminal ouvert pendant que vous utilisez l\'application.');
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error('4️⃣ RAFRAÎCHISSEZ & RÉESSAYEZ:');
+    console.error('   Une fois le proxy démarré, rafraîchissez cette page ou ré-exécutez l\'action.');
+    console.error('   Le composant tentera automatiquement d\'utiliser le proxy sur http://localhost:3001/sparql-proxy');
     console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     const oldPanel = this.shadowRoot.querySelector('.node-details-panel');
@@ -124,29 +219,18 @@ export default {
     errorPanel.className = 'proxy-error-panel';
     errorPanel.innerHTML = `
       <div class="error-header">
-        <h2>🚫 Configuration CORS requise</h2>
+        <h2>🚫 Configuration Proxy Requise</h2>
         <button class="close-btn">×</button>
       </div>
       <div class="error-content">
         <div class="error-message">
-          <p><strong>Le composant ne peut pas accéder à l'endpoint SPARQL à cause des restrictions CORS.</strong></p>
-          <p>📋 Consultez la console pour voir le code complet à copier-coller.</p>
+          <p><strong>Le composant n'a pas pu accéder directement à l'endpoint SPARQL à cause des restrictions CORS.</strong></p>
+          <p>Un proxy local est nécessaire pour contourner ces limitations.</p>
         </div>
         <div class="error-actions">
           <button class="doc-button" onclick="window.open('https://github.com/Ye4hL0w/test-visualisator/blob/main/docs/proxy-setup.md', '_blank')">
-            📖 Guide complet
+            📖 Guide de configuration du proxy
           </button>
-          <button class="console-button" onclick="console.info('🔍 Consultez la console pour le code à copier-coller dans js/proxy.js')">
-            💻 Code dans la console
-          </button>
-        </div>
-        <div class="quick-solution">
-          <h4>Solution rapide :</h4>
-          <ol>
-            <li>Créez le fichier <code>js/proxy.js</code></li>
-            <li>Copiez le code depuis la console</li>
-            <li>Rechargez la page</li>
-          </ol>
         </div>
       </div>
     `;
@@ -194,30 +278,42 @@ export default {
       
       // Vérifier si c'est bien une erreur CORS
       if (this.isCorsError(directError)) {
-        console.log('[VisGraph] 🎯 Erreur CORS détectée - Tentative avec proxy...');
-        
-        // Tentative 2: Proxy
+        console.log('[VisGraph] 🎯 Erreur CORS détectée - Tentative avec proxy local...');
+        // Ne plus appeler showCustomProxyError ici immédiatement
+
+        // Tentative 2: Proxy local sur http://localhost:3001/sparql-proxy
+        const proxyUrl = 'http://localhost:3001/sparql-proxy';
         try {
-          console.log('[VisGraph] Tentative 2: Proxy');
-          const proxy = await this.checkProxyAvailability();
-          if (proxy && proxy.query) {
-            const result = await proxy.query(endpoint, query);
-            console.log('[VisGraph] ✅ Succès avec proxy');
-            return result;
-          } else {
-            throw new Error('Proxy non disponible - fichier js/proxy.js non trouvé ou mal configuré');
+          console.log(`[VisGraph] Tentative 2: Proxy local via ${proxyUrl}`);
+          
+          // Construction de l'URL avec query parameters pour le proxy
+          const params = new URLSearchParams({ endpoint: endpoint, query: query });
+          const fullProxyUrl = `${proxyUrl}?${params.toString()}`;
+
+          const response = await fetch(fullProxyUrl, { // Le proxy local est appelé avec GET
+            method: 'GET', // Le serveur proxy.js peut gérer POST ou GET en interne
+            headers: {
+              'Accept': 'application/sparql-results+json, application/json'
+            }
+          });
+
+          if (!response.ok) {
+            const errorData = await response.text();
+            throw new Error(`Proxy local error (${response.status}): ${errorData}`);
           }
+          const result = await response.json();
+          console.log('[VisGraph] ✅ Succès avec proxy local');
+          return result;
         } catch (proxyError) {
-          console.error('[VisGraph] Échec avec proxy:', proxyError.message);
-          
-          // Afficher l'erreur personnalisée seulement si c'est bien CORS
-          this.showCustomProxyError();
-          
-          // Retourner une erreur structurée
-          throw new Error(`Problème CORS détecté. Veuillez configurer le fichier js/proxy.js (voir console pour le code)`);
+          console.error('[VisGraph] Échec avec proxy local:', proxyError.message);
+          // Afficher les instructions du proxy UNIQUEMENT si le proxy lui-même échoue après une erreur CORS initiale.
+          this.showCustomProxyError(); 
+          this.showNotification(`Le proxy local sur ${proxyUrl} semble ne pas fonctionner. Vérifiez la console du proxy et les instructions affichées.`, 'error');
+          throw new Error(`Proxy local à ${proxyUrl} a échoué après une erreur CORS. Détails: ${proxyError.message}`);
         }
       } else {
         // Si ce n'est pas CORS, re-lancer l'erreur originale
+        console.error('[VisGraph] Erreur non-CORS avec endpoint direct:', directError);
         throw directError;
       }
     }
@@ -496,6 +592,7 @@ export default {
 
       for (const [queryType, queryContent] of Object.entries(queries)) {
         console.log(`[VisGraph] Exécution de la requête de type "${queryType}"`);
+        console.log(`[VisGraph] Contenu de la requête ${queryType}:\n${queryContent}`); // Ajout du log de la requête
         try {
           // Utiliser la méthode avec hiérarchie endpoint > proxy
           const data = await this.executeSparqlQueryWithFallback(endpoint, queryContent);
@@ -1691,6 +1788,179 @@ export default {
         }
         .close-btn:hover {
           background: rgba(255, 255, 255, 0.2);
+          border-radius: 3px;
+        }
+        .node-uri {
+          padding: 10px;
+          border-bottom: 1px solid #eee;
+          font-size: 12px;
+          word-break: break-all;
+        }
+        .panel-content {
+          padding: 10px;
+          overflow: auto;
+        }
+        .panel-content table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        .panel-content th,
+        .panel-content td {
+          text-align: left;
+          padding: 5px;
+          border-bottom: 1px solid #eee;
+          font-size: 12px;
+          word-break: break-all;
+        }
+        .context-menu {
+          position: absolute;
+          background: white;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+          padding: 5px 0;
+          z-index: 20;
+        }
+        .context-menu button {
+          display: block;
+          width: 100%;
+          border: none;
+          background: white;
+          padding: 8px 15px;
+          text-align: left;
+          cursor: pointer;
+        }
+        .context-menu button:hover {
+          background: #f0f0f0;
+        }
+        .notification {
+          position: absolute;
+          bottom: 20px;
+          left: 50%;
+          transform: translateX(-50%);
+          padding: 10px 20px;
+          border-radius: 4px;
+          z-index: 30;
+          transition: opacity 0.5s;
+        }
+        .notification.info {
+          background: #e3f2fd;
+          border: 1px solid #2196f3;
+        }
+        .notification.error {
+          background: #ffebee;
+          border: 1px solid #f44336;
+        }
+        .notification.fade-out {
+          opacity: 0;
+        }
+        .proxy-error-panel .error-header { /* Style spécifique pour le header du panneau d'erreur proxy */
+          padding: 15px;
+          background: linear-gradient(135deg, #f0ad4e 0%, #ec971f 100%);
+          color: white;
+          border-radius: 6px 6px 0 0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .proxy-error-panel .error-header h2 {
+          margin: 0;
+          font-size: 16px;
+          font-weight: bold;
+        }
+        .proxy-error-panel .error-content {
+          padding: 20px;
+        }
+        .proxy-error-panel .error-message {
+          margin-bottom: 20px;
+          color: #8a6d3b;
+          line-height: 1.5;
+        }
+        .proxy-error-panel .error-message p {
+          margin: 10px 0;
+        }
+        .proxy-error-panel .error-actions {
+          display: flex;
+          gap: 10px;
+          margin-bottom: 20px;
+          flex-wrap: wrap;
+        }
+        .proxy-error-panel .doc-button, .proxy-error-panel .console-button {
+          padding: 10px 15px;
+          border: none;
+          border-radius: 5px;
+          cursor: pointer;
+          font-weight: bold;
+          transition: all 0.3s ease;
+          flex: 1;
+          min-width: 120px;
+        }
+        .proxy-error-panel .doc-button {
+          background: linear-gradient(135deg, #5bc0de 0%, #31b0d5 100%);
+          color: white;
+        }
+        .proxy-error-panel .doc-button:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 8px rgba(91, 192, 222, 0.3);
+        }
+        .proxy-error-panel .console-button {
+          background: linear-gradient(135deg, #5cb85c 0%, #449d44 100%);
+          color: white;
+        }
+        .proxy-error-panel .console-button:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 8px rgba(92, 184, 92, 0.3);
+        }
+        .proxy-error-panel .quick-summary { /* Style pour le résumé rapide */
+          background: rgba(23, 162, 184, 0.05);
+          border: 1px solid rgba(23, 162, 184, 0.2);
+          border-radius: 5px;
+          padding: 15px;
+          margin-top: 15px;
+        }
+        .proxy-error-panel .quick-summary h4 {
+          color: #117a8b;
+          margin: 0 0 10px 0;
+          font-size: 14px;
+        }
+        .proxy-error-panel .quick-summary ol {
+          margin: 0;
+          padding-left: 20px;
+          color: #495057;
+        }
+        .proxy-error-panel .quick-summary li {
+          margin: 5px 0;
+          font-size: 13px;
+        }
+        .proxy-error-panel .quick-summary code {
+          background: rgba(0, 0, 0, 0.05);
+          padding: 2px 5px;
+          border-radius: 3px;
+          font-family: 'Courier New', monospace;
+          color: #e83e8c;
+        }
+        .panel-header {
+          padding: 10px;
+          background: #f0f0f0;
+          border-bottom: 1px solid #ddd;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .panel-header h3 {
+          margin: 0;
+          font-size: 16px;
+        }
+        .close-btn {
+          border: none;
+          background: transparent;
+          font-size: 20px;
+          cursor: pointer;
+          padding: 0 5px;
+          color: #6c757d; /* Couleur plus neutre pour le bouton de fermeture */
+        }
+        .close-btn:hover {
+          background: rgba(0, 0, 0, 0.1); /* Ajuster pour un fond clair */
           border-radius: 3px;
         }
         .node-uri {

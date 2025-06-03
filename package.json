@@ -31,5 +31,10 @@
   "peerDependencies": {
     "d3": "^7.0.0"
   },
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "node-fetch": "^2.7.0"
+  }
 }
