@@ -91,10 +91,10 @@ export class VisGraph extends HTMLElement {
     console.error('✨ Suivez les étapes ci-dessous :');
     console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.error('1️⃣ CRÉEZ LE FICHIER PROXY:');
-    console.error('   Créez un fichier nommé `proxy.js` à la racine de votre projet avec le contenu suivant:');
+    console.error('   Créez un fichier nommé `server/proxy.js` dans votre projet avec le contenu suivant:');
     console.error("   (Copiez tout le bloc de code ci-dessous, y compris les `import`)");
     console.error(`
-// --- DEBUT DU CODE POUR proxy.js ---
+// --- DEBUT DU CODE POUR server/proxy.js ---
 import express from 'express';
 import fetch from 'node-fetch';
 import cors from 'cors';
@@ -189,7 +189,7 @@ process.on('uncaughtException', (error) => {
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
-// --- FIN DU CODE POUR proxy.js ---
+// --- FIN DU CODE POUR server/proxy.js ---
 `);
     console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.error('2️⃣ INSTALLEZ LES DÉPENDANCES (si ce n\'est pas déjà fait):');
@@ -197,12 +197,12 @@ process.on('unhandledRejection', (reason, promise) => {
     console.error('   npm install express node-fetch@^2 cors');
     console.error('   (Si vous utilisez yarn: yarn add express node-fetch@^2 cors)');
     console.error('   Note: node-fetch@^2 est utilisé ici pour la compatibilité CommonJS avec import dynamique dans certains contextes, ou utilisez "type": "module" dans package.json et import direct pour v3+.');
-    console.error('   Pour utiliser les imports ESM directs dans proxy.js comme ci-dessus, assurez-vous que votre package.json contient "type": "module".');
+    console.error('   Pour utiliser les imports ESM directs dans server/proxy.js comme ci-dessus, assurez-vous que votre package.json contient "type": "module".');
 
     console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.error('3️⃣ LANCEZ LE SERVEUR PROXY:');
     console.error('   Dans le même terminal, exécutez :');
-    console.error('   node proxy.js');
+    console.error('   node server/proxy.js');
     console.error('   Laissez ce terminal ouvert pendant que vous utilisez l\'application.');
     console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.error('4️⃣ RAFRAÎCHISSEZ & RÉESSAYEZ:');
@@ -306,9 +306,22 @@ process.on('unhandledRejection', (reason, promise) => {
           return result;
         } catch (proxyError) {
           console.error('[VisGraph] Échec avec proxy local:', proxyError.message);
-          // Afficher les instructions du proxy UNIQUEMENT si le proxy lui-même échoue après une erreur CORS initiale.
-          this.showCustomProxyError(); 
-          this.showNotification(`Le proxy local sur ${proxyUrl} semble ne pas fonctionner. Vérifiez la console du proxy et les instructions affichées.`, 'error');
+          
+          // Distinguer les vraies erreurs de proxy des erreurs d'endpoint
+          const isProxyConnectionError = proxyError.message.includes('Failed to fetch') || 
+                                        proxyError.message.includes('Connection refused') ||
+                                        proxyError.message.includes('Network Error');
+          
+          if (isProxyConnectionError) {
+            // Vrai problème de proxy (pas lancé, pas accessible)
+            this.showCustomProxyError();
+            this.showNotification(`Le proxy local sur ${proxyUrl} semble ne pas fonctionner. Vérifiez la console du proxy et les instructions affichées.`, 'error');
+          } else {
+            // Le proxy fonctionne mais l'endpoint distant a un problème
+            this.showNotification(`Erreur de l'endpoint SPARQL distant. Vérifiez l'URL de l'endpoint ou essayez une requête plus simple.`, 'error');
+            console.error('[VisGraph] L\'endpoint SPARQL distant a retourné une erreur:', proxyError.message);
+          }
+          
           throw new Error(`Proxy local à ${proxyUrl} a échoué après une erreur CORS. Détails: ${proxyError.message}`);
         }
       } else {
