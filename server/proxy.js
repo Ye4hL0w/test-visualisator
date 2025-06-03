@@ -30,12 +30,10 @@ async function executeQuery(endpoint, sparqlQuery, method = 'POST', res) {
 
     if (method === 'POST') {
       headers['Content-Type'] = 'application/x-www-form-urlencoded';
-      // Ou 'application/sparql-query' selon la préférence de l'endpoint
-      // body = sparqlQuery;
       const params = new URLSearchParams();
       params.append('query', sparqlQuery);
       body = params;
-    } else { // GET
+    } else {
       targetUrl = `${endpoint}?query=${encodeURIComponent(sparqlQuery)}`;
     }
 
@@ -43,32 +41,27 @@ async function executeQuery(endpoint, sparqlQuery, method = 'POST', res) {
       method: method,
       headers: headers,
       body: method === 'POST' ? body : undefined,
-      redirect: 'follow' // Ajout pour suivre les redirections
+      redirect: 'follow'
     });
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`[Proxy] Erreur de l'endpoint (${method} ${response.status}): ${errorText}`);
-      // Ne pas renvoyer directement l'erreur ici si on veut tenter une autre méthode
       throw new Error(`Endpoint error (${method} ${response.status}): ${response.statusText}. Body: ${errorText.substring(0, 200)}`);
     }
 
     const data = await response.json();
     console.log(`[Proxy] Succès ${method} pour ${endpoint}`);
-    res.json(data); // Envoie la réponse au client qui a appelé le proxy
-    return true; // Indique le succès
+    res.json(data);
+    return true;
 
   } catch (error) {
     console.error(`[Proxy] Échec de la requête ${method} vers ${endpoint}:`, error.message);
-    // Ne pas envoyer de réponse ici si on veut tenter une autre méthode
-    // res.status(500).json({ error: `Proxy query failed (${method}): ${error.message}` });
-    throw error; // Relancer pour que l'appelant puisse gérer
+    throw error;
   }
 }
 
-
-// Route principale du proxy SPARQL
-// Accepte 'endpoint' et 'query' comme paramètres query dans l'URL, ou dans le corps en JSON
+// Route principale - essaie POST puis GET si ça échoue
 app.all('/sparql-proxy', async (req, res) => {
   const { endpoint, query: sparqlQuery } = { ...req.query, ...req.body };
 
@@ -79,20 +72,15 @@ app.all('/sparql-proxy', async (req, res) => {
   }
 
   console.log(`[Proxy] Reçu pour proxy: Endpoint=${endpoint}`);
-  // Ne pas logger la requête entière par défaut pour éviter des logs trop volumineux
-  // console.log(`[Proxy] Reçu: Query=${sparqlQuery}`);
 
   try {
-    // Tentative 1: POST (souvent préféré par les endpoints SPARQL)
     console.log('[Proxy] Tentative avec POST...');
     await executeQuery(endpoint, sparqlQuery, 'POST', res);
   } catch (postError) {
-    // Si POST échoue (ex: méthode non autorisée, ou autre erreur), essayer avec GET
     console.warn('[Proxy] Échec POST, tentative avec GET...');
     try {
       await executeQuery(endpoint, sparqlQuery, 'GET', res);
     } catch (getError) {
-      // Si GET échoue aussi, renvoyer une erreur finale
       console.error(`[Proxy] Échec final pour ${endpoint}. POST error: ${postError.message}, GET error: ${getError.message}`);
       res.status(500).json({
         error: 'Proxy failed for both POST and GET requests.',
@@ -109,7 +97,7 @@ app.listen(PORT, () => {
   console.log(`Exemple: http://localhost:${PORT}/sparql-proxy?endpoint=YOUR_SPARQL_ENDPOINT&query=YOUR_SPARQL_QUERY`);
 });
 
-// Gestion des erreurs non capturées pour éviter que le proxy ne crashe silencieusement
+// Éviter que le proxy crashe silencieusement
 process.on('uncaughtException', (error) => {
   console.error('[Proxy] Uncaught Exception:', error);
 });
