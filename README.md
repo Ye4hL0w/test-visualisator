@@ -145,10 +145,6 @@ Pour savoir comment mettre en place ce proxy local, veuillez consulter le guide 
 
 (Ce fichier `proxy-setup.md` est inclus dans le paquet NPM et se trouvera dans `node_modules/@jmoncada/vis-graph/docs/proxy-setup.md` après installation.)
 
-## Contribuer
-
-Les contributions sont les bienvenues ! Veuillez ouvrir une issue ou une pull request sur le [dépôt GitHub](https://github.com/Ye4hL0w/test-visualisator).
-
 ## Licence
 
 Ce projet est sous licence [MIT](./LICENSE). 
