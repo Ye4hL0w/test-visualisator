@@ -1,6 +1,6 @@
 {
   "name": "@jmoncada/vis-graph",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Un composant web pour visualiser des graphes de connaissances SPARQL avec D3.js",
   "main": "dist/vis-graph.cjs.js",
   "module": "dist/vis-graph.esm.js",
@@ -32,7 +32,7 @@
   "author": "Jérémy Moncada",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/Ye4hL0w/test-visualisator/LICENSE"
+    "url": "https://github.com/Ye4hL0w/test-visualisator/blob/main/LICENSE"
   },
   "homepage": "https://github.com/Ye4hL0w/test-visualisator#readme",
   "dependencies": {
