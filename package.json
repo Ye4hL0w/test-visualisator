@@ -36,7 +36,10 @@
   },
   "homepage": "https://github.com/Ye4hL0w/test-visualisator#readme",
   "dependencies": {
-    "d3": "^7.0.0"
+    "cors": "^2.8.5",
+    "d3": "^7.0.0",
+    "express": "^5.1.0",
+    "node-fetch": "^2.7.0"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^25.0.8",
