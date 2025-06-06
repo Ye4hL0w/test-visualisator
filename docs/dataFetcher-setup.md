@@ -1,407 +1,215 @@
-# Configuration et Utilisation de SparqlDataFetcher
+# Guide Simple : SparqlDataFetcher
 
-## 🎯 Qu'est-ce que SparqlDataFetcher ?
+## 🎯 Qu'est-ce que c'est ?
 
-`SparqlDataFetcher` est une classe utilitaire JavaScript qui gère la récupération de données SPARQL avec une gestion automatique des problèmes CORS et des serveurs proxy. Elle peut être réutilisée dans plusieurs composants pour standardiser la façon dont votre application charge et traite les données SPARQL.
+`SparqlDataFetcher` est un outil JavaScript qui récupère des données depuis des bases de données SPARQL. Il résout automatiquement les problèmes de connexion (CORS) en utilisant un proxy si nécessaire.
 
-Le `SparqlDataFetcher` est utilisé par défaut dans le composant `vis-graph` (fichier `vis-graph.js`), mais peut aussi être utilisé de manière autonome dans vos propres projets.
-
-## 🚀 Fonctionnalités Principales
-
-### Hiérarchie de Chargement Intelligente
-Le `SparqlDataFetcher` essaie plusieurs méthodes pour récupérer les données, dans cet ordre de priorité :
-
-1. **Données JSON directes** : Si vous fournissez des données JSON pré-formatées
-2. **Endpoint SPARQL direct** : Tentative de requête directe vers l'endpoint
-3. **Proxy SPARQL** : En cas d'erreur CORS, utilise un proxy configuré
-
-### Gestion Automatique des Erreurs CORS
-Lorsqu'une requête directe échoue à cause de CORS, le fetcher :
-- Détecte automatiquement l'erreur CORS
-- Bascule vers le proxy configuré (si disponible)
-- Fournit des messages d'erreur clairs et des suggestions de résolution
+**En gros :** Il va chercher vos données là où elles sont, même si votre navigateur l'empêche normalement.
 
 ---
 
-## 📦 Import et Initialisation
+## 🚀 Comment l'utiliser
 
-### Import du Module
+### 1. Récupérer le fichier
+D'abord, vous devez avoir le fichier `SparqlDataFetcher.js` dans votre projet :
+- **Téléchargez** le fichier depuis le repository : [SparqlDataFetcher.js](https://github.com/Ye4hL0w/test-visualisator/blob/main/components/SparqlDataFetcher.js)
+- **Ou copiez** le code et créez le fichier `components/SparqlDataFetcher.js`
+
+### 2. Importer le module
 ```javascript
 import { SparqlDataFetcher } from './components/SparqlDataFetcher.js';
 ```
 
-### Initialisation
+### 3. Créer une instance
 ```javascript
-// Créer une instance
-const sparqlFetcher = new SparqlDataFetcher();
-
-// Ou l'utiliser directement dans un composant
-export class MonComposant extends HTMLElement {
-  constructor() {
-    super();
-    this.sparqlFetcher = new SparqlDataFetcher();
-  }
-}
+const fetcher = new SparqlDataFetcher();
 ```
 
 ---
 
-## 🔧 Méthodes Principales
+## 📋 Les méthodes principales
 
-### 1. `loadFromSparqlEndpoint(endpoint, query, jsonData, proxyUrl, onProxyError, onNotification)`
+### `loadFromSparqlEndpoint()` - La méthode principale
 
-**Description :** Méthode principale pour charger des données avec la hiérarchie complète.
+**Ce qu'elle fait :** Récupère des données depuis un endpoint SPARQL avec plusieurs options de secours.
 
-**Paramètres :**
-- `endpoint` (string) : URL de l'endpoint SPARQL
-- `query` (string) : Requête SPARQL à exécuter
-- `jsonData` (object, optionnel) : Données JSON pré-formatées (priorité absolue)
-- `proxyUrl` (string, optionnel) : URL du proxy SPARQL
-- `onProxyError` (function, optionnel) : Callback appelé en cas d'erreur de proxy
-- `onNotification` (function, optionnel) : Callback pour afficher des notifications
-
-**Exemple d'utilisation :**
+**Comment l'utiliser :**
 ```javascript
-const result = await sparqlFetcher.loadFromSparqlEndpoint(
-  'https://dbpedia.org/sparql',
-  'SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 10',
-  null, // Pas de données JSON directes
-  'http://localhost:3001/sparql-proxy', // URL du proxy
-  () => console.log('Erreur proxy détectée'), // Callback d'erreur proxy
-  (message, type) => console.log(`${type}: ${message}`) // Callback de notification
+const result = await fetcher.loadFromSparqlEndpoint(
+  'https://dbpedia.org/sparql',                    // Où chercher les données
+  'SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 10',  // Quoi chercher
+  null,                                            // Données JSON (optionnel)
+  'http://localhost:3001/sparql-proxy'            // Proxy de secours (optionnel)
 );
 
 if (result.status === 'success') {
-  console.log('Données chargées:', result.data);
-  console.log('Méthode utilisée:', result.method);
+  console.log('Données récupérées :', result.data);
 } else {
-  console.error('Erreur:', result.message);
+  console.log('Erreur :', result.message);
 }
 ```
 
-### 2. `executeSparqlQueryWithFallback(endpoint, query, proxyUrl, onProxyError, onNotification)`
+### `executeSparqlQueryWithFallback()` - Requête avec secours automatique
 
-**Description :** Exécute une requête SPARQL avec fallback automatique vers le proxy.
+**Ce qu'elle fait :** Essaie d'abord l'endpoint direct, puis utilise automatiquement le proxy si ça ne marche pas (problème CORS).
 
-**Exemple d'utilisation :**
+**Comment l'utiliser :**
 ```javascript
 try {
-  const data = await sparqlFetcher.executeSparqlQueryWithFallback(
-    'https://sparql.uniprot.org/sparql',
-    'SELECT * WHERE { ?s a ?type } LIMIT 5',
-    'http://localhost:3001/sparql-proxy'
+  const data = await fetcher.executeSparqlQueryWithFallback(
+    'https://dbpedia.org/sparql',
+    'SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 5',
+    'http://localhost:3001/sparql-proxy', // Proxy de secours
+    () => console.log('⚠️ Le proxy ne marche pas'), // Si problème de proxy
+    (msg, type) => console.log(`${type}: ${msg}`) // Notifications
   );
-  console.log('Résultats SPARQL:', data);
+  console.log('Résultats :', data);
 } catch (error) {
-  console.error('Erreur lors de l\'exécution:', error.message);
+  console.log('Aucune solution n\'a marché :', error.message);
 }
 ```
 
-### 3. `executeSparqlQuery(endpoint, query)`
+### `executeSparqlQuery()` - Requête directe simple
 
-**Description :** Exécute une requête SPARQL directe sans proxy.
+**Ce qu'elle fait :** Envoie une requête directement à l'endpoint, sans proxy.
 
-**Exemple d'utilisation :**
+**Comment l'utiliser :**
 ```javascript
 try {
-  const data = await sparqlFetcher.executeSparqlQuery(
+  const data = await fetcher.executeSparqlQuery(
     'https://query.wikidata.org/sparql',
-    'SELECT ?item ?itemLabel WHERE { ?item wdt:P31 wd:Q5 } LIMIT 10'
+    'SELECT ?item WHERE { ?item wdt:P31 wd:Q5 } LIMIT 5'
   );
-  console.log('Données reçues:', data);
+  console.log('Résultats :', data);
 } catch (error) {
-  console.error('Requête directe échouée:', error.message);
+  console.log('Ça n\'a pas marché :', error.message);
 }
 ```
 
-### 4. `setData(nodes, links)` et `setJsonData(jsonData)`
+### `setJsonData()` - Utiliser ses propres données
 
-**Description :** Méthodes pour définir des données manuellement.
+**Ce qu'elle fait :** Utilise des données JSON que vous avez déjà, au lieu d'aller les chercher.
 
-**Exemple d'utilisation :**
+**Comment l'utiliser :**
 ```javascript
-// Définir des données manuellement
-const manualResult = sparqlFetcher.setData(
-  [{ id: 'node1', label: 'Nœud 1' }],
-  [{ source: 'node1', target: 'node2' }]
-);
-
-// Ou utiliser des données JSON pré-formatées
-const jsonResult = sparqlFetcher.setJsonData({
-  head: { vars: ['s', 'p', 'o'] },
+const mesdonnees = {
+  head: { vars: ['nom', 'age'] },
   results: {
     bindings: [
       {
-        s: { type: 'uri', value: 'http://example.org/subject' },
-        p: { type: 'uri', value: 'http://example.org/predicate' },
-        o: { type: 'literal', value: 'Objet exemple' }
+        nom: { type: 'literal', value: 'Jean' },
+        age: { type: 'literal', value: '25' }
       }
     ]
   }
-});
+};
+
+const result = fetcher.setJsonData(mesonnees);
+console.log('Mes données :', result.data);
 ```
 
 ---
 
-## 📊 Format de Données et Réponses
+## 📊 Ce que vous récupérez
 
-### Format de Réponse Standard
-Toutes les méthodes principales retournent un objet avec cette structure :
+Toutes les méthodes vous donnent un objet comme ça :
 
 ```javascript
 {
-  status: 'success' | 'error',
-  method: 'manual' | 'direct-json' | 'endpoint-or-proxy',
-  message: 'Description du résultat',
-  data: { /* Données transformées */ },
-  rawData: { /* Données SPARQL brutes */ }
-}
-```
-
-### Format SPARQL JSON Attendu
-Le fetcher attend le format JSON SPARQL standard :
-
-```json
-{
-  "head": {
-    "vars": ["variable1", "variable2"]
-  },
-  "results": {
-    "bindings": [
-      {
-        "variable1": {
-          "type": "uri",
-          "value": "http://example.org/resource1"
-        },
-        "variable2": {
-          "type": "literal",
-          "value": "Valeur littérale"
-        }
-      }
-    ]
-  }
+  status: 'success',           // 'success' si ça marche, 'error' sinon
+  method: 'endpoint-or-proxy', // Comment les données ont été récupérées
+  message: 'Données chargées', // Description de ce qui s'est passé
+  data: { /* vos données */ }, // Les données transformées
+  rawData: { /* ... */ }       // Les données brutes originales
 }
 ```
 
 ---
 
-## 🔄 Propriétés et État
+## 🚨 Gérer les erreurs
 
-### Propriétés Disponibles
+### Erreurs courantes et solutions
+
+**1. Erreur "Failed to fetch" ou "CORS"**
+- **Problème :** Votre navigateur bloque la connexion
+- **Solution :** Utilisez un proxy en 4ème paramètre
+- **📖 Guide complet :** [Configuration du proxy](https://github.com/Ye4hL0w/test-visualisator/blob/main/docs/proxy-setup.md)
+
+**2. Erreur "404" ou "HTTP error"**
+- **Problème :** L'adresse de l'endpoint est incorrecte
+- **Solution :** Vérifiez l'URL
+
+**3. Erreur "Bad Request"**
+- **Problème :** Votre requête SPARQL a une erreur de syntaxe
+- **Solution :** Vérifiez votre requête SPARQL
+
+### Exemple avec gestion d'erreurs
 ```javascript
-// Accéder aux propriétés de l'instance
-console.log('Endpoint actuel:', sparqlFetcher.currentEndpoint);
-console.log('Proxy actuel:', sparqlFetcher.currentProxyUrl);
-console.log('Dernières données SPARQL:', sparqlFetcher.lastSparqlData);
-```
-
----
-
-## 🚨 Gestion d'Erreurs et Dépannage
-
-### Types d'Erreurs Courantes
-
-**1. Erreur CORS**
-```
-Failed to fetch
-```
-**Solution :** Configurez un proxy SPARQL et passez son URL au fetcher.
-
-**2. Endpoint SPARQL invalide**
-```
-Erreur HTTP: 404
-```
-**Solution :** Vérifiez l'URL de l'endpoint SPARQL.
-
-**3. Requête SPARQL malformée**
-```
-Endpoint error (400): Bad Request
-```
-**Solution :** Vérifiez la syntaxe de votre requête SPARQL.
-
-**4. Proxy non disponible**
-```
-Proxy configuré à http://localhost:3001/sparql-proxy a échoué après une erreur CORS
-```
-**Solution :** Vérifiez que votre serveur proxy est démarré et accessible.
-
-### Callbacks de Gestion d'Erreurs
-
-```javascript
-// Exemple complet avec gestion d'erreurs
-const result = await sparqlFetcher.loadFromSparqlEndpoint(
-  endpoint,
-  query,
+const result = await fetcher.loadFromSparqlEndpoint(
+  'https://dbpedia.org/sparql',
+  'SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 10',
   null,
-  proxyUrl,
-  // Callback d'erreur proxy - appelé quand le proxy ne fonctionne pas
-  () => {
-    console.error('🚫 Proxy non fonctionnel - Configuration requise');
-    // Ici vous pouvez afficher un panneau d'aide à l'utilisateur
-  },
-  // Callback de notification - appelé pour informer l'utilisateur
-  (message, type) => {
-    if (type === 'error') {
-      console.error('❌', message);
-    } else {
-      console.log('ℹ️', message);
-    }
-  }
+  'http://localhost:3001/sparql-proxy',
+  () => console.log('⚠️ Problème de proxy'), // Si le proxy ne marche pas
+  (message, type) => console.log(`${type}: ${message}`) // Pour les notifications
 );
 ```
 
 ---
 
-## 🎯 Cas d'Utilisation Avancés
+## 💡 Exemple complet
 
-### 1. Utilisation avec Retry Logic
 ```javascript
-async function loadDataWithRetry(endpoint, query, maxRetries = 3) {
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      const result = await sparqlFetcher.loadFromSparqlEndpoint(endpoint, query);
-      if (result.status === 'success') {
-        return result;
-      }
-    } catch (error) {
-      console.warn(`Tentative ${i + 1} échouée:`, error.message);
-      if (i === maxRetries - 1) throw error;
-      
-      // Attendre avant de réessayer
-      await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
-    }
-  }
-}
-```
+// 1. Importer
+import { SparqlDataFetcher } from './components/SparqlDataFetcher.js';
 
-### 2. Utilisation avec Plusieurs Endpoints
-```javascript
-class MultiEndpointFetcher {
-  constructor() {
-    this.fetchers = new Map();
-  }
-  
-  getFetcher(endpointName) {
-    if (!this.fetchers.has(endpointName)) {
-      this.fetchers.set(endpointName, new SparqlDataFetcher());
-    }
-    return this.fetchers.get(endpointName);
-  }
-  
-  async queryDBpedia(query) {
-    return this.getFetcher('dbpedia').loadFromSparqlEndpoint(
-      'https://dbpedia.org/sparql',
-      query
-    );
-  }
-  
-  async queryWikidata(query) {
-    return this.getFetcher('wikidata').loadFromSparqlEndpoint(
+// 2. Créer une instance
+const fetcher = new SparqlDataFetcher();
+
+// 3. Récupérer des données
+async function recupererDonnees() {
+  try {
+    const result = await fetcher.loadFromSparqlEndpoint(
       'https://query.wikidata.org/sparql',
-      query
+      `SELECT ?pays ?paysLabel WHERE {
+        ?pays wdt:P31 wd:Q6256 .
+        SERVICE wikibase:label { bd:serviceParam wikibase:language "fr" }
+      } LIMIT 10`,
+      null, // Pas de données JSON
+      'http://localhost:3001/sparql-proxy' // Proxy au cas où
     );
-  }
-}
-```
 
-### 3. Intégration avec Cache
-```javascript
-class CachedSparqlFetcher {
-  constructor() {
-    this.fetcher = new SparqlDataFetcher();
-    this.cache = new Map();
-  }
-  
-  getCacheKey(endpoint, query) {
-    return btoa(endpoint + query); // Simple hash
-  }
-  
-  async loadFromSparqlEndpoint(endpoint, query, ...otherArgs) {
-    const cacheKey = this.getCacheKey(endpoint, query);
-    
-    if (this.cache.has(cacheKey)) {
-      console.log('📦 Données chargées depuis le cache');
-      return this.cache.get(cacheKey);
-    }
-    
-    const result = await this.fetcher.loadFromSparqlEndpoint(
-      endpoint, 
-      query, 
-      ...otherArgs
-    );
-    
     if (result.status === 'success') {
-      this.cache.set(cacheKey, result);
-    }
-    
-    return result;
-  }
-}
-```
-
----
-
-## 📖 Référence Complète des Méthodes
-
-| Méthode | Paramètres | Retour | Description |
-|---------|------------|---------|-------------|
-| `loadFromSparqlEndpoint()` | endpoint, query, jsonData?, proxyUrl?, onProxyError?, onNotification? | Promise<Result> | Charge des données avec hiérarchie complète |
-| `executeSparqlQueryWithFallback()` | endpoint, query, proxyUrl?, onProxyError?, onNotification? | Promise<SparqlData> | Exécute requête avec fallback proxy |
-| `executeSparqlQuery()` | endpoint, query | Promise<SparqlData> | Exécute requête directe |
-| `setData()` | nodes, links | Result | Définit données manuellement |
-| `setJsonData()` | jsonData | Result | Charge données JSON pré-formatées |
-| `isCorsError()` | error | boolean | Détecte si erreur est due à CORS |
-
----
-
-## 🔧 Configuration Recommandée
-
-### Pour un Composant Web Custom
-```javascript
-export class MonComposantSPARQL extends HTMLElement {
-  constructor() {
-    super();
-    this.sparqlFetcher = new SparqlDataFetcher();
-    this.attachShadow({ mode: 'open' });
-  }
-  
-  async loadData(endpoint, query, proxyUrl = null) {
-    try {
-      const result = await this.sparqlFetcher.loadFromSparqlEndpoint(
-        endpoint,
-        query,
-        null,
-        proxyUrl,
-        () => this.showProxyError(),
-        (msg, type) => this.showNotification(msg, type)
-      );
+      console.log('🎉 Données récupérées !');
+      console.log('Nombre de résultats :', result.data.results.bindings.length);
       
-      if (result.status === 'success') {
-        this.renderData(result.data);
-      }
-    } catch (error) {
-      this.showError(error.message);
+      // Afficher les pays
+      result.data.results.bindings.forEach(pays => {
+        console.log('Pays :', pays.paysLabel.value);
+      });
+    } else {
+      console.log('❌ Erreur :', result.message);
     }
-  }
-  
-  showProxyError() {
-    // Afficher aide pour configuration proxy
-  }
-  
-  showNotification(message, type) {
-    // Afficher notification à l'utilisateur
-  }
-  
-  showError(message) {
-    // Afficher erreur
-  }
-  
-  renderData(data) {
-    // Rendre les données dans le composant
+  } catch (error) {
+    console.log('💥 Problème :', error.message);
   }
 }
+
+// 4. Lancer la récupération
+recupererDonnees();
 ```
 
 ---
 
-**🎉 C'est tout !** Avec `SparqlDataFetcher`, vous disposez d'un outil robuste et flexible pour gérer la récupération de données SPARQL dans vos applications JavaScript, avec une gestion automatique des problèmes CORS et une interface simple à utiliser. 
+## 📖 Résumé des méthodes
+
+| Méthode | À quoi ça sert | Paramètres essentiels |
+|---------|----------------|----------------------|
+| `loadFromSparqlEndpoint()` | Récupérer des données avec tous les secours | endpoint, requête |
+| `executeSparqlQueryWithFallback()` | Requête avec secours automatique | endpoint, requête, proxy, callback pour problème de proxy, callback pour notifications |
+| `executeSparqlQuery()` | Requête directe simple | endpoint, requête |
+| `setJsonData()` | Utiliser ses propres données JSON | données JSON |
+
+---
+
+**🎯 En résumé :** Créez une instance, appelez `loadFromSparqlEndpoint()` avec votre endpoint et votre requête, et récupérez vos données dans `result.data` ! 
