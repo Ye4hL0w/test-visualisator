@@ -90,6 +90,8 @@ try {
 
 **Ce qu'elle fait :** Utilise des données JSON que vous avez déjà, au lieu d'aller les chercher.
 
+**Format attendu :** Les données doivent suivre le [format JSON standard du W3C pour SPARQL](https://www.w3.org/TR/sparql11-results-json/).
+
 **Comment l'utiliser :**
 ```javascript
 const mesdonnees = {
@@ -212,12 +214,4 @@ recupererDonnees();
 
 ---
 
-**🎯 En résumé :** Créez une instance, appelez `loadFromSparqlEndpoint()` avec votre endpoint et votre requête, et récupérez vos données dans `result.data` !
-
----
-
-## 📚 Documentation complémentaire
-
-- **[📊 Composant vis-graph](https://github.com/Ye4hL0w/test-visualisator/blob/main/docs/VisGraph.md)** - Guide du composant de visualisation qui utilise SparqlDataFetcher
-- **[🔧 Configuration du proxy](https://github.com/Ye4hL0w/test-visualisator/blob/main/docs/proxy-setup.md)** - Guide détaillé pour résoudre les problèmes CORS
-- **[💻 SparqlDataFetcher](https://github.com/Ye4hL0w/test-visualisator/blob/main/docs/dataFetcher-setup.md)** - Cette documentation (guide d'utilisation du fetcher) 
+**🎯 En résumé :** Créez une instance, appelez `loadFromSparqlEndpoint()` avec votre endpoint et votre requête, et récupérez vos données dans `result.data` ! 
