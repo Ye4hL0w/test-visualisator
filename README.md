@@ -123,7 +123,7 @@ Incluez le script dans votre HTML. Vous pouvez l'obtenir depuis un CDN comme unp
 *   **`setData(nodes, links)`**: Définit manuellement les données du graphe.
     *   `nodes` (Array): Tableau d'objets nœuds (ex: `{ id: "node1", label: "Node 1" }`).
     *   `links` (Array): Tableau d'objets liens (ex: `{ source: "node1", target: "node2" }`).
-*   **`setJsonData(jsonData)`**: Charge des données à partir d'un objet JSON au format SPARQL standard.
+*   **`setSparqlResult(jsonData)`**: Charge des données à partir du résultat d'une requête SPARQL (au format JSON standard retourné par les endpoints SPARQL).
     *   `jsonData` (Object): Objet contenant les résultats SPARQL (format `{ head: { vars: [] }, results: { bindings: [] } }`).
     *   Retourne: `Promise<Object>` avec le statut de l'opération.
 *   **`loadFromSparqlEndpoint(endpoint, query, jsonData = null)`**: Charge les données depuis un endpoint SPARQL ou des données JSON directes.
@@ -134,6 +134,14 @@ Incluez le script dans votre HTML. Vous pouvez l'obtenir depuis un CDN comme unp
 *   **`executeNodeQuery(node)`**: Récupère et affiche des informations détaillées pour un nœud spécifique (généralement appelé en interne sur un clic droit).
     *   `node` (Object): L'objet nœud du graphe.
     *   Retourne: `Promise<Object>` avec le statut et les données récupérées.
+
+## Documentation
+
+📚 **Guides détaillés disponibles :**
+
+- **[Guide du Composant vis-graph](https://github.com/Ye4hL0w/test-visualisator/blob/main/docs/VisGraph.md)** - Fonctionnement interne et architecture du composant
+- **[Guide SparqlDataFetcher](https://github.com/Ye4hL0w/test-visualisator/blob/main/docs/dataFetcher-setup.md)** - Utilisation simple du module de récupération de données
+- **[Configuration du Proxy SPARQL](https://github.com/Ye4hL0w/test-visualisator/blob/main/docs/proxy-setup.md)** - Résolution des problèmes CORS
 
 ## Gestion des Erreurs CORS et Proxy
 

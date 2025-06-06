@@ -780,12 +780,24 @@ export class VisGraph extends HTMLElement {
    * Ajoute la section relations complètes avec détails
    */
   addCompleteRelationshipsSection(container, bindings) {
+    // Déduplication des relations basée sur propriété + valeur cible
+    const uniqueRelations = new Map();
+    bindings.forEach(binding => {
+      const key = `${binding.property.value}|${binding.value.value}`;
+      if (!uniqueRelations.has(key)) {
+        uniqueRelations.set(key, binding);
+      }
+    });
+    const deduplicatedBindings = Array.from(uniqueRelations.values());
+    
+    console.log(`[vis-graph] Déduplication des relations: ${bindings.length} → ${deduplicatedBindings.length}`);
+    
     const section = document.createElement('div');
     section.className = 'info-section';
     section.style.marginBottom = '20px';
     
     const title = document.createElement('h3');
-    title.textContent = `Relationships & Classifications (${bindings.length} relations)`;
+    title.textContent = `Relationships & Classifications (${deduplicatedBindings.length} relations)`;
     title.style.borderBottom = '2px solid #ffc107';
     title.style.paddingBottom = '5px';
     title.style.marginBottom = '15px';
@@ -805,7 +817,7 @@ export class VisGraph extends HTMLElement {
     `;
     section.appendChild(explanation);
     
-    bindings.forEach((binding, index) => {
+    deduplicatedBindings.forEach((binding, index) => {
       const relationContainer = document.createElement('div');
       relationContainer.style.marginBottom = '15px';
       relationContainer.style.padding = '12px';
