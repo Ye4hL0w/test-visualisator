@@ -1,4 +1,4 @@
-  /**
+/**
  * Composant simplifié de visualisation de graphe D3.js
  */
 // import * as d3 from 'd3'; // penser a décommenter si l'on veut publier le composant
@@ -16,6 +16,7 @@ export class VisGraph extends HTMLElement {
     this.tooltipTimeout = null;
     this.currentEndpoint = null; // Stocker l'endpoint actif
     this.currentProxyUrl = null; // Stocker l'URL du proxy configurée
+    this.sparqlData = null; // Stocker les données brutes de la requête SPARQL
     
     // Instance du fetcher pour récupérer les données SPARQL
     this.sparqlFetcher = new SparqlDataFetcher();
@@ -54,7 +55,7 @@ export class VisGraph extends HTMLElement {
    * Définit manuellement les données (priorité absolue)
    */
   setData(nodes, links) {
-    console.log('[VisGraph] 📋 Définition manuelle des données');
+    console.log('[vis-graph] 📋 Définition manuelle des données');
     this.nodes = nodes;
     this.links = links;
     this.render();
@@ -63,8 +64,8 @@ export class VisGraph extends HTMLElement {
   /**
    * Charge des données JSON pré-formatées
    */
-  setJsonData(jsonData) {
-    console.log('[VisGraph] 📄 Chargement de données JSON pré-formatées');
+  setSparqlResult(jsonData) {
+    console.log('[vis-graph] 📄 Chargement de données JSON pré-formatées');
     return this.loadFromSparqlEndpoint(null, null, jsonData);
   }
 
@@ -123,6 +124,8 @@ export class VisGraph extends HTMLElement {
       );
       
       if (result.status === 'success') {
+        this.sparqlData = result.data; // Conserver les données brutes
+
         if (result.method === 'direct-json') {
           // Données JSON directes
           const transformedData = this.transformSparqlResults(result.data);
@@ -152,7 +155,7 @@ export class VisGraph extends HTMLElement {
       
       return result;
     } catch (error) {
-      console.error('[VisGraph] ❌ Erreur lors du chargement des données:', error.message);
+      console.error('[vis-graph] ❌ Erreur lors du chargement des données:', error.message);
       return {
         status: 'error',
         message: `Erreur: ${error.message}`,
@@ -359,13 +362,13 @@ export class VisGraph extends HTMLElement {
    */
   async executeNodeQuery(node) {
     if (!node || !node.uri) {
-      console.error("[VisGraph] ❌ Aucun URI disponible pour ce nœud");
+      console.error("[vis-graph] ❌ Aucun URI disponible pour ce nœud");
       this.showNotification("Ce nœud n'a pas d'URI associé", 'error');
       return;
     }
     
     try {
-      console.log(`[VisGraph] 🔍 Récupération des détails pour ${node.label}...`);
+      console.log(`[vis-graph] 🔍 Récupération des détails pour ${node.label}...`);
       this.showNotification(`Récupération des détails pour ${node.label}...`);
       
       const endpoint = this.currentEndpoint || this.getAttribute('endpoint') || 'https://dbpedia.org/sparql';
@@ -378,14 +381,14 @@ export class VisGraph extends HTMLElement {
         relationships: null
       };
       
-      console.log(`[VisGraph] Requêtes pour les détails du nœud ${node.label} (URI: ${node.uri}) sur l'endpoint: ${endpoint}`);
+      console.log(`[vis-graph] Requêtes pour les détails du nœud ${node.label} (URI: ${node.uri}) sur l'endpoint: ${endpoint}`);
       if (proxyUrl) {
-        console.log(`[VisGraph] URL du proxy configurée: ${proxyUrl}`);
+        console.log(`[vis-graph] URL du proxy configurée: ${proxyUrl}`);
       }
 
       for (const [queryType, queryContent] of Object.entries(queries)) {
-        console.log(`[VisGraph] Exécution de la requête de type "${queryType}"`);
-        console.log(`[VisGraph] Contenu de la requête ${queryType}:\n${queryContent}`);
+        console.log(`[vis-graph] Exécution de la requête de type "${queryType}"`);
+        console.log(`[vis-graph] Contenu de la requête ${queryType}:\n${queryContent}`);
         try {
           // Utiliser le sparqlFetcher avec hiérarchie endpoint > proxy
           const data = await this.sparqlFetcher.executeSparqlQueryWithFallback(
@@ -396,9 +399,9 @@ export class VisGraph extends HTMLElement {
             (message, type) => this.showNotification(message, type)
           );
           allData[queryType] = data;
-          console.log(`[VisGraph] ✅ Succès pour la requête ${queryType}`);
+          console.log(`[vis-graph] ✅ Succès pour la requête ${queryType}`);
         } catch (error) {
-          console.warn(`[VisGraph] ⚠️ Erreur pour la requête ${queryType}:`, error.message);
+          console.warn(`[vis-graph] ⚠️ Erreur pour la requête ${queryType}:`, error.message);
           this.showNotification(`Erreur lors de la récupération des données de type ${queryType}.`, 'error');
         }
       }
@@ -407,7 +410,7 @@ export class VisGraph extends HTMLElement {
       return { status: 'success', data: allData };
 
     } catch (error) {
-      console.error('[VisGraph] ❌ Erreur majeure lors de la récupération des détails du nœud:', error.message);
+      console.error('[vis-graph] ❌ Erreur majeure lors de la récupération des détails du nœud:', error.message);
       this.showNotification(`Erreur: ${error.message}`, 'error');
       this.displayBasicNodeDetails(node); // Fallback
       return { status: 'error', message: error.message };
@@ -663,11 +666,11 @@ export class VisGraph extends HTMLElement {
    */
   extractGraphContext(node) {
     const context = [];
-    if (!node.originalData || !this.sparqlFetcher.lastSparqlData || !this.sparqlFetcher.lastSparqlData.head || !this.sparqlFetcher.lastSparqlData.head.vars) {
+    if (!node.originalData || !this.sparqlData || !this.sparqlData.head || !this.sparqlData.head.vars) {
       return context;
     }
 
-    const mainSparqlVars = this.sparqlFetcher.lastSparqlData.head.vars;
+    const mainSparqlVars = this.sparqlData.head.vars;
     const sourceVar = mainSparqlVars[0];
     const targetVar = mainSparqlVars.length > 1 ? mainSparqlVars[1] : null;
 

@@ -1,8 +1,8 @@
-# Configuration du Proxy SPARQL pour VisGraph
+# Configuration du Proxy SPARQL pour vis-graph
 
 ## 🎯 Quand et Pourquoi un Proxy ?
 
-Le composant `VisGraph` est conçu pour charger et visualiser des données depuis des endpoints SPARQL. Idéalement, ces endpoints devraient être configurés pour autoriser les requêtes depuis des origines web différentes (via CORS). Cependant, de nombreux endpoints SPARQL publics ne le sont pas.
+Le composant `vis-graph` est conçu pour charger et visualiser des données depuis des endpoints SPARQL. Idéalement, ces endpoints devraient être configurés pour autoriser les requêtes depuis des origines web différentes (via CORS). Cependant, de nombreux endpoints SPARQL publics ne le sont pas.
 
 Lorsque vous essayez de charger des données depuis un tel endpoint directement depuis votre navigateur, vous rencontrerez une **erreur CORS (Cross-Origin Resource Sharing)**. Dans la console de votre navigateur, cela se manifeste souvent par des messages comme :
 
@@ -10,20 +10,20 @@ Lorsque vous essayez de charger des données depuis un tel endpoint directement 
 Access to fetch at 'https://mon-endpoint-sparql.com/sparql' from origin 'http://localhost:xxxx' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
 ```
 
-Ou, dans les logs du composant `VisGraph` :
+Ou, dans les logs du composant `vis-graph` :
 
 ```
-[VisGraph] Échec avec endpoint direct: Failed to fetch
-[VisGraph] 🎯 Erreur CORS détectée - Tentative avec proxy local...
+[vis-graph] Échec avec endpoint direct: Failed to fetch
+[vis-graph] 🎯 Erreur CORS détectée - Tentative avec proxy local...
 ```
 
-Pour contourner ce problème, `VisGraph` peut utiliser un **petit serveur proxy local**. Ce serveur, que vous exécutez sur votre machine, reçoit la requête de `VisGraph`, la transmet à l'endpoint SPARQL distant (les serveurs ne sont pas soumis aux restrictions CORS des navigateurs), récupère la réponse, et la renvoie à `VisGraph`.
+Pour contourner ce problème, `vis-graph` peut utiliser un **petit serveur proxy local**. Ce serveur, que vous exécutez sur votre machine, reçoit la requête de `vis-graph`, la transmet à l'endpoint SPARQL distant (les serveurs ne sont pas soumis aux restrictions CORS des navigateurs), récupère la réponse, et la renvoie à `vis-graph`.
 
 **Vous devez mettre en place ce proxy local si et seulement si vous rencontrez des erreurs CORS.** Si les requêtes directes fonctionnent, le proxy n'est pas nécessaire.
 
 ## 🚀 Mise en Place du Serveur Proxy Local (`server/proxy.js`)
 
-La solution recommandée est de créer un simple serveur Node.js qui agira comme proxy. Le composant `VisGraph` est préconfiguré pour essayer d'utiliser ce proxy sur `http://localhost:3001/sparql-proxy` si une requête directe échoue à cause de CORS.
+La solution recommandée est de créer un simple serveur Node.js qui agira comme proxy. Le composant `vis-graph` récupère l'URL du proxy passé en paramètre pour essayer d'utiliser ce proxy si une requête directe échoue à cause de CORS.
 
 Suivez ces étapes pour le mettre en place :
 
@@ -67,24 +67,24 @@ node server/proxy.js
 Vous devriez voir un message indiquant que le serveur a démarré, typiquement :
 
 ```
-Serveur proxy SPARQL démarré sur http://localhost:3001
-Utilisez http://localhost:3001/sparql-proxy en fournissant 'endpoint' et 'query' comme paramètres.
+Serveur proxy SPARQL démarré sur http://localhost:3001 (ou sur votre url)
+Fournissez 'endpoint', 'query' et l'URL du proxy comme paramètres.
 ```
 
-**Laissez ce terminal ouvert et le serveur proxy en cours d'exécution** pendant que vous utilisez votre application web avec le composant `VisGraph`. Si vous fermez ce terminal, le proxy s'arrêtera.
+**Laissez ce terminal ouvert et le serveur proxy en cours d'exécution** pendant que vous utilisez votre application web avec le composant `vis-graph`. Si vous fermez ce terminal, le proxy s'arrêtera.
 
-### Étape 4 : Utilisation par `VisGraph`
+### Étape 4 : Utilisation par `vis-graph`
 
-Aucune configuration supplémentaire n'est nécessaire dans le composant `VisGraph` lui-même.
+Aucune configuration supplémentaire n'est nécessaire dans le composant `vis-graph` lui-même.
 S'il rencontre une erreur CORS en tentant une requête directe, il essaiera automatiquement d'utiliser le proxy à l'adresse `http://localhost:3001/sparql-proxy`.
 
-Si le proxy est correctement lancé et fonctionnel, la récupération des données devrait réussir.
+Le composant essaiera d'abord la requête directe vers l'endpoint. Si cela échoue à cause de CORS et qu'une URL de proxy est configurée, il utilisera automatiquement le proxy pour contourner le problème.
 
 ---
 
-## 📊 Format de Données Attendu par `VisGraph`
+## 📊 Format de Données Attendu par `vis-graph`
 
-Le composant `VisGraph` attend le **format JSON SPARQL standard**. Votre proxy doit retourner exactement ce format :
+Le composant `vis-graph` attend le **format JSON SPARQL standard**. Votre proxy doit retourner exactement ce format :
 
 ```json
 {
@@ -121,13 +121,14 @@ Le composant `VisGraph` attend le **format JSON SPARQL standard**. Votre proxy d
 **Problèmes courants :**
 
 *   **Erreur `Cannot find module 'express'`** : Exécutez `npm install express node-fetch@2 cors`
-*   **Port 3001 déjà utilisé** : Un autre programme utilise le port. Fermez-le ou changez le port dans `server/proxy.js`
-*   **Proxy ne reçoit aucune requête** : Vérifiez que `VisGraph` tente bien d'utiliser le proxy après l'erreur CORS
+*   **Port déjà utilisé** : Un autre programme utilise le port. Fermez-le ou changez le port dans `server/proxy.js` (n'oubliez pas de mettre à jour l'URL dans votre interface)
+*   **Proxy ne reçoit aucune requête** : Vérifiez que l'URL du proxy dans votre interface correspond exactement à celle du serveur lancé
 *   **Erreur `import` statement** : Ajoutez `"type": "module"` dans votre `package.json`
 
 **Tests rapides :**
-*   Proxy lancé ? → `http://localhost:3001/proxy-status` doit afficher `{"status":"Proxy is running"}`
+*   Proxy lancé ? → Visitez `http://localhost:3001/proxy-status` (ou votre port configuré) qui doit afficher `{"status":"Proxy is running"}`
 *   Logs du proxy : Surveillez le terminal où `node server/proxy.js` s'exécute
+*   URL correcte ? → Vérifiez que l'URL passée en paramètre correspond au message affiché au démarrage du proxy
 
 ---
 
@@ -161,7 +162,7 @@ async function executeQuery(endpoint, sparqlQuery, method = 'POST', res) {
   try {
     const headers = {
       'Accept': 'application/sparql-results+json, application/json',
-      'User-Agent': 'VisGraph-Proxy/1.0'
+      'User-Agent': 'vis-graph-Proxy/1.0'
     };
     let body;
     let targetUrl = endpoint;
@@ -246,4 +247,4 @@ process.on('unhandledRejection', (reason, promise) => {
 
 ---
 
-**🎉 C'est tout !** Avec le serveur `server/proxy.js` en place et en cours d'exécution, votre composant `VisGraph` devrait maintenant être capable de contourner les restrictions CORS et de charger des données depuis une plus grande variété d'endpoints SPARQL. 
+**🎉 C'est tout !** Avec le serveur `server/proxy.js` en place et en cours d'exécution, votre composant `vis-graph` devrait maintenant être capable de contourner les restrictions CORS et de charger des données depuis une plus grande variété d'endpoints SPARQL. 

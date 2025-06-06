@@ -1,11 +1,11 @@
 /**
  * Utilitaire pour récupérer des données SPARQL avec gestion automatique CORS/proxy
- * Peut être réutilisé dans plusieurs composants
+ * Réutilisable dans plusieurs composants
  */
 export class SparqlDataFetcher {
   constructor() {
     this.currentEndpoint = null;
-    this.lastSparqlData = null;
+    this.currentProxyUrl = null;
   }
 
   /**
@@ -70,7 +70,7 @@ export class SparqlDataFetcher {
   /**
    * Exécute une requête SPARQL avec hiérarchie : endpoint direct puis proxy
    */
-  async executeSparqlQueryWithFallback(endpoint, query, onProxyError = null, onNotification = null) {
+  async executeSparqlQueryWithFallback(endpoint, query, proxyUrl = null, onProxyError = null, onNotification = null) {
     console.log('[SparqlDataFetcher] Début de l\'exécution de la requête SPARQL');
     console.log('[SparqlDataFetcher] Endpoint cible:', endpoint);
     
@@ -85,10 +85,18 @@ export class SparqlDataFetcher {
       if (this.isCorsError(directError)) {
         console.log('[SparqlDataFetcher] 🎯 Erreur CORS détectée - Tentative avec proxy local...');
 
-        // Tentative 2: Proxy local sur http://localhost:3001/sparql-proxy
-        const proxyUrl = 'http://localhost:3001/sparql-proxy';
+        // Vérifier si une URL de proxy est fournie
+        if (!proxyUrl) {
+          console.error('[SparqlDataFetcher] ❌ Aucune URL de proxy fournie pour contourner CORS');
+          this.showCustomProxyError();
+          if (onProxyError) onProxyError();
+          if (onNotification) onNotification('Erreur CORS détectée mais aucune URL de proxy configurée. Veuillez configurer un proxy SPARQL.', 'error');
+          throw new Error('Erreur CORS - URL de proxy manquante');
+        }
+
+        // Tentative 2: Proxy configuré par l'utilisateur
         try {
-          console.log(`[SparqlDataFetcher] Tentative 2: Proxy local via ${proxyUrl}`);
+          console.log(`[SparqlDataFetcher] Tentative 2: Proxy configuré via ${proxyUrl}`);
           
           const params = new URLSearchParams({ endpoint: endpoint, query: query });
           const fullProxyUrl = `${proxyUrl}?${params.toString()}`;
@@ -102,13 +110,13 @@ export class SparqlDataFetcher {
 
           if (!response.ok) {
             const errorData = await response.text();
-            throw new Error(`Proxy local error (${response.status}): ${errorData}`);
+            throw new Error(`Proxy error (${response.status}): ${errorData}`);
           }
           const result = await response.json();
-          console.log('[SparqlDataFetcher] ✅ Succès avec proxy local');
+          console.log('[SparqlDataFetcher] ✅ Succès avec proxy configuré');
           return result;
         } catch (proxyError) {
-          console.error('[SparqlDataFetcher] Échec avec proxy local:', proxyError.message);
+          console.error('[SparqlDataFetcher] Échec avec proxy configuré:', proxyError.message);
           
           const isProxyConnectionError = proxyError.message.includes('Failed to fetch') || 
                                         proxyError.message.includes('Connection refused') ||
@@ -117,13 +125,13 @@ export class SparqlDataFetcher {
           if (isProxyConnectionError) {
             this.showCustomProxyError();
             if (onProxyError) onProxyError();
-            if (onNotification) onNotification(`Le proxy local sur ${proxyUrl} semble ne pas fonctionner. Vérifiez la console du proxy et les instructions affichées.`, 'error');
+            if (onNotification) onNotification(`Le proxy configuré sur ${proxyUrl} semble ne pas fonctionner. Vérifiez que le proxy est démarré et accessible.`, 'error');
           } else {
             if (onNotification) onNotification(`Erreur de l'endpoint SPARQL distant. Vérifiez l'URL de l'endpoint ou essayez une requête plus simple.`, 'error');
             console.error('[SparqlDataFetcher] L\'endpoint SPARQL distant a retourné une erreur:', proxyError.message);
           }
           
-          throw new Error(`Proxy local à ${proxyUrl} a échoué après une erreur CORS. Détails: ${proxyError.message}`);
+          throw new Error(`Proxy configuré à ${proxyUrl} a échoué après une erreur CORS. Détails: ${proxyError.message}`);
         }
       } else {
         console.error('[SparqlDataFetcher] Erreur non-CORS avec endpoint direct:', directError);
@@ -159,12 +167,11 @@ export class SparqlDataFetcher {
   /**
    * Charge les données avec hiérarchie : JSON direct > endpoint > proxy
    */
-  async loadFromSparqlEndpoint(endpoint, query, jsonData = null, onProxyError = null, onNotification = null) {
+  async loadFromSparqlEndpoint(endpoint, query, jsonData = null, proxyUrl = null, onProxyError = null, onNotification = null) {
     try {
       // Priorité 1: Données JSON fournies directement
       if (jsonData) {
         console.log('[SparqlDataFetcher] 🎯 Utilisation des données JSON fournies directement');
-        this.lastSparqlData = jsonData;
         
         return {
           status: 'success',
@@ -178,9 +185,9 @@ export class SparqlDataFetcher {
       // Priorité 2 et 3: Endpoint puis proxy
       console.log('[SparqlDataFetcher] 🔍 Récupération des données depuis l\'endpoint...');
       this.currentEndpoint = endpoint;
+      this.currentProxyUrl = proxyUrl;
       
-      const rawData = await this.executeSparqlQueryWithFallback(endpoint, query, onProxyError, onNotification);
-      this.lastSparqlData = rawData;
+      const rawData = await this.executeSparqlQueryWithFallback(endpoint, query, proxyUrl, onProxyError, onNotification);
       
       return {
         status: 'success',

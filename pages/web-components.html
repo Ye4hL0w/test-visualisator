@@ -71,10 +71,19 @@
                     </div>
                     
                     <div class="control-group" id="server-query-controls">
+
+                        <div class="control-row">
+                            <label for="proxy-url">Proxy URL (optionnel):</label>
+                            <input type="text" id="proxy-url" class="full-width" placeholder="http://localhost:3001/sparql-proxy" value="http://localhost:3001/sparql-proxy">
+                            <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                                Utilisé en cas d'erreur CORS avec l'endpoint direct. Laissez vide si pas de proxy.
+                            </small>
+                        </div>
+
                         <div class="control-row">
                             <label for="endpoint-url">Endpoint URL:</label>
                             <input type="text" id="endpoint-url" class="full-width" placeholder="https://example.com/api/endpoint" value="https://example.com/sparql">
-                        </div>
+                        </div>                        
                         
                         <div class="control-row">
                             <label for="query-input">Requête SPARQL:</label>
@@ -132,8 +141,8 @@ WHERE {
             <pre class="code-preview">
 <!-- 1. Importer les scripts nécessaires -->
 &lt;script src="https://d3js.org/d3.v7.min.js">&lt;/script>
-&lt;script type="module" src="components/VisGraph.js">&lt;/script>
-&lt;script type="module" src="components/VisTable.js">&lt;/script>
+&lt;script type="module" src="components/vis-graph.js">&lt;/script>
+&lt;script type="module" src="components/vis-table.js">&lt;/script>
 
 <!-- 2. Ajouter les composants dans le HTML -->
 &lt;vis-graph width="800" height="600">&lt;/vis-graph>
@@ -157,8 +166,8 @@ document.querySelector('vis-table').setData([
     
     
     <!-- Chargement des composants de visualisation -->
-    <script type="module" src="../components/VisGraph.js"></script>
-    <script type="module" src="../components/VisTable.js"></script>
+    <script type="module" src="../components/vis-graph.js"></script>
+    <script type="module" src="../components/vis-table.js"></script>
     <script src="../js/example-loader.js"></script>
     <script type="module" src="../js/web-components.js"></script>
 
@@ -168,7 +177,7 @@ document.querySelector('vis-table').setData([
         
         <div class="doc-grid">
             <div class="doc-card">
-                <h3>VisGraph.js</h3>
+                <h3>vis-graph.js</h3>
                 <p>Composant pour afficher les données sous forme de tableau</p>
                 <ul>
                     <li>Utilise D3.js pour les visualisations.</li>
@@ -179,7 +188,7 @@ document.querySelector('vis-table').setData([
             </div>
             
             <div class="doc-card">
-                <h3>VisTable.js</h3>
+                <h3>vis-table.js</h3>
                 <p>Composant pour afficher les données sous forme de tableau</p>
                 <ul>
                     <li>Affiche les données et permet l'option d'affichage JSON</li>

@@ -1,13 +1,13 @@
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
-import terser from '@rollup/plugin-terser'; // Remplacer par le plugin scopé
+import { terser } from 'rollup-plugin-terser';
 import fs from 'fs'; // Ajout de l'import fs
 
 // Lire package.json pour obtenir le nom et les dépendances
 // import pkg from './package.json' assert { type: 'json' }; // Ancienne méthode
 const pkg = JSON.parse(fs.readFileSync('./package.json', 'utf-8')); // Nouvelle méthode
 
-const input = 'components/VisGraph.js';
+const input = 'components/vis-graph.js';
 
 export default [
   // Bundle ES module (pour les bundlers modernes)

@@ -110,6 +110,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Gestion des requêtes SPARQL
     const endpointInput = document.getElementById('endpoint-url');
+    const proxyInput = document.getElementById('proxy-url');
     const queryInput = document.getElementById('query-input');
     const executeButton = document.getElementById('execute-query');
     const clearButton = document.getElementById('clear-results');
@@ -121,11 +122,12 @@ document.addEventListener('DOMContentLoaded', function() {
     executeButton.addEventListener('click', async function() {
         // Récupérer les valeurs des champs
         const endpoint = endpointInput.value.trim();
+        const proxyUrl = proxyInput.value.trim();
         const query = queryInput.value.trim();
         
-        // Vérifier que les champs ne sont pas vides
+        // Vérifier que les champs obligatoires ne sont pas vides
         if (!endpoint || !query) {
-            queryStatus.textContent = 'Veuillez remplir tous les champs';
+            queryStatus.textContent = 'Veuillez remplir l\'endpoint et la requête (le proxy est optionnel)';
             queryStatus.className = 'status-message status-error';
             return;
         }
@@ -135,8 +137,8 @@ document.addEventListener('DOMContentLoaded', function() {
         queryStatus.className = 'status-message status-loading';
         
         try {
-            // Essayer d'abord avec le graphe en mode CORS
-            const result = await graph.loadFromSparqlEndpoint(endpoint, query);
+            // Exécuter la requête avec l'endpoint et le proxy (peut être vide)
+            const result = await graph.loadFromSparqlEndpoint(endpoint, query, null, proxyUrl || null);
             
             if (result.status === 'success') {
                 queryStatus.textContent = result.message;

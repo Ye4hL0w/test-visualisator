@@ -23,7 +23,7 @@ async function executeQuery(endpoint, sparqlQuery, method = 'POST', res) {
   try {
     const headers = {
       'Accept': 'application/sparql-results+json, application/json',
-      'User-Agent': 'VisGraph-Proxy/1.0'
+      'User-Agent': 'vis-graph-Proxy/1.0'
     };
     let body;
     let targetUrl = endpoint;

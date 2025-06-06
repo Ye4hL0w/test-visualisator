@@ -1,6 +1,6 @@
-# Composant VisGraph
+# Composant vis-graph
 
-Le fichier `VisGraph.js` définit un composant web (`<vis-graph>`) capable d'afficher des graphes de connaissances interactifs à partir de données issues d'endpoints SPARQL. Il utilise D3.js pour la visualisation et la simulation de forces.
+Le fichier `vis-graph.js` définit un composant web (`<vis-graph>`) capable d'afficher des graphes de connaissances interactifs à partir de données issues d'endpoints SPARQL. Il utilise D3.js pour la visualisation et la simulation de forces.
 
 ## Fonctionnement général
 
@@ -54,4 +54,4 @@ Le fichier `VisGraph.js` définit un composant web (`<vis-graph>`) capable d'aff
 *   **Stockage des données originales (`originalData`)** : En conservant l'intégralité du `binding` SPARQL pour chaque nœud, le composant permet d'enrichir l'affichage des détails avec toutes les informations contextuelles qui étaient présentes dans la ligne de résultat ayant défini ce nœud ou ses connexions, sans nécessiter de requêtes supplémentaires pour ces informations spécifiques.
 *   **Extraction robuste des ID (`extractIdFromBinding`)** : La capacité à extraire un identifiant signifiant à partir de différents formats d'URI ou de valeurs littérales assure que chaque nœud possède une identité unique et potentiellement lisible, même avant qu'un label plus descriptif ne soit trouvé.
 
-Ce mécanisme permet au composant `VisGraph` de générer des visualisations de graphe utiles et informatives à partir de divers types de résultats SPARQL, en s'efforçant de présenter les nœuds avec les labels les plus pertinents disponibles directement dans les données initiales. 
+Ce mécanisme permet au composant `vis-graph` de générer des visualisations de graphe utiles et informatives à partir de divers types de résultats SPARQL, en s'efforçant de présenter les nœuds avec les labels les plus pertinents disponibles directement dans les données initiales. 
