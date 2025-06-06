@@ -3978,12 +3978,12 @@ Transform.prototype;
 
 /**
  * Utilitaire pour récupérer des données SPARQL avec gestion automatique CORS/proxy
- * Peut être réutilisé dans plusieurs composants
+ * Réutilisable dans plusieurs composants
  */
 class SparqlDataFetcher {
   constructor() {
     this.currentEndpoint = null;
-    this.lastSparqlData = null;
+    this.currentProxyUrl = null;
   }
 
   /**
@@ -4001,15 +4001,15 @@ class SparqlDataFetcher {
   }
 
   /**
-   * Charge des données JSON pré-formatées
+   * Charge des données JSON
    */
-  setJsonData(jsonData) {
+  setSparqlResult(jsonData) {
     console.log('[SparqlDataFetcher] 📄 Chargement de données JSON pré-formatées');
     return this.loadFromSparqlEndpoint(null, null, jsonData);
   }
 
   /**
-   * Affiche une erreur personnalisée avec des instructions pour configurer le proxy
+   * Affiche une erreur personnalisée
    */
   showCustomProxyError() {
     console.error('🚫 [SparqlDataFetcher] Problème de CORS détecté ou proxy non fonctionnel.');
@@ -4027,7 +4027,7 @@ class SparqlDataFetcher {
   }
 
   /**
-   * Détecte si l'erreur est due à CORS
+   * Détecter si l'erreur est due à CORS
    */
   isCorsError(error) {
     const corsIndicators = [
@@ -4048,25 +4048,33 @@ class SparqlDataFetcher {
   /**
    * Exécute une requête SPARQL avec hiérarchie : endpoint direct puis proxy
    */
-  async executeSparqlQueryWithFallback(endpoint, query, onProxyError = null, onNotification = null) {
+  async executeSparqlQueryWithFallback(endpoint, query, proxyUrl = null, onProxyError = null, onNotification = null) {
     console.log('[SparqlDataFetcher] Début de l\'exécution de la requête SPARQL');
     console.log('[SparqlDataFetcher] Endpoint cible:', endpoint);
     
-    // Tentative 1: Endpoint direct
+    // 1 : Endpoint direct
     try {
       console.log('[SparqlDataFetcher] Tentative 1: Endpoint direct');
       return await this.executeSparqlQuery(endpoint, query);
     } catch (directError) {
       console.warn('[SparqlDataFetcher] Échec avec endpoint direct:', directError.message);
       
-      // Vérifier si c'est bien une erreur CORS
+      // Vérification de si c'est bien une erreur CORS
       if (this.isCorsError(directError)) {
         console.log('[SparqlDataFetcher] 🎯 Erreur CORS détectée - Tentative avec proxy local...');
 
-        // Tentative 2: Proxy local sur http://localhost:3001/sparql-proxy
-        const proxyUrl = 'http://localhost:3001/sparql-proxy';
+        // Vérifier si une URL de proxy est bien fournie
+        if (!proxyUrl) {
+          console.error('[SparqlDataFetcher] ❌ Aucune URL de proxy fournie pour contourner CORS');
+          this.showCustomProxyError();
+          if (onProxyError) onProxyError();
+          if (onNotification) onNotification('Erreur CORS détectée mais aucune URL de proxy configurée. Veuillez configurer un proxy SPARQL.', 'error');
+          throw new Error('Erreur CORS - URL de proxy manquante');
+        }
+
+        // 2 : Proxy configuré par l'utilisateur
         try {
-          console.log(`[SparqlDataFetcher] Tentative 2: Proxy local via ${proxyUrl}`);
+          console.log(`[SparqlDataFetcher] Tentative 2: Proxy configuré via ${proxyUrl}`);
           
           const params = new URLSearchParams({ endpoint: endpoint, query: query });
           const fullProxyUrl = `${proxyUrl}?${params.toString()}`;
@@ -4080,13 +4088,13 @@ class SparqlDataFetcher {
 
           if (!response.ok) {
             const errorData = await response.text();
-            throw new Error(`Proxy local error (${response.status}): ${errorData}`);
+            throw new Error(`Proxy error (${response.status}): ${errorData}`);
           }
           const result = await response.json();
-          console.log('[SparqlDataFetcher] ✅ Succès avec proxy local');
+          console.log('[SparqlDataFetcher] ✅ Succès avec proxy configuré');
           return result;
         } catch (proxyError) {
-          console.error('[SparqlDataFetcher] Échec avec proxy local:', proxyError.message);
+          console.error('[SparqlDataFetcher] Échec avec proxy configuré:', proxyError.message);
           
           const isProxyConnectionError = proxyError.message.includes('Failed to fetch') || 
                                         proxyError.message.includes('Connection refused') ||
@@ -4095,13 +4103,13 @@ class SparqlDataFetcher {
           if (isProxyConnectionError) {
             this.showCustomProxyError();
             if (onProxyError) onProxyError();
-            if (onNotification) onNotification(`Le proxy local sur ${proxyUrl} semble ne pas fonctionner. Vérifiez la console du proxy et les instructions affichées.`, 'error');
+            if (onNotification) onNotification(`Le proxy configuré sur ${proxyUrl} semble ne pas fonctionner. Vérifiez que le proxy est démarré et accessible.`, 'error');
           } else {
             if (onNotification) onNotification(`Erreur de l'endpoint SPARQL distant. Vérifiez l'URL de l'endpoint ou essayez une requête plus simple.`, 'error');
             console.error('[SparqlDataFetcher] L\'endpoint SPARQL distant a retourné une erreur:', proxyError.message);
           }
           
-          throw new Error(`Proxy local à ${proxyUrl} a échoué après une erreur CORS. Détails: ${proxyError.message}`);
+          throw new Error(`Proxy configuré à ${proxyUrl} a échoué après une erreur CORS. Détails: ${proxyError.message}`);
         }
       } else {
         console.error('[SparqlDataFetcher] Erreur non-CORS avec endpoint direct:', directError);
@@ -4137,12 +4145,11 @@ class SparqlDataFetcher {
   /**
    * Charge les données avec hiérarchie : JSON direct > endpoint > proxy
    */
-  async loadFromSparqlEndpoint(endpoint, query, jsonData = null, onProxyError = null, onNotification = null) {
+  async loadFromSparqlEndpoint(endpoint, query, jsonData = null, proxyUrl = null, onProxyError = null, onNotification = null) {
     try {
-      // Priorité 1: Données JSON fournies directement
+      // 1: Données JSON fournies directement
       if (jsonData) {
         console.log('[SparqlDataFetcher] 🎯 Utilisation des données JSON fournies directement');
-        this.lastSparqlData = jsonData;
         
         return {
           status: 'success',
@@ -4153,12 +4160,12 @@ class SparqlDataFetcher {
         };
       }
       
-      // Priorité 2 et 3: Endpoint puis proxy
+      // 2 et 3: Endpoint puis proxy
       console.log('[SparqlDataFetcher] 🔍 Récupération des données depuis l\'endpoint...');
       this.currentEndpoint = endpoint;
+      this.currentProxyUrl = proxyUrl;
       
-      const rawData = await this.executeSparqlQueryWithFallback(endpoint, query, onProxyError, onNotification);
-      this.lastSparqlData = rawData;
+      const rawData = await this.executeSparqlQueryWithFallback(endpoint, query, proxyUrl, onProxyError, onNotification);
       
       return {
         status: 'success',
@@ -4194,6 +4201,8 @@ class VisGraph extends HTMLElement {
     this.selectedNode = null;
     this.tooltipTimeout = null;
     this.currentEndpoint = null; // Stocker l'endpoint actif
+    this.currentProxyUrl = null; // Stocker l'URL du proxy configurée
+    this.sparqlData = null; // Stocker les données brutes de la requête SPARQL
     
     // Instance du fetcher pour récupérer les données SPARQL
     this.sparqlFetcher = new SparqlDataFetcher();
@@ -4232,7 +4241,7 @@ class VisGraph extends HTMLElement {
    * Définit manuellement les données (priorité absolue)
    */
   setData(nodes, links) {
-    console.log('[VisGraph] 📋 Définition manuelle des données');
+    console.log('[vis-graph] 📋 Définition manuelle des données');
     this.nodes = nodes;
     this.links = links;
     this.render();
@@ -4241,8 +4250,8 @@ class VisGraph extends HTMLElement {
   /**
    * Charge des données JSON pré-formatées
    */
-  setJsonData(jsonData) {
-    console.log('[VisGraph] 📄 Chargement de données JSON pré-formatées');
+  setSparqlResult(jsonData) {
+    console.log('[vis-graph] 📄 Chargement de données JSON pré-formatées');
     return this.loadFromSparqlEndpoint(null, null, jsonData);
   }
 
@@ -4286,19 +4295,23 @@ class VisGraph extends HTMLElement {
   /**
    * Charge les données avec hiérarchie : JSON direct > endpoint > proxy
    */
-  async loadFromSparqlEndpoint(endpoint, query, jsonData = null) {
+  async loadFromSparqlEndpoint(endpoint, query, jsonData = null, proxyUrl = null) {
     try {
       this.currentEndpoint = endpoint;
+      this.currentProxyUrl = proxyUrl;
       
       const result = await this.sparqlFetcher.loadFromSparqlEndpoint(
         endpoint, 
         query, 
         jsonData,
+        proxyUrl,
         () => this.showProxyErrorPanel(), // Callback pour afficher le panneau d'erreur proxy
         (message, type) => this.showNotification(message, type) // Callback pour les notifications
       );
       
       if (result.status === 'success') {
+        this.sparqlData = result.data; // Conserver les données brutes
+
         if (result.method === 'direct-json') {
           // Données JSON directes
           const transformedData = this.transformSparqlResults(result.data);
@@ -4328,7 +4341,7 @@ class VisGraph extends HTMLElement {
       
       return result;
     } catch (error) {
-      console.error('[VisGraph] ❌ Erreur lors du chargement des données:', error.message);
+      console.error('[vis-graph] ❌ Erreur lors du chargement des données:', error.message);
       return {
         status: 'error',
         message: `Erreur: ${error.message}`,
@@ -4535,16 +4548,17 @@ class VisGraph extends HTMLElement {
    */
   async executeNodeQuery(node) {
     if (!node || !node.uri) {
-      console.error("[VisGraph] ❌ Aucun URI disponible pour ce nœud");
+      console.error("[vis-graph] ❌ Aucun URI disponible pour ce nœud");
       this.showNotification("Ce nœud n'a pas d'URI associé", 'error');
       return;
     }
     
     try {
-      console.log(`[VisGraph] 🔍 Récupération des détails pour ${node.label}...`);
+      console.log(`[vis-graph] 🔍 Récupération des détails pour ${node.label}...`);
       this.showNotification(`Récupération des détails pour ${node.label}...`);
       
       const endpoint = this.currentEndpoint || this.getAttribute('endpoint') || 'https://dbpedia.org/sparql';
+      const proxyUrl = this.currentProxyUrl || this.getAttribute('proxy-url'); // Récupérer URL du proxy
       const queries = this.buildInformativeQueries(node.uri);
       
       let allData = {
@@ -4553,23 +4567,27 @@ class VisGraph extends HTMLElement {
         relationships: null
       };
       
-      console.log(`[VisGraph] Requêtes pour les détails du nœud ${node.label} (URI: ${node.uri}) sur l'endpoint: ${endpoint}`);
+      console.log(`[vis-graph] Requêtes pour les détails du nœud ${node.label} (URI: ${node.uri}) sur l'endpoint: ${endpoint}`);
+      if (proxyUrl) {
+        console.log(`[vis-graph] URL du proxy configurée: ${proxyUrl}`);
+      }
 
       for (const [queryType, queryContent] of Object.entries(queries)) {
-        console.log(`[VisGraph] Exécution de la requête de type "${queryType}"`);
-        console.log(`[VisGraph] Contenu de la requête ${queryType}:\n${queryContent}`);
+        console.log(`[vis-graph] Exécution de la requête de type "${queryType}"`);
+        console.log(`[vis-graph] Contenu de la requête ${queryType}:\n${queryContent}`);
         try {
           // Utiliser le sparqlFetcher avec hiérarchie endpoint > proxy
           const data = await this.sparqlFetcher.executeSparqlQueryWithFallback(
             endpoint, 
             queryContent,
+            proxyUrl,
             () => this.showProxyErrorPanel(),
             (message, type) => this.showNotification(message, type)
           );
           allData[queryType] = data;
-          console.log(`[VisGraph] ✅ Succès pour la requête ${queryType}`);
+          console.log(`[vis-graph] ✅ Succès pour la requête ${queryType}`);
         } catch (error) {
-          console.warn(`[VisGraph] ⚠️ Erreur pour la requête ${queryType}:`, error.message);
+          console.warn(`[vis-graph] ⚠️ Erreur pour la requête ${queryType}:`, error.message);
           this.showNotification(`Erreur lors de la récupération des données de type ${queryType}.`, 'error');
         }
       }
@@ -4578,7 +4596,7 @@ class VisGraph extends HTMLElement {
       return { status: 'success', data: allData };
 
     } catch (error) {
-      console.error('[VisGraph] ❌ Erreur majeure lors de la récupération des détails du nœud:', error.message);
+      console.error('[vis-graph] ❌ Erreur majeure lors de la récupération des détails du nœud:', error.message);
       this.showNotification(`Erreur: ${error.message}`, 'error');
       this.displayBasicNodeDetails(node); // Fallback
       return { status: 'error', message: error.message };
@@ -4834,11 +4852,11 @@ class VisGraph extends HTMLElement {
    */
   extractGraphContext(node) {
     const context = [];
-    if (!node.originalData || !this.sparqlFetcher.lastSparqlData || !this.sparqlFetcher.lastSparqlData.head || !this.sparqlFetcher.lastSparqlData.head.vars) {
+    if (!node.originalData || !this.sparqlData || !this.sparqlData.head || !this.sparqlData.head.vars) {
       return context;
     }
 
-    const mainSparqlVars = this.sparqlFetcher.lastSparqlData.head.vars;
+    const mainSparqlVars = this.sparqlData.head.vars;
     const sourceVar = mainSparqlVars[0];
     const targetVar = mainSparqlVars.length > 1 ? mainSparqlVars[1] : null;
 
@@ -4948,12 +4966,24 @@ class VisGraph extends HTMLElement {
    * Ajoute la section relations complètes avec détails
    */
   addCompleteRelationshipsSection(container, bindings) {
+    // Déduplication des relations basée sur propriété + valeur cible
+    const uniqueRelations = new Map();
+    bindings.forEach(binding => {
+      const key = `${binding.property.value}|${binding.value.value}`;
+      if (!uniqueRelations.has(key)) {
+        uniqueRelations.set(key, binding);
+      }
+    });
+    const deduplicatedBindings = Array.from(uniqueRelations.values());
+    
+    console.log(`[vis-graph] Déduplication des relations: ${bindings.length} → ${deduplicatedBindings.length}`);
+    
     const section = document.createElement('div');
     section.className = 'info-section';
     section.style.marginBottom = '20px';
     
     const title = document.createElement('h3');
-    title.textContent = `Relationships & Classifications (${bindings.length} relations)`;
+    title.textContent = `Relationships & Classifications (${deduplicatedBindings.length} relations)`;
     title.style.borderBottom = '2px solid #ffc107';
     title.style.paddingBottom = '5px';
     title.style.marginBottom = '15px';
@@ -4973,7 +5003,7 @@ class VisGraph extends HTMLElement {
     `;
     section.appendChild(explanation);
     
-    bindings.forEach((binding, index) => {
+    deduplicatedBindings.forEach((binding, index) => {
       const relationContainer = document.createElement('div');
       relationContainer.style.marginBottom = '15px';
       relationContainer.style.padding = '12px';

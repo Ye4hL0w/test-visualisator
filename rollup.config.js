@@ -1,6 +1,6 @@
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
-import { terser } from 'rollup-plugin-terser';
+import terser from '@rollup/plugin-terser';
 import fs from 'fs'; // Ajout de l'import fs
 
 // Lire package.json pour obtenir le nom et les dépendances
