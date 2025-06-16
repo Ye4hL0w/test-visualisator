@@ -1,7 +1,7 @@
 /**
  * Composant simplifié de visualisation de graphe D3.js
  */
-// import * as d3 from 'd3'; // penser a décommenter si l'on veut publier le composant
+//  import * as d3 from 'd3'; // penser a décommenter si l'on veut publier le composant
 import { SparqlDataFetcher } from './SparqlDataFetcher.js';
 
 export class VisGraph extends HTMLElement {
