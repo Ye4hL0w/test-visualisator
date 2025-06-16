@@ -1,17 +1,17 @@
 # @jmoncada/vis-graph
 
-Un composant web pour visualiser des graphes de connaissances SPARQL avec D3.js.
+A web component for visualizing SPARQL knowledge graphs with D3.js.
 
 ![npm version](https://img.shields.io/npm/v/@jmoncada/vis-graph)
 ![license](https://img.shields.io/npm/l/@jmoncada/vis-graph)
 
-## ✨ Fonctionnalités
+## ✨ Features
 
-- 🔄 **Chargement automatique** depuis des endpoints SPARQL
-- 🌐 **Gestion CORS/Proxy** automatique 
-- 🎨 **Visualisation interactive** avec D3.js
-- 📊 **Détails enrichis** pour chaque nœud
-- 🔍 **Transformation intelligente** des données SPARQL
+- 🔄 **Automatic loading** from SPARQL endpoints
+- 🌐 **Automatic CORS/Proxy handling** 
+- 🎨 **Interactive visualization** with D3.js
+- 📊 **Enriched details** for each node
+- 🔍 **Smart transformation** of SPARQL data
 
 ## 🚀 Installation
 
@@ -19,45 +19,45 @@ Un composant web pour visualiser des graphes de connaissances SPARQL avec D3.js.
 npm install @jmoncada/vis-graph
 ```
 
-## 📖 Utilisation rapide
+## 📖 Quick Usage
 
-### 1. Importation
+### 1. Import
 
-**Option A: Module ES (recommandé avec un bundler)**
+**Option A: ES Module (recommended with a bundler)**
 
 ```javascript
-import '@jmoncada/vis-graph'; // Importe et enregistre le Web Component <vis-graph>
+import '@jmoncada/vis-graph'; // Import and register the Web Component <vis-graph>
 
-// Ou si vous avez besoin d'accéder à la classe directement (moins courant pour juste l'utiliser)
+// Or if you need to access the class directly (less common for just using it)
 // import { VisGraph } from '@jmoncada/vis-graph'; 
 ```
 
-**Option B: UMD (pour une utilisation directe dans le navigateur via `<script>`)**
+**Option B: UMD (for direct use in browser via `<script>`)**
 
-Incluez le script dans votre HTML.
+Include the script in your HTML.
 
 ```html
 <script src="https://unpkg.com/@jmoncada/vis-graph@latest/dist/vis-graph.umd.js"></script>
 ```
 
-### 2. Utilisation en HTML
+### 2. HTML Usage
 
 ```html
-<vis-graph id="monGraphe" width="800" height="600"></vis-graph>
+<vis-graph id="myGraph" width="800" height="600"></vis-graph>
 
 <script>
-  const graphe = document.getElementById('monGraphe');
+  const graph = document.getElementById('myGraph');
 
-  // Exemple simple avec Wikidata
-  graphe.loadFromSparqlEndpoint(
+  // Simple example with Wikidata
+  graph.loadFromSparqlEndpoint(
     'https://query.wikidata.org/sparql',
     `SELECT ?item ?itemLabel WHERE {
       ?item wdt:P31 wd:Q5 .
-      SERVICE wikibase:label { bd:serviceParam wikibase:language "fr" }
+      SERVICE wikibase:label { bd:serviceParam wikibase:language "en" }
     } LIMIT 10`
   ).then(result => {
     if (result.status === 'success') {
-      console.log('Graphe chargé avec', result.data.nodes.length, 'nœuds');
+      console.log('Graph loaded with', result.data.nodes.length, 'nodes');
     }
   });
 </script>
@@ -65,12 +65,12 @@ Incluez le script dans votre HTML.
 
 ## Documentation
 
-📚 **Guides détaillés disponibles :**
+📚 **Detailed guides available:**
 
-- **[Guide du Composant vis-graph](https://github.com/Ye4hL0w/test-visualisator/blob/main/docs/VisGraph.md)** - Fonctionnement interne et architecture du composant
-- **[Guide SparqlDataFetcher](https://github.com/Ye4hL0w/test-visualisator/blob/main/docs/dataFetcher-setup.md)** - Utilisation simple du module de récupération de données
-- **[Configuration du Proxy SPARQL](https://github.com/Ye4hL0w/test-visualisator/blob/main/docs/proxy-setup.md)** - Résolution des problèmes CORS
+- **[vis-graph Component Guide](https://github.com/Ye4hL0w/test-visualisator/blob/main/docs/VisGraph.md)** - Internal operation and component architecture
+- **[SparqlDataFetcher Guide](https://github.com/Ye4hL0w/test-visualisator/blob/main/docs/dataFetcher-setup.md)** - Simple usage of the data retrieval module
+- **[SPARQL Proxy Configuration](https://github.com/Ye4hL0w/test-visualisator/blob/main/docs/proxy-setup.md)** - Resolving CORS issues
 
-## Licence
+## License
 
-Ce projet est sous licence [MIT](./LICENSE). 
+This project is licensed under [MIT](./LICENSE). 

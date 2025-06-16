@@ -1,46 +1,46 @@
-# Composant vis-graph
+# vis-graph Component
 
-Le fichier `vis-graph.js` définit un composant web (`<vis-graph>`) capable d'afficher des graphes de connaissances interactifs à partir de données issues d'endpoints SPARQL. Il utilise D3.js pour la visualisation et le `SparqlDataFetcher` pour récupérer les données.
+The `vis-graph.js` file defines a web component (`<vis-graph>`) capable of displaying interactive knowledge graphs from data sourced from SPARQL endpoints. It uses D3.js for visualization and the `SparqlDataFetcher` to retrieve data.
 
-## Fonctionnement général
+## General Operation
 
-1.  **Initialisation** : Le composant peut être initialisé avec des dimensions (largeur, hauteur) et utilise une instance de `SparqlDataFetcher` pour gérer les requêtes SPARQL.
+1.  **Initialization**: The component can be initialized with dimensions (width, height) and uses a `SparqlDataFetcher` instance to manage SPARQL queries.
 
-2.  **Chargement des données** : La méthode principale `loadFromSparqlEndpoint(endpoint, query, jsonData, proxyUrl)` :
-    *   Utilise le `SparqlDataFetcher` avec gestion automatique des erreurs CORS et proxy
-    *   Stocke les données brutes dans `this.sparqlData` (propriété du composant)
-    *   Transforme les résultats SPARQL en nœuds et liens via `transformSparqlResults`
-    *   Affiche des notifications et panneaux d'erreur si nécessaire
+2.  **Data Loading**: The main method `loadFromSparqlEndpoint(endpoint, query, jsonData, proxyUrl)`:
+    *   Uses the `SparqlDataFetcher` with automatic CORS error and proxy management
+    *   Stores raw data in `this.sparqlData` (component property)
+    *   Transforms SPARQL results into nodes and links via `transformSparqlResults`
+    *   Displays notifications and error panels if necessary
 
-3.  **Transformation des données (`transformSparqlResults`)** :
-    *   **Variables SPARQL** : La première variable = source, la deuxième = cible
-    *   **Labels intelligents** : La méthode `_determineNodeLabelFromBinding()` trouve le meilleur label en analysant :
-        1.  Valeurs littérales directes
-        2.  Variables de label par convention (ex: `geneLabel` pour `gene`)
-        3.  Autres variables descriptives avec système de scoring
-        4.  ID extrait en dernier recours
-    *   **Données originales** : Chaque nœud conserve son `binding` SPARQL complet dans `originalData`
-    *   **Déduplication** : Les nœuds et liens sont dédupliqués automatiquement
+3.  **Data Transformation (`transformSparqlResults`)**:
+    *   **SPARQL Variables**: First variable = source, second variable = target
+    *   **Smart Labels**: The `_determineNodeLabelFromBinding()` method finds the best label by analyzing:
+        1.  Direct literal values
+        2.  Conventional label variables (e.g., `geneLabel` for `gene`)
+        3.  Other descriptive variables with scoring system
+        4.  ID extracted as last resort
+    *   **Original Data**: Each node preserves its complete SPARQL `binding` in `originalData`
+    *   **Deduplication**: Nodes and links are automatically deduplicated
 
-4.  **Rendu interactif** : Force-directed graph avec D3.js, interactions (survol, drag&drop, menu contextuel)
+4.  **Interactive Rendering**: Force-directed graph with D3.js, interactions (hover, drag&drop, context menu)
 
-5.  **Détails enrichis des nœuds** :
-    *   **Requêtes automatiques** : Clic droit → récupération de détails via requêtes SPARQL génériques
-    *   **Déduplication des relations** : Les relations sémantiques identiques sont fusionnées
-    *   **Affichage structuré** : Panneau avec sections (informations de base, contexte du graphe, relations, propriétés techniques)
+5.  **Enriched Node Details**:
+    *   **Automatic Queries**: Right-click → detail retrieval via generic SPARQL queries
+    *   **Relation Deduplication**: Identical semantic relations are merged
+    *   **Structured Display**: Panel with sections (basic information, graph context, relations, technical properties)
 
-## Stockage des données
+## Data Storage
 
-- **`this.sparqlData`** : Données SPARQL brutes conservées par le composant
-- **`this.nodes` et `this.links`** : Données transformées pour D3.js
-- **`node.originalData`** : Binding SPARQL complet pour chaque nœud
-- **`SparqlDataFetcher`** : Utilitaire stateless pour récupérer les données
+- **`this.sparqlData`**: Raw SPARQL data preserved by the component
+- **`this.nodes` and `this.links`**: Transformed data for D3.js
+- **`node.originalData`**: Complete SPARQL binding for each node
+- **`SparqlDataFetcher`**: Stateless utility for data retrieval
 
-## Points clés
+## Key Points
 
-*   **Flexibilité** : S'adapte à différents schémas SPARQL grâce à la détection intelligente des labels
-*   **Robustesse** : Gestion automatique CORS, proxy, déduplication, récupération d'erreurs
-*   **Performance** : Déduplication des relations et stockage optimisé des données
-*   **Extensibilité** : Données originales conservées pour enrichissements futurs
+*   **Flexibility**: Adapts to different SPARQL schemas through intelligent label detection
+*   **Robustness**: Automatic CORS management, proxy, deduplication, error recovery
+*   **Performance**: Relation deduplication and optimized data storage
+*   **Extensibility**: Original data preserved for future enhancements
 
-Le composant génère automatiquement des visualisations pertinentes à partir de résultats SPARQL variés, avec des labels informatifs et une gestion robuste des erreurs. 
+The component automatically generates relevant visualizations from varied SPARQL results, with informative labels and robust error handling. 

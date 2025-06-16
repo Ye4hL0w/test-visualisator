@@ -1,6 +1,6 @@
 {
   "name": "@jmoncada/vis-graph",
-  "version": "1.0.9",
+  "version": "1.1.0",
   "description": "Un composant web pour visualiser des graphes de connaissances SPARQL avec D3.js",
   "main": "dist/vis-graph.cjs.js",
   "module": "dist/vis-graph.esm.js",
@@ -38,7 +38,7 @@
   "dependencies": {
     "cors": "^2.8.5",
     "d3": "^7.0.0",
-    "express": "^5.1.0",
+    "express": "^4.19.2",
     "node-fetch": "^2.7.0"
   },
   "devDependencies": {

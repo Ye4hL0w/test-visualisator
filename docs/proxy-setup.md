@@ -1,90 +1,90 @@
-# Configuration du Proxy SPARQL pour vis-graph
+# SPARQL Proxy Configuration for vis-graph
 
-## 🎯 Quand et Pourquoi un Proxy ?
+## 🎯 When and Why a Proxy?
 
-Le composant `vis-graph` est conçu pour charger et visualiser des données depuis des endpoints SPARQL. Idéalement, ces endpoints devraient être configurés pour autoriser les requêtes depuis des origines web différentes (via CORS). Cependant, de nombreux endpoints SPARQL publics ne le sont pas.
+The `vis-graph` component is designed to load and visualize data from SPARQL endpoints. Ideally, these endpoints should be configured to allow requests from different web origins (via CORS). However, many public SPARQL endpoints are not configured this way.
 
-Lorsque vous essayez de charger des données depuis un tel endpoint directement depuis votre navigateur, vous rencontrerez une **erreur CORS (Cross-Origin Resource Sharing)**. Dans la console de votre navigateur, cela se manifeste souvent par des messages comme :
-
-```
-Access to fetch at 'https://mon-endpoint-sparql.com/sparql' from origin 'http://localhost:xxxx' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
-```
-
-Ou, dans les logs du composant `vis-graph` :
+When you try to load data from such an endpoint directly from your browser, you will encounter a **CORS (Cross-Origin Resource Sharing) error**. In your browser console, this often manifests as messages like:
 
 ```
-[vis-graph] Échec avec endpoint direct: Failed to fetch
-[vis-graph] 🎯 Erreur CORS détectée - Tentative avec proxy local...
+Access to fetch at 'https://my-sparql-endpoint.com/sparql' from origin 'http://localhost:xxxx' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
 ```
 
-Pour contourner ce problème, `vis-graph` peut utiliser un **petit serveur proxy local**. Ce serveur, que vous exécutez sur votre machine, reçoit la requête de `vis-graph`, la transmet à l'endpoint SPARQL distant (les serveurs ne sont pas soumis aux restrictions CORS des navigateurs), récupère la réponse, et la renvoie à `vis-graph`.
+Or, in the `vis-graph` component logs:
 
-**Vous devez mettre en place ce proxy local si et seulement si vous rencontrez des erreurs CORS.** Si les requêtes directes fonctionnent, le proxy n'est pas nécessaire.
+```
+[vis-graph] Direct endpoint failure: Failed to fetch
+[vis-graph] 🎯 CORS error detected - Attempting with local proxy...
+```
 
-## 🚀 Mise en Place du Serveur Proxy Local (`server/proxy.js`)
+To work around this problem, `vis-graph` can use a **small local proxy server**. This server, which you run on your machine, receives the request from `vis-graph`, forwards it to the remote SPARQL endpoint (servers are not subject to browser CORS restrictions), retrieves the response, and sends it back to `vis-graph`.
 
-La solution recommandée est de créer un simple serveur Node.js qui agira comme proxy. Le composant `vis-graph` récupère l'URL du proxy passé en paramètre pour essayer d'utiliser ce proxy si une requête directe échoue à cause de CORS.
+**You need to set up this local proxy if and only if you encounter CORS errors.** If direct requests work, the proxy is not necessary.
 
-Suivez ces étapes pour le mettre en place :
+## 🚀 Setting Up the Local Proxy Server (`server/proxy.js`)
 
-### Étape 1 : Créer le fichier `server/proxy.js`
+The recommended solution is to create a simple Node.js server that will act as a proxy. The `vis-graph` component uses the proxy URL passed as a parameter to try using this proxy if a direct request fails due to CORS.
 
-Créez un dossier `server` à la racine de votre projet, puis créez un fichier nommé `proxy.js` dans ce dossier.
+Follow these steps to set it up:
 
-Le contenu complet de ce fichier vous sera fourni à la section "[📄 Code Complet pour `server/proxy.js`](#code-complet-pour-proxyjs)" à la fin de ce document. Copiez-collez l'intégralité de ce code dans votre fichier `server/proxy.js`.
+### Step 1: Create the `server/proxy.js` file
 
-### Étape 2 : Installer les dépendances
+Create a `server` folder at the root of your project, then create a file named `proxy.js` in this folder.
 
-Ce serveur proxy a besoin de quelques paquets Node.js pour fonctionner : `express`, `node-fetch` (version 2 pour une meilleure compatibilité avec différents types de projets Node.js), et `cors`.
+The complete content of this file will be provided in the section "[📄 Complete Code for `server/proxy.js`](#complete-code-for-proxyjs)" at the end of this document. Copy and paste the entire code into your `server/proxy.js` file.
 
-Ouvrez un terminal **à la racine de votre projet** (là où se trouve votre `package.json`) et exécutez la commande suivante :
+### Step 2: Install dependencies
+
+This proxy server needs a few Node.js packages to function: `express`, `node-fetch` (version 2 for better compatibility with different types of Node.js projects), and `cors`.
+
+Open a terminal **at the root of your project** (where your `package.json` is located) and run the following command:
 
 ```bash
 npm install express node-fetch@2 cors
 ```
 
-Si vous utilisez Yarn :
+If you use Yarn:
 
 ```bash
 yarn add express node-fetch@2 cors
 ```
 
-**Note sur `node-fetch` et les modules ES/CommonJS :**
-*   Le code du `server/proxy.js` fourni utilise la syntaxe `import` (ES Modules). Pour que cela fonctionne, votre fichier `package.json` à la racine de votre projet doit contenir la ligne `"type": "module"`.
-*   Si votre projet n'est pas configuré pour les ES Modules (c'est-à-dire pas de `"type": "module"` ou alors `"type": "commonjs"`), vous devrez soit :
-    *   Adapter le code de `server/proxy.js` pour utiliser la syntaxe CommonJS (`require()` au lieu de `import`).
-    *   Ou, plus simple, ajouter `"type": "module"` à votre `package.json`.
-*   `node-fetch@2` est recommandé car il fonctionne bien avec la syntaxe `import` dans un contexte de module ES, et il est aussi plus aisé à utiliser avec `require` si vous deviez adapter le proxy en CommonJS. Les versions plus récentes de `node-fetch` sont purement ESM.
+**Note on `node-fetch` and ES/CommonJS modules:**
+*   The `server/proxy.js` code provided uses `import` syntax (ES Modules). For this to work, your `package.json` file at the root of your project must contain the line `"type": "module"`.
+*   If your project is not configured for ES Modules (i.e., no `"type": "module"` or `"type": "commonjs"`), you will need to either:
+    *   Adapt the `server/proxy.js` code to use CommonJS syntax (`require()` instead of `import`).
+    *   Or, simpler, add `"type": "module"` to your `package.json`.
+*   `node-fetch@2` is recommended because it works well with `import` syntax in an ES module context, and is also easier to use with `require` if you need to adapt the proxy to CommonJS. Newer versions of `node-fetch` are purely ESM.
 
-### Étape 3 : Lancer le serveur proxy
+### Step 3: Start the proxy server
 
-Une fois les dépendances installées, lancez le serveur proxy depuis votre terminal (toujours à la racine de votre projet) :
+Once the dependencies are installed, start the proxy server from your terminal (still at the root of your project):
 
 ```bash
 node server/proxy.js
 ```
 
-Vous devriez voir un message indiquant que le serveur a démarré, typiquement :
+You should see a message indicating that the server has started, typically:
 
 ```
-Serveur proxy SPARQL démarré sur http://localhost:3001 (ou sur votre url)
-Fournissez 'endpoint', 'query' et l'URL du proxy comme paramètres.
+SPARQL proxy server started on http://localhost:3001 (or your url)
+Provide 'endpoint', 'query' and the proxy URL as parameters.
 ```
 
-**Laissez ce terminal ouvert et le serveur proxy en cours d'exécution** pendant que vous utilisez votre application web avec le composant `vis-graph`. Si vous fermez ce terminal, le proxy s'arrêtera.
+**Keep this terminal open and the proxy server running** while you use your web application with the `vis-graph` component. If you close this terminal, the proxy will stop.
 
-### Étape 4 : Utilisation par `vis-graph`
+### Step 4: Usage by `vis-graph`
 
-Aucune configuration supplémentaire n'est nécessaire dans le composant `vis-graph` lui-même.
-S'il rencontre une erreur CORS en tentant une requête directe, il essaiera automatiquement d'utiliser le proxy à l'adresse `http://localhost:3001/sparql-proxy`.
+No additional configuration is needed in the `vis-graph` component itself.
+If it encounters a CORS error when attempting a direct request, it will automatically try to use the proxy at `http://localhost:3001/sparql-proxy`.
 
-Le composant essaiera d'abord la requête directe vers l'endpoint. Si cela échoue à cause de CORS et qu'une URL de proxy est configurée, il utilisera automatiquement le proxy pour contourner le problème.
+The component will first try the direct request to the endpoint. If this fails due to CORS and a proxy URL is configured, it will automatically use the proxy to work around the problem.
 
 ---
 
-## 📊 Format de Données Attendu par `vis-graph`
+## 📊 Data Format Expected by `vis-graph`
 
-Le composant `vis-graph` attend le **format JSON SPARQL standard**. Votre proxy doit retourner exactement ce format :
+The `vis-graph` component expects the **standard SPARQL JSON format**. Your proxy must return exactly this format:
 
 ```json
 {
@@ -100,7 +100,7 @@ Le composant `vis-graph` attend le **format JSON SPARQL standard**. Votre proxy 
         },
         "variable2": {
           "type": "literal",
-          "value": "Label pour la ressource"
+          "value": "Label for the resource"
         }
       }
     ]
@@ -108,38 +108,38 @@ Le composant `vis-graph` attend le **format JSON SPARQL standard**. Votre proxy 
 }
 ```
 
-**Points clés :**
-*   `head.vars` : Liste des variables de votre requête SPARQL
-*   `results.bindings` : Tableau des résultats
-*   `type` : `"uri"` pour les nœuds, `"literal"` pour les labels
-*   `value` : La valeur de la variable
+**Key points:**
+*   `head.vars`: List of variables from your SPARQL query
+*   `results.bindings`: Array of results
+*   `type`: `"uri"` for nodes, `"literal"` for labels
+*   `value`: The value of the variable
 
 ---
 
-## 🚨 Dépannage du Proxy Local
+## 🚨 Local Proxy Troubleshooting
 
-**Problèmes courants :**
+**Common problems:**
 
-*   **Erreur `Cannot find module 'express'`** : Exécutez `npm install express node-fetch@2 cors`
-*   **Port déjà utilisé** : Un autre programme utilise le port. Fermez-le ou changez le port dans `server/proxy.js` (n'oubliez pas de mettre à jour l'URL dans votre interface)
-*   **Proxy ne reçoit aucune requête** : Vérifiez que l'URL du proxy dans votre interface correspond exactement à celle du serveur lancé
-*   **Erreur `import` statement** : Ajoutez `"type": "module"` dans votre `package.json`
+*   **Error `Cannot find module 'express'`**: Run `npm install express node-fetch@2 cors`
+*   **Port already in use**: Another program is using the port. Close it or change the port in `server/proxy.js` (don't forget to update the URL in your interface)
+*   **Proxy receives no requests**: Check that the proxy URL in your interface exactly matches the one from the launched server
+*   **Error `import` statement**: Add `"type": "module"` to your `package.json`
 
-**Tests rapides :**
-*   Proxy lancé ? → Visitez `http://localhost:3001/proxy-status` (ou votre port configuré) qui doit afficher `{"status":"Proxy is running"}`
-*   Logs du proxy : Surveillez le terminal où `node server/proxy.js` s'exécute
-*   URL correcte ? → Vérifiez que l'URL passée en paramètre correspond au message affiché au démarrage du proxy
+**Quick tests:**
+*   Proxy launched? → Visit `http://localhost:3001/proxy-status` (or your configured port) which should display `{"status":"Proxy is running"}`
+*   Proxy logs: Monitor the terminal where `node server/proxy.js` is running
+*   Correct URL? → Check that the URL passed as parameter matches the message displayed at proxy startup
 
 ---
 
-## <a name="code-complet-pour-proxyjs"></a>📄 Code Complet pour `server/proxy.js`
+## <a name="complete-code-for-proxyjs"></a>📄 Complete Code for `server/proxy.js`
 
-Copiez l'intégralité du code ci-dessous et collez-le dans le fichier `server/proxy.js` que vous avez créé à la racine de votre projet.
+Copy the entire code below and paste it into the `server/proxy.js` file you created at the root of your project.
 
 ```javascript
 /**
- * Proxy SPARQL pour résoudre les problèmes CORS
- * Ce fichier doit être configuré selon votre environnement
+ * SPARQL Proxy to resolve CORS issues
+ * This file must be configured according to your environment
  */
 
 import express from 'express';
@@ -147,18 +147,18 @@ import fetch from 'node-fetch';
 import cors from 'cors';
 
 const app = express();
-const PORT = process.env.PROXY_PORT || 3001; // Le port sur lequel le proxy écoutera
+const PORT = process.env.PROXY_PORT || 3001; // The port the proxy will listen on
 
-app.use(cors()); // Permettre les requêtes Cross-Origin
-app.use(express.json()); // Pour parser le corps des requêtes JSON (si on passe endpoint/query dans le body)
+app.use(cors()); // Allow Cross-Origin requests
+app.use(express.json()); // To parse JSON request bodies (if passing endpoint/query in body)
 
-// Un endpoint de statut simple pour vérifier si le proxy est en cours d'exécution
+// A simple status endpoint to check if the proxy is running
 app.get('/proxy-status', (req, res) => {
   res.status(200).json({ status: 'Proxy is running' });
 });
 
 async function executeQuery(endpoint, sparqlQuery, method = 'POST', res) {
-  console.log(`[Proxy] Tentative ${method} vers: ${endpoint}`);
+  console.log(`[Proxy] Attempting ${method} to: ${endpoint}`);
   try {
     const headers = {
       'Accept': 'application/sparql-results+json, application/json',
@@ -185,42 +185,42 @@ async function executeQuery(endpoint, sparqlQuery, method = 'POST', res) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[Proxy] Erreur de l'endpoint (${method} ${response.status}): ${errorText}`);
+      console.error(`[Proxy] Endpoint error (${method} ${response.status}): ${errorText}`);
       throw new Error(`Endpoint error (${method} ${response.status}): ${response.statusText}. Body: ${errorText.substring(0, 200)}`);
     }
 
     const data = await response.json();
-    console.log(`[Proxy] Succès ${method} pour ${endpoint}`);
+    console.log(`[Proxy] Success ${method} for ${endpoint}`);
     res.json(data);
     return true;
 
   } catch (error) {
-    console.error(`[Proxy] Échec de la requête ${method} vers ${endpoint}:`, error.message);
+    console.error(`[Proxy] ${method} request failed to ${endpoint}:`, error.message);
     throw error;
   }
 }
 
-// Route principale - essaie POST puis GET si ça échoue
+// Main route - tries POST then GET if it fails
 app.all('/sparql-proxy', async (req, res) => {
   const { endpoint, query: sparqlQuery } = { ...req.query, ...req.body };
 
   if (!endpoint || !sparqlQuery) {
     return res.status(400).json({
-      error: 'Les paramètres "endpoint" et "query" sont requis.',
+      error: 'Parameters "endpoint" and "query" are required.',
     });
   }
 
-  console.log(`[Proxy] Reçu pour proxy: Endpoint=${endpoint}`);
+  console.log(`[Proxy] Received for proxy: Endpoint=${endpoint}`);
 
   try {
-    console.log('[Proxy] Tentative avec POST...');
+    console.log('[Proxy] Attempting with POST...');
     await executeQuery(endpoint, sparqlQuery, 'POST', res);
   } catch (postError) {
-    console.warn('[Proxy] Échec POST, tentative avec GET...');
+    console.warn('[Proxy] POST failed, attempting with GET...');
     try {
       await executeQuery(endpoint, sparqlQuery, 'GET', res);
     } catch (getError) {
-      console.error(`[Proxy] Échec final pour ${endpoint}. POST error: ${postError.message}, GET error: ${getError.message}`);
+      console.error(`[Proxy] Final failure for ${endpoint}. POST error: ${postError.message}, GET error: ${getError.message}`);
       res.status(500).json({
         error: 'Proxy failed for both POST and GET requests.',
         postError: postError.message,
@@ -231,12 +231,12 @@ app.all('/sparql-proxy', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Serveur proxy SPARQL démarré sur http://localhost:${PORT}`);
-  console.log(`Utilisez http://localhost:${PORT}/sparql-proxy en fournissant 'endpoint' et 'query' comme paramètres.`);
-  console.log(`Exemple: http://localhost:${PORT}/sparql-proxy?endpoint=YOUR_SPARQL_ENDPOINT&query=YOUR_SPARQL_QUERY`);
+  console.log(`SPARQL proxy server started on http://localhost:${PORT}`);
+  console.log(`Use http://localhost:${PORT}/sparql-proxy providing 'endpoint' and 'query' as parameters.`);
+  console.log(`Example: http://localhost:${PORT}/sparql-proxy?endpoint=YOUR_SPARQL_ENDPOINT&query=YOUR_SPARQL_QUERY`);
 });
 
-// Éviter que le proxy crashe silencieusement
+// Prevent the proxy from crashing silently
 process.on('uncaughtException', (error) => {
   console.error('[Proxy] Uncaught Exception:', error);
 });
@@ -247,4 +247,4 @@ process.on('unhandledRejection', (reason, promise) => {
 
 ---
 
-**🎉 C'est tout !** Avec le serveur `server/proxy.js` en place et en cours d'exécution, votre composant `vis-graph` devrait maintenant être capable de contourner les restrictions CORS et de charger des données depuis une plus grande variété d'endpoints SPARQL. 
+**🎉 That's it!** With the `server/proxy.js` server in place and running, your `vis-graph` component should now be able to work around CORS restrictions and load data from a wider variety of SPARQL endpoints. 
