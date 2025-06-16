@@ -9,28 +9,6 @@ export class SparqlDataFetcher {
   }
 
   /**
-   * Définit manuellement les données (priorité absolue)
-   */
-  setData(nodes, links) {
-    console.log('[SparqlDataFetcher] 📋 Définition manuelle des données');
-    return {
-      status: 'success',
-      method: 'manual',
-      message: `Données définies manuellement: ${nodes.length} nœuds, ${links.length} liens`,
-      data: { nodes, links },
-      rawData: null
-    };
-  }
-
-  /**
-   * Charge des données JSON
-   */
-  setSparqlResult(jsonData) {
-    console.log('[SparqlDataFetcher] 📄 Chargement de données JSON pré-formatées');
-    return this.loadFromSparqlEndpoint(null, null, jsonData);
-  }
-
-  /**
    * Affiche une erreur personnalisée
    */
   showCustomProxyError() {
@@ -68,12 +46,57 @@ export class SparqlDataFetcher {
   }
 
   /**
-   * Exécute une requête SPARQL avec hiérarchie : endpoint direct puis proxy
+   * Exécute une requête SPARQL avec hiérarchie : proxy en priorité si fourni, sinon endpoint direct puis proxy
    */
   async executeSparqlQueryWithFallback(endpoint, query, proxyUrl = null, onProxyError = null, onNotification = null) {
     console.log('[SparqlDataFetcher] Début de l\'exécution de la requête SPARQL');
     console.log('[SparqlDataFetcher] Endpoint cible:', endpoint);
     
+    // NOUVELLE LOGIQUE : Si proxy fourni, l'utiliser en priorité
+    const proxyIsProvided = proxyUrl && proxyUrl.trim() !== '';
+    if (proxyIsProvided) {
+      console.log('[SparqlDataFetcher] 🚀 Proxy fourni, utilisation en priorité');
+      try {
+        console.log(`[SparqlDataFetcher] Tentative prioritaire: Proxy configuré via ${proxyUrl}`);
+        
+        const params = new URLSearchParams({ endpoint: endpoint, query: query });
+        const fullProxyUrl = `${proxyUrl}?${params.toString()}`;
+
+        const response = await fetch(fullProxyUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/sparql-results+json, application/json'
+          }
+        });
+
+        if (!response.ok) {
+          const errorData = await response.text();
+          throw new Error(`Proxy error (${response.status}): ${errorData}`);
+        }
+        const result = await response.json();
+        console.log('[SparqlDataFetcher] ✅ Succès avec proxy en priorité');
+        return result;
+      } catch (proxyError) {
+        console.error('[SparqlDataFetcher] Échec avec proxy en priorité:', proxyError.message);
+        
+        const isProxyConnectionError = proxyError.message.includes('Failed to fetch') || 
+                                      proxyError.message.includes('Connection refused') ||
+                                      proxyError.message.includes('Network Error');
+        
+        if (isProxyConnectionError) {
+          this.showCustomProxyError();
+          if (onProxyError) onProxyError();
+          if (onNotification) onNotification(`Le proxy configuré sur ${proxyUrl} semble ne pas fonctionner. Vérifiez que le proxy est démarré et accessible.`, 'error');
+        } else {
+          if (onNotification) onNotification(`Erreur de l'endpoint SPARQL distant via proxy. Vérifiez l'URL de l'endpoint ou essayez une requête plus simple.`, 'error');
+          console.error('[SparqlDataFetcher] L\'endpoint SPARQL distant a retourné une erreur via proxy:', proxyError.message);
+        }
+        
+        throw new Error(`Proxy configuré à ${proxyUrl} a échoué en priorité. Détails: ${proxyError.message}`);
+      }
+    }
+    
+    // LOGIQUE EXISTANTE : Endpoint direct puis proxy en fallback
     // 1 : Endpoint direct
     try {
       console.log('[SparqlDataFetcher] Tentative 1: Endpoint direct');
@@ -165,9 +188,10 @@ export class SparqlDataFetcher {
   }
 
   /**
-   * Charge les données avec hiérarchie : JSON direct > endpoint > proxy
+   * Récupère les données avec hiérarchie : JSON direct > endpoint > proxy
+   * MÉTHODE INTERNE : Utilisée par les composants pour récupérer les données brutes SPARQL
    */
-  async loadFromSparqlEndpoint(endpoint, query, jsonData = null, proxyUrl = null, onProxyError = null, onNotification = null) {
+  async fetchSparqlData(endpoint, query, jsonData = null, proxyUrl = null, onProxyError = null, onNotification = null) {
     try {
       // 1: Données JSON fournies directement
       if (jsonData) {

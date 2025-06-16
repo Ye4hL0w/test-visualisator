@@ -108,13 +108,15 @@ export class VisGraph extends HTMLElement {
 
   /**
    * Charge les données avec hiérarchie : JSON direct > endpoint > proxy
+   * MÉTHODE PUBLIQUE : C'est l'interface principale pour les utilisateurs du composant
+   * Le composant délègue la récupération des données au SparqlDataFetcher puis transforme les résultats
    */
   async loadFromSparqlEndpoint(endpoint, query, jsonData = null, proxyUrl = null) {
     try {
       this.currentEndpoint = endpoint;
       this.currentProxyUrl = proxyUrl;
       
-      const result = await this.sparqlFetcher.loadFromSparqlEndpoint(
+      const result = await this.sparqlFetcher.fetchSparqlData(
         endpoint, 
         query, 
         jsonData,
