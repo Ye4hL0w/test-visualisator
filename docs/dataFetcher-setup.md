@@ -33,7 +33,7 @@ const fetcher = new SparqlDataFetcher();
 
 **What it does:** This method is used **internally by the `<vis-graph>` component** to retrieve data from a SPARQL endpoint with several fallback options.
 
-**When it's called:** Automatically by the component when you use `loadFromSparqlEndpoint()`.
+**When it's called:** Automatically by the component when you use `setSparqlQuery()`.
 
 **What it retrieves for the component:**
 ```javascript
@@ -85,7 +85,7 @@ All methods return an object like this:
 **1. "Failed to fetch" or "CORS" error**
 - **Problem:** Your browser blocks the connection
 - **Solution:** Use a proxy as the 4th parameter
-- **📖 Complete guide:** [Proxy configuration](https://github.com/Ye4hL0w/test-visualisator/blob/main/docs/proxy-setup.md)
+- **📖 Complete guide:** [Proxy configuration](./proxy-setup.md)
 
 **2. "404" or "HTTP error" error**
 - **Problem:** The endpoint address is incorrect
@@ -163,23 +163,4 @@ retrieveData();
 
 ---
 
-**🎯 Summary:**
-
-The `SparqlDataFetcher` works **in the background** for the component. You don't need to use it directly! 
-
-**To use the component:**
-1. Create your `<vis-graph>` element 
-2. Call `loadFromSparqlEndpoint()` with your endpoint and query
-3. The component takes care of everything else with the `SparqlDataFetcher`!
-
-```javascript
-// What YOU do:
-const graph = document.getElementById('myGraph');
-graph.loadFromSparqlEndpoint(endpoint, query, jsonData, proxyUrl);
-
-// What the COMPONENT does internally with SparqlDataFetcher:
-// - Calls fetchSparqlData()
-// - Handles CORS errors
-// - Transforms data
-// - Creates the graph
-``` 
+**🎉 That's it!** The `SparqlDataFetcher` works **in the background** for the component. You don't need to use it directly! 
