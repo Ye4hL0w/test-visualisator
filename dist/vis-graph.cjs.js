@@ -4230,6 +4230,57 @@ class VisGraph extends HTMLElement {
     
     // Instance du fetcher pour récupérer les données SPARQL
     this.sparqlFetcher = new SparqlDataFetcher();
+    
+    // To organize private attributes (e.g. query, endpoint, proxy)
+    this.internalData = new WeakMap();
+    this.internalData.set(this, {}); // Initialize internal storage
+  }
+
+  // Getters and setters for SPARQL configuration
+  set sparqlQuery(query) {
+    const data = this.internalData.get(this) || {};
+    data.sparqlQuery = query;
+    this.internalData.set(this, data);
+  }
+  
+  get sparqlQuery() {
+    return this.internalData.get(this)?.sparqlQuery;
+  }
+
+  set sparqlEndpoint(endpoint) {
+    const data = this.internalData.get(this) || {};
+    data.sparqlEndpoint = endpoint;
+    this.internalData.set(this, data);
+  }
+  
+  get sparqlEndpoint() {
+    return this.internalData.get(this)?.sparqlEndpoint;
+  }
+
+  set sparqlProxy(url) {
+    const data = this.internalData.get(this) || {};
+    data.sparqlProxy = url;
+    this.internalData.set(this, data);
+  }
+  
+  get sparqlProxy() {
+    return this.internalData.get(this)?.sparqlProxy;
+  }
+
+  /**
+   * Execute SPARQL query using the configured endpoint, query and proxy
+   * This is the new simplified method that uses the getters/setters
+   */
+  async setSparqlQuery() {
+    const endpoint = this.sparqlEndpoint;
+    const query = this.sparqlQuery;
+    const proxyUrl = this.sparqlProxy;
+    
+    if (!endpoint || !query) {
+      throw new Error('Veuillez configurer sparqlEndpoint et sparqlQuery avant d\'exécuter la requête');
+    }
+    
+    return await this.loadFromSparqlEndpoint(endpoint, query, null, proxyUrl);
   }
 
   /**
