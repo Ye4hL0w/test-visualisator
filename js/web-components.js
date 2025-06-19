@@ -101,6 +101,11 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('endpoint-url').value = selectedExample.endpoint;
             document.getElementById('query-input').value = selectedExample.query;
             
+            // Configurer directement le composant graphe
+            graph.sparqlEndpoint = selectedExample.endpoint;
+            graph.sparqlQuery = selectedExample.query;
+            // Le proxy reste celui configuré par l'utilisateur
+            
             // Mettre en évidence le bouton d'exécution
             const executeButton = document.getElementById('execute-query');
             executeButton.classList.add('highlight');
@@ -137,8 +142,13 @@ document.addEventListener('DOMContentLoaded', function() {
         queryStatus.className = 'status-message status-loading';
         
         try {
-            // Exécuter la requête avec l'endpoint et le proxy (peut être vide)
-            const result = await graph.loadFromSparqlEndpoint(endpoint, query, null, proxyUrl || null);
+            // Configurer le composant avec les nouvelles propriétés
+            graph.sparqlEndpoint = endpoint;
+            graph.sparqlQuery = query;
+            graph.sparqlProxy = proxyUrl || null;
+            
+            // Exécuter la requête SPARQL
+            const result = await graph.setSparqlQuery();
             
             if (result.status === 'success') {
                 queryStatus.textContent = result.message;

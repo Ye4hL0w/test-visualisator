@@ -2,11 +2,24 @@
 
 The `vis-graph.js` file defines a web component (`<vis-graph>`) capable of displaying interactive knowledge graphs from data sourced from SPARQL endpoints. It uses D3.js for visualization and the `SparqlDataFetcher` to retrieve data.
 
+## Public API
+
+The component is configured through properties and controlled by methods.
+
+| Type      | Name              | Description                                        |
+|-----------|-------------------|----------------------------------------------------|
+| Property  | `sparqlEndpoint`  | **(setter)** Sets the URL of the SPARQL endpoint.    |
+| Property  | `sparqlQuery`     | **(setter)** Sets the SPARQL query string.           |
+| Property  | `sparqlProxy`     | **(setter)** Sets the optional proxy URL for CORS.   |
+| Method    | `setSparqlQuery()`| Asynchronously executes the query and loads the data. |
+| Method    | `setData()`       | Manually sets graph data (`nodes`, `links`).         |
+| Method    | `setSparqlResult()`| Loads data directly from a SPARQL JSON result.      |
+
 ## General Operation
 
-1.  **Initialization**: The component can be initialized with dimensions (width, height) and uses a `SparqlDataFetcher` instance to manage SPARQL queries.
+1.  **Configuration**: The user configures the component by setting the `sparqlEndpoint`, `sparqlQuery`, and optional `sparqlProxy` properties.
 
-2.  **Data Loading**: The main method `loadFromSparqlEndpoint(endpoint, query, jsonData, proxyUrl)`:
+2.  **Data Loading**: The user calls `setSparqlQuery()`. This method internally calls `loadFromSparqlEndpoint(endpoint, query, jsonData, proxyUrl)` which:
     *   Uses the `SparqlDataFetcher` with automatic CORS error and proxy management
     *   Stores raw data in `this.sparqlData` (component property)
     *   Transforms SPARQL results into nodes and links via `transformSparqlResults`
