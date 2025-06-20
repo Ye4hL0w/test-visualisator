@@ -6,12 +6,20 @@ document.addEventListener('DOMContentLoaded', function() {
     // Récupération des éléments du DOM
     const graph = document.getElementById('metabolite-graph');
     const table = document.getElementById('metabolite-table');
+    const visualMappingTextarea = document.getElementById('visual-mapping-input');
+    const applyMappingBtn = document.getElementById('apply-mapping-btn');
+    const removeMappingBtn = document.getElementById('remove-mapping-btn');
     
     // Initialiser les valeurs d'affichage
     document.getElementById('component-width-value').textContent = 
         graph.getAttribute('width') || '800';
     document.getElementById('component-height-value').textContent = 
         graph.getAttribute('height') || '600';
+    
+    // Remplir la zone de texte du mapping visuel avec la configuration par défaut au chargement
+    if (visualMappingTextarea) {
+        visualMappingTextarea.value = JSON.stringify(graph.getVegaMapping(), null, 2);
+    }
     
     // Basculer entre graphe et tableau
     document.getElementById('btn-graph').addEventListener('click', function() {
@@ -123,6 +131,31 @@ document.addEventListener('DOMContentLoaded', function() {
     const rawDataPreview = document.getElementById('raw-data');
     const transformedDataPreview = document.getElementById('transformed-data');
     
+    // Appliquer le mapping visuel personnalisé
+    applyMappingBtn.addEventListener('click', function() {
+        try {
+            const mappingConfig = JSON.parse(visualMappingTextarea.value);
+            graph.setVegaMapping(mappingConfig);
+            queryStatus.textContent = 'Nouveau mapping visuel appliqué.';
+            queryStatus.className = 'status-message status-success';
+            console.log("🎨 Custom visual mapping applied from textarea.");
+        } catch (error) {
+            queryStatus.textContent = `Erreur dans le JSON du mapping: ${error.message}`;
+            queryStatus.className = 'status-message status-error';
+            console.error("Error parsing visual mapping JSON:", error);
+        }
+    });
+
+    // Retirer le mapping visuel personnalisé et revenir au défaut
+    removeMappingBtn.addEventListener('click', function() {
+        const defaultMapping = graph.getDefaultVegaMapping();
+        graph.setVegaMapping(defaultMapping);
+        visualMappingTextarea.value = JSON.stringify(defaultMapping, null, 2);
+        queryStatus.textContent = 'Mapping visuel par défaut restauré.';
+        queryStatus.className = 'status-message status-success';
+        console.log("🎨 Default visual mapping restored.");
+    });
+    
     // Exécuter la requête SPARQL
     executeButton.addEventListener('click', async function() {
         // Récupérer les valeurs des champs
@@ -184,6 +217,11 @@ document.addEventListener('DOMContentLoaded', function() {
         // Réinitialiser les composants
         graph.setData([], []);
         table.setData([]);
+        
+        // Rétablir le mapping par défaut et mettre à jour la textarea
+        const defaultMapping = graph.getDefaultVegaMapping();
+        graph.setVegaMapping(defaultMapping);
+        visualMappingTextarea.value = JSON.stringify(defaultMapping, null, 2);
         
         // Réinitialiser les aperçus
         rawDataPreview.textContent = '// Aucune donnée SPARQL. Exécutez une requête pour voir les résultats.';

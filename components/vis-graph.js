@@ -24,6 +24,76 @@ export class VisGraph extends HTMLElement {
     // To organize private attributes (e.g. query, endpoint, proxy)
     this.internalData = new WeakMap();
     this.internalData.set(this, {}); // Initialize internal storage
+
+    // Visual mapping VEGA - configuration par défaut
+    this.vegaVisualMapping = this.getDefaultVegaMapping();
+  }
+
+  /**
+   * Configuration VEGA par défaut pour le visual mapping.
+   */
+  getDefaultVegaMapping() {
+    return {
+      "description": "Default visual mapping configuration",
+      "width": 800,
+      "height": 600,
+      "autosize": "none",
+      "nodes": {
+        "field": "source", // Default source variable from SPARQL query
+        "color": {
+          "field": "type", // Color nodes by 'type' property (e.g., 'uri', 'literal')
+          "scale": {
+            "type": "ordinal",
+            "domain": ["uri", "literal"],
+            "range": ["#69b3a2", "#ff7f0e"]
+          }
+        },
+        "size": {
+          "field": "connections", // Size nodes by number of connections
+          "scale": {
+            "type": "linear",
+            "domain": [0, 10],
+            "range": [8, 25] // pixel radius
+          }
+        }
+      },
+      "links": {
+        "field": "source-target", // Default link from var1 to var2
+        "distance": 100, // Default distance between nodes
+        "width": {
+          "value": 1.5
+        },
+        "color": {
+          "value": "#999"
+        }
+      }
+    };
+  }
+
+  /**
+   * Définit la configuration pour le visual mapping.
+   * Cette méthode déclenche une nouvelle transformation et un nouveau rendu.
+   * @param {object} vegaMapping - La configuration de mapping au format JSON.
+   */
+  setVegaMapping(vegaMapping) {
+    console.log('[vis-graph] 🎨 New visual mapping received.');
+    // A deep merge would be more robust, but for this purpose, a shallow merge is sufficient.
+    this.vegaVisualMapping = { ...this.getDefaultVegaMapping(), ...vegaMapping };
+
+    if (this.sparqlData) {
+        console.log('[vis-graph] 🔄 Re-transforming and re-rendering with new mapping.');
+        const transformedData = this.transformSparqlResults(this.sparqlData);
+        this.nodes = transformedData.nodes;
+        this.links = transformedData.links;
+        this.render();
+    }
+  }
+
+  /**
+   * Obtient la configuration de visual mapping actuelle.
+   */
+  getVegaMapping() {
+    return this.vegaVisualMapping;
   }
 
   // Getters and setters for SPARQL configuration
@@ -305,7 +375,7 @@ export class VisGraph extends HTMLElement {
    */
   transformSparqlResults(results) {
     if (!results.results || !results.results.bindings || results.results.bindings.length === 0) {
-      console.warn("Résultats SPARQL vides ou invalides");
+      console.warn("SPARQL results are empty or invalid");
       return { nodes: [], links: [] };
     }
     
@@ -313,54 +383,95 @@ export class VisGraph extends HTMLElement {
     const linksMap = new Map();
     
     const vars = results.head.vars;
-    console.log("Variables SPARQL disponibles:", vars);
+    console.log("Available SPARQL variables:", vars);
     
-    const sourceVar = vars[0];
-    const targetVar = vars.length > 1 ? vars[1] : null;
-    
+    const mapping = this.vegaVisualMapping;
+
+    // --- FIELD MAPPING ---
+    const linkField = mapping.links?.field || (vars.length > 1 ? `${vars[0]}-${vars[1]}` : null);
+
+    let sourceVar = vars[0];
+    let targetVar = vars.length > 1 ? vars[1] : null;
+
+    if (linkField) {
+        const parts = linkField.split('-');
+        if (parts.length === 2 && vars.includes(parts[0]) && vars.includes(parts[1])) {
+            sourceVar = parts[0];
+            targetVar = parts[1];
+        }
+    }
+    console.log(`[vis-graph] Using source: '${sourceVar}', target: '${targetVar}' based on mapping.`);
+
     results.results.bindings.forEach(binding => {
       if (binding[sourceVar]) {
         const sourceId = this.extractIdFromBinding(binding[sourceVar]);
-        const sourceLabel = this._determineNodeLabelFromBinding(binding[sourceVar], sourceVar, binding, vars);
-        const sourceUri = binding[sourceVar].type === 'uri' ? binding[sourceVar].value : null;
-        
         if (!nodesMap.has(sourceId)) {
-          nodesMap.set(sourceId, {
+          const node = {
             id: sourceId,
-            label: sourceLabel,
-            uri: sourceUri,
-            originalData: { ...binding }
-          });
+            label: this._determineNodeLabelFromBinding(binding[sourceVar], sourceVar, binding, vars),
+            uri: binding[sourceVar].type === 'uri' ? binding[sourceVar].value : null,
+            type: binding[sourceVar].type, // Default property for coloring
+            originalData: {}
+          };
+          // Attach all data from the binding for potential encoding
+          for (const varName of vars) {
+            if (binding[varName]) {
+              node[varName] = binding[varName].value;
+              node.originalData[varName] = binding[varName];
+            }
+          }
+          nodesMap.set(sourceId, node);
         }
-        
+
         if (targetVar && binding[targetVar]) {
           const targetId = this.extractIdFromBinding(binding[targetVar]);
-          const targetLabel = this._determineNodeLabelFromBinding(binding[targetVar], targetVar, binding, vars);
-          const targetUri = binding[targetVar].type === 'uri' ? binding[targetVar].value : null;
-          
           if (!nodesMap.has(targetId)) {
-            nodesMap.set(targetId, {
+            const node = {
               id: targetId,
-              label: targetLabel,
-              uri: targetUri,
-              originalData: { ...binding }
-            });
+              label: this._determineNodeLabelFromBinding(binding[targetVar], targetVar, binding, vars),
+              uri: binding[targetVar].type === 'uri' ? binding[targetVar].value : null,
+              type: binding[targetVar].type,
+              originalData: {}
+            };
+            for (const varName of vars) {
+              if (binding[varName]) {
+                node[varName] = binding[varName].value;
+                node.originalData[varName] = binding[varName];
+              }
+            }
+            nodesMap.set(targetId, node);
           }
-          
+
           const linkKey = `${sourceId}-${targetId}`;
           if (!linksMap.has(linkKey)) {
-            linksMap.set(linkKey, {
-              source: sourceId,
-              target: targetId
-            });
+            const link = { source: sourceId, target: targetId };
+            // Attach all data to the link as well
+            for (const varName of vars) {
+              if (binding[varName]) {
+                link[varName] = binding[varName].value;
+              }
+            }
+            linksMap.set(linkKey, link);
           }
         }
       }
     });
-    
+
+    const finalNodes = Array.from(nodesMap.values());
+    const finalLinks = Array.from(linksMap.values());
+
+    // Add connection counts to nodes, as this is a common encoding field
+    const connectionCount = new Map();
+    finalNodes.forEach(n => connectionCount.set(n.id, 0));
+    finalLinks.forEach(l => {
+      connectionCount.set(l.source, (connectionCount.get(l.source) || 0) + 1);
+      connectionCount.set(l.target, (connectionCount.get(l.target) || 0) + 1);
+    });
+    finalNodes.forEach(n => n.connections = connectionCount.get(n.id));
+
     return {
-      nodes: Array.from(nodesMap.values()),
-      links: Array.from(linksMap.values())
+      nodes: finalNodes,
+      links: finalLinks
     };
   }
   
@@ -1926,29 +2037,70 @@ export class VisGraph extends HTMLElement {
       return;
     }
 
-    const nodeConnections = new Map();
-    this.nodes.forEach(node => nodeConnections.set(node.id, 0));
+    const mapping = this.vegaVisualMapping;
+
+    // --- ENCODING LOGIC ---
+    // Create clear, explicit functions to get visual properties based on the mapping.
     
-    this.links.forEach(link => {
-      nodeConnections.set(link.source, (nodeConnections.get(link.source) || 0) + 1);
-      nodeConnections.set(link.target, (nodeConnections.get(link.target) || 0) + 1);
-    });
-    
-    const getNodeRadius = nodeId => {
-      const connections = nodeConnections.get(nodeId);
-      return Math.max(8, Math.min(25, 8 + connections * 2));
+    // Node Color
+    const nodeColorConfig = mapping.nodes.color || {};
+    const nodeColorScale = nodeColorConfig.scale ? this.createD3Scale(nodeColorConfig.scale) : null;
+    const getNodeColor = d => {
+      if (nodeColorScale && nodeColorConfig.field && d[nodeColorConfig.field] !== undefined) {
+        // CORRECTION: On vérifie que la valeur du noeud est bien dans le domaine de l'échelle
+        if (nodeColorScale.domain().includes(d[nodeColorConfig.field])) {
+          return nodeColorScale(d[nodeColorConfig.field]);
+        }
+        // Si la valeur n'est pas dans le domaine, on ignore l'échelle et on passe aux fallbacks.
+      }
+      // Fallback 1: Utiliser une valeur directe si elle est définie
+      // Fallback 2: Utiliser un gris neutre pour les cas non définis
+      return nodeColorConfig.value || '#cccccc';
+    };
+
+    // Node Size (Radius)
+    const nodeSizeConfig = mapping.nodes.size || {};
+    const nodeSizeScale = nodeSizeConfig.scale ? this.createD3Scale(nodeSizeConfig.scale) : null;
+    const getNodeRadius = d => {
+      if (nodeSizeScale && nodeSizeConfig.field && d[nodeSizeConfig.field] !== undefined) {
+        return nodeSizeScale(d[nodeSizeConfig.field]);
+      }
+      return nodeSizeConfig.value || 10; // Final fallback
+    };
+
+    // Link Color
+    const linkColorConfig = mapping.links.color || {};
+    const linkColorScale = linkColorConfig.scale ? this.createD3Scale(linkColorConfig.scale) : null;
+    const getLinkColor = d => {
+      if (linkColorScale && linkColorConfig.field && d[linkColorConfig.field] !== undefined) {
+        // CORRECTION: On vérifie aussi pour les liens
+        if (linkColorScale.domain().includes(d[linkColorConfig.field])) {
+          return linkColorScale(d[linkColorConfig.field]);
+        }
+      }
+      return linkColorConfig.value || '#999'; // Final fallback
+    };
+
+    // Link Width
+    // Handle both "Width" (from user example) and "width"
+    const linkWidthConfig = mapping.links.width || mapping.links.Width || {};
+    const getLinkWidth = () => {
+        return linkWidthConfig.value || 1.5; // Only direct value supported for now
     };
     
+    // Link Distance
+    const linkDistance = mapping.links.distance || 100;
+
     const simulation = d3.forceSimulation(this.nodes)
-      .force('link', d3.forceLink(this.links).id(d => d.id))
+      .force('link', d3.forceLink(this.links).id(d => d.id).distance(linkDistance))
       .force('charge', d3.forceManyBody().strength(-200))
       .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide().radius(d => getNodeRadius(d.id) + 20))
+      .force('collision', d3.forceCollide().radius(d => getNodeRadius(d) + 5)) // Padding
       .force('x', d3.forceX(width / 2).strength(0.1))
       .force('y', d3.forceY(height / 2).strength(0.1));
 
     const constrainNode = (d) => {
-      const radius = getNodeRadius(d.id);
+      const radius = getNodeRadius(d);
       d.x = Math.max(radius, Math.min(width - radius, d.x));
       d.y = Math.max(radius, Math.min(height - radius, d.y));
     };
@@ -1959,8 +2111,8 @@ export class VisGraph extends HTMLElement {
       .data(this.links)
       .enter()
       .append('line')
-      .attr('stroke', '#999')
-      .attr('stroke-width', 1);
+      .attr('stroke', getLinkColor)
+      .attr('stroke-width', getLinkWidth());
       
     const nodeGroup = svg.append('g')
       .attr('class', 'nodes')
@@ -2002,8 +2154,8 @@ export class VisGraph extends HTMLElement {
       });
       
     nodeGroup.append('circle')
-      .attr('r', d => getNodeRadius(d.id))
-      .attr('fill', '#69b3a2');
+      .attr('r', getNodeRadius)
+      .attr('fill', getNodeColor);
     
     nodeGroup.append('text')
       .attr('class', 'node-label')
@@ -2028,7 +2180,7 @@ export class VisGraph extends HTMLElement {
     }
     
     function dragged(event, d) {
-      const radius = getNodeRadius(d.id);
+      const radius = getNodeRadius(d);
       d.fx = Math.max(radius, Math.min(width - radius, event.x));
       d.fy = Math.max(radius, Math.min(height - radius, event.y));
     }
@@ -2038,6 +2190,45 @@ export class VisGraph extends HTMLElement {
       d.fx = null;
       d.fy = null;
     }
+  }
+
+  /**
+   * Crée une échelle D3 à partir d'une configuration de type VEGA.
+   * @param {object} scaleConfig - La configuration de l'échelle (`domain`, `range`, `type`).
+   * @param {d3.Scale} defaultScale - L'échelle D3 à utiliser si la configuration est invalide.
+   * @returns {d3.Scale} L'échelle D3 configurée.
+   */
+  createD3Scale(scaleConfig, defaultScale) {
+    if (!scaleConfig || !scaleConfig.domain || !scaleConfig.range) {
+      return defaultScale;
+    }
+
+    let scale;
+    const type = scaleConfig.type || 'ordinal';
+    
+    // Support for D3 color schemes e.g., "Reds", "Blues"
+    const range = (typeof scaleConfig.range === 'string') ? d3[`scheme${scaleConfig.range}`] : scaleConfig.range;
+    if (!range) {
+        console.warn(`[vis-graph] Invalid color scheme or range provided: ${scaleConfig.range}`);
+        return defaultScale;
+    }
+    
+    switch (type) {
+      case 'linear':
+        scale = d3.scaleLinear();
+        break;
+      case 'sqrt':
+        scale = d3.scaleSqrt();
+        break;
+      case 'log':
+        scale = d3.scaleLog();
+        break;
+      case 'ordinal':
+      default:
+        scale = d3.scaleOrdinal();
+        break;
+    }
+    return scale.domain(scaleConfig.domain).range(range);
   }
 }
 

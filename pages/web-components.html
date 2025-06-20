@@ -45,6 +45,18 @@
                         <input type="checkbox" id="show-json" checked>
                     </div>
                 </div>
+
+                <div class="control-panel">
+                    <h3>Mapping Visuel (JSON)</h3>
+                    <div class="control-group">
+                        <label for="visual-mapping-input">Configuration du mapping :</label>
+                        <textarea id="visual-mapping-input" class="full-width" rows="12" placeholder="Collez votre configuration de mapping visuel ici..."></textarea>
+                    </div>
+                    <div class="control-row">
+                        <button id="apply-mapping-btn" class="secondary-button">Appliquer</button>
+                        <button id="remove-mapping-btn" class="secondary-button">Retirer</button>
+                    </div>
+                </div>
                 
                 <div class="control-panel">
                     <h3>Source de données SPARQL</h3>
@@ -135,32 +147,7 @@ WHERE {
             </div>
         </div>
         
-        <!-- Exemple d'utilisation -->
-        <div class="usage-examples">
-            <h3>Comment utiliser les composants</h3>
-            <pre class="code-preview">
-<!-- 1. Importer les scripts nécessaires -->
-&lt;script src="https://d3js.org/d3.v7.min.js">&lt;/script>
-&lt;script type="module" src="components/vis-graph.js">&lt;/script>
-&lt;script type="module" src="components/vis-table.js">&lt;/script>
 
-<!-- 2. Ajouter les composants dans le HTML -->
-&lt;vis-graph width="800" height="600">&lt;/vis-graph>
-&lt;vis-table width="800" height="600" show-json="true">&lt;/vis-table>
-
-<!-- 3. Utiliser JavaScript pour définir les données -->
-document.querySelector('vis-graph').setData({
-  nodes: [...],
-  links: [...]
-});
-
-// OU pour le tableau
-document.querySelector('vis-table').setData([
-  { id: "Glucose", group: "metabolite", value: 42 },
-  { id: "Pyruvate", group: "metabolite", value: 35 }
-]);
-            </pre>
-        </div>
     </div>
 
     
@@ -171,43 +158,7 @@ document.querySelector('vis-table').setData([
     <script src="../js/example-loader.js"></script>
     <script type="module" src="../js/web-components.js"></script>
 
-    <!-- Section de documentation des composants -->
-    <div class="component-docs">
-        <h2>Documentation des composants</h2>
-        
-        <div class="doc-grid">
-            <div class="doc-card">
-                <h3>vis-graph.js</h3>
-                <p>Composant pour afficher les données sous forme de tableau</p>
-                <ul>
-                    <li>Utilise D3.js pour les visualisations.</li>
-                    <li>Prends des données au format <code>{nodes: [...], links: [...]}</code></li>
-                    <li>Charge des données directement depuis un endpoint SPARQL</li>
-                    <li>Transforme automatiquement les résultats SPARQL en structure de graphe</li>
-                </ul>
-            </div>
-            
-            <div class="doc-card">
-                <h3>vis-table.js</h3>
-                <p>Composant pour afficher les données sous forme de tableau</p>
-                <ul>
-                    <li>Affiche les données et permet l'option d'affichage JSON</li>
-                    <li>Partage les mêmes données que le graphe, mais dans un autre format</li>
-                </ul>
-            </div>
-            
-            <div class="doc-card">
-                <h3>web-components.js</h3>
-                <p>Script principal qui:</p>
-                <ul>
-                    <li>Gère les interactions UI (basculement graphe/tableau, sliders de taille)</li>
-                    <li>Initialise les données d'exemple partagées entre composants</li>
-                    <li>Gère les requêtes SPARQL et la transformation des données</li>
-                    <li>Synchronise les visualisations (quand une visualisation est mise à jour, l'autre l'est aussi)</li>
-                </ul>
-            </div>
-        </div>
-    </div>
+    
 
     <footer>
         <p>Visualisateur intégré pour le chatbot gen²kgbot</p>
