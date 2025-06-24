@@ -16,10 +16,10 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('component-height-value').textContent = 
         graph.getAttribute('height') || '600';
     
-    // Remplir la zone de texte du mapping visuel avec la configuration par défaut au chargement
-    if (visualMappingTextarea) {
-        visualMappingTextarea.value = JSON.stringify(graph.getVegaMapping(), null, 2);
-    }
+          // Remplir la zone de texte de l'encoding visuel avec la configuration par défaut au chargement
+      if (visualMappingTextarea) {
+        visualMappingTextarea.value = JSON.stringify(graph.getEncoding(), null, 2);
+      }
     
     // Basculer entre graphe et tableau
     document.getElementById('btn-graph').addEventListener('click', function() {
@@ -109,10 +109,10 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('endpoint-url').value = selectedExample.endpoint;
             document.getElementById('query-input').value = selectedExample.query;
             
-            // Configurer directement le composant graphe
+            // Configurer directement le composant graphe avec les nouvelles propriétés
             graph.sparqlEndpoint = selectedExample.endpoint;
             graph.sparqlQuery = selectedExample.query;
-            // Le proxy reste celui configuré par l'utilisateur
+            // Le proxy reste celui configuré par l'utilisateur dans le champ
             
             // Mettre en évidence le bouton d'exécution
             const executeButton = document.getElementById('execute-query');
@@ -131,29 +131,29 @@ document.addEventListener('DOMContentLoaded', function() {
     const rawDataPreview = document.getElementById('raw-data');
     const transformedDataPreview = document.getElementById('transformed-data');
     
-    // Appliquer le mapping visuel personnalisé
+    // Appliquer l'encoding visuel personnalisé
     applyMappingBtn.addEventListener('click', function() {
         try {
-            const mappingConfig = JSON.parse(visualMappingTextarea.value);
-            graph.setVegaMapping(mappingConfig);
-            queryStatus.textContent = 'Nouveau mapping visuel appliqué.';
+            const encodingConfig = JSON.parse(visualMappingTextarea.value);
+            graph.encoding = encodingConfig;
+            queryStatus.textContent = 'Nouvel encoding visuel appliqué.';
             queryStatus.className = 'status-message status-success';
-            console.log("🎨 Custom visual mapping applied from textarea.");
+            console.log("🎨 Custom visual encoding applied from textarea.");
         } catch (error) {
-            queryStatus.textContent = `Erreur dans le JSON du mapping: ${error.message}`;
+            queryStatus.textContent = `Erreur dans le JSON de l'encoding: ${error.message}`;
             queryStatus.className = 'status-message status-error';
-            console.error("Error parsing visual mapping JSON:", error);
+            console.error("Error parsing visual encoding JSON:", error);
         }
     });
 
-    // Retirer le mapping visuel personnalisé et revenir au défaut
+    // Retirer l'encoding visuel personnalisé et revenir au défaut
     removeMappingBtn.addEventListener('click', function() {
-        const defaultMapping = graph.getDefaultVegaMapping();
-        graph.setVegaMapping(defaultMapping);
+        const defaultMapping = graph.getDefaultEncoding();
+        graph.encoding = defaultMapping;
         visualMappingTextarea.value = JSON.stringify(defaultMapping, null, 2);
-        queryStatus.textContent = 'Mapping visuel par défaut restauré.';
+        queryStatus.textContent = 'Encoding visuel par défaut restauré.';
         queryStatus.className = 'status-message status-success';
-        console.log("🎨 Default visual mapping restored.");
+        console.log("🎨 Default visual encoding restored.");
     });
     
     // Exécuter la requête SPARQL
@@ -178,10 +178,10 @@ document.addEventListener('DOMContentLoaded', function() {
             // Configurer le composant avec les nouvelles propriétés
             graph.sparqlEndpoint = endpoint;
             graph.sparqlQuery = query;
-            graph.sparqlProxy = proxyUrl || null;
+            graph.proxy = proxyUrl || null; // Utilise l'alias 'proxy'
             
-            // Exécuter la requête SPARQL
-            const result = await graph.setSparqlQuery();
+            // Lancer la visualisation avec la nouvelle méthode unifiée
+            const result = await graph.launch();
             
             if (result.status === 'success') {
                 queryStatus.textContent = result.message;
@@ -215,12 +215,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Effacer les résultats
     clearButton.addEventListener('click', function() {
         // Réinitialiser les composants
-        graph.setData([], []);
+        graph.nodes = [];
+        graph.links = [];
         table.setData([]);
         
-        // Rétablir le mapping par défaut et mettre à jour la textarea
-        const defaultMapping = graph.getDefaultVegaMapping();
-        graph.setVegaMapping(defaultMapping);
+        // Rétablir l'encoding par défaut et mettre à jour la textarea
+        const defaultMapping = graph.getDefaultEncoding();
+        graph.encoding = defaultMapping;
         visualMappingTextarea.value = JSON.stringify(defaultMapping, null, 2);
         
         // Réinitialiser les aperçus
@@ -230,6 +231,12 @@ document.addEventListener('DOMContentLoaded', function() {
         // Réinitialiser le statut
         queryStatus.textContent = '';
         queryStatus.className = 'status-message';
+        
+        // Relancer le rendu avec des données vides
+        graph.launch().catch(() => {
+            // Si launch() échoue avec des données vides, on fait un rendu direct
+            graph.render();
+        });
     });
     
     // Fonction pour mettre à jour les aperçus de données

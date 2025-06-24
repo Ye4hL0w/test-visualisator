@@ -1,5 +1,6 @@
 /**
- * Composant simplifié de visualisation de graphe D3.js
+ * Composant Web pour la visualisation de graphes de connaissances.
+ * Utilise D3.js pour le rendu SVG et un système d'encoding visuel configurable.
  */
 // import * as d3 from 'd3'; // penser a décommenter si l'on veut publier le composant
 import { SparqlDataFetcher } from './SparqlDataFetcher.js';
@@ -21,27 +22,27 @@ export class VisGraph extends HTMLElement {
     // Instance du fetcher pour récupérer les données SPARQL
     this.sparqlFetcher = new SparqlDataFetcher();
     
-    // To organize private attributes (e.g. query, endpoint, proxy)
+    // Organisation des attributs privés (requête, endpoint, etc.)
     this.internalData = new WeakMap();
-    this.internalData.set(this, {}); // Initialize internal storage
+    this.internalData.set(this, {}); // Initialisation du stockage interne
 
-    // Visual mapping VEGA - configuration par défaut
-    this.vegaVisualMapping = this.getDefaultVegaMapping();
+    // Encoding visuel VEGA - configuration par défaut
+    this.visualEncoding = this.getDefaultEncoding();
   }
 
   /**
-   * Configuration VEGA par défaut pour le visual mapping.
+   * Configuration VEGA par défaut pour l'encoding visuel.
    */
-  getDefaultVegaMapping() {
-    return {
-      "description": "Default visual mapping configuration",
+  getDefaultEncoding() {
+          return {
+        "description": "Configuration d'encoding visuel par défaut",
       "width": 800,
       "height": 600,
       "autosize": "none",
       "nodes": {
-        "field": "source", // Default source variable from SPARQL query
+        "field": "source", // Variable source par défaut de la requête SPARQL
         "color": {
-          "field": "type", // Color nodes by 'type' property (e.g., 'uri', 'literal')
+          "field": "type", // Colorer les nœuds par propriété 'type' (ex: 'uri', 'literal')
           "scale": {
             "type": "ordinal",
             "domain": ["uri", "literal"],
@@ -49,17 +50,17 @@ export class VisGraph extends HTMLElement {
           }
         },
         "size": {
-          "field": "connections", // Size nodes by number of connections
+          "field": "connections", // Tailler les nœuds par nombre de connexions
           "scale": {
             "type": "linear",
             "domain": [0, 10],
-            "range": [8, 25] // pixel radius
+            "range": [8, 25] // Rayon en pixels
           }
         }
       },
       "links": {
-        "field": "source-target", // Default link from var1 to var2
-        "distance": 100, // Default distance between nodes
+        "field": "source-target", // Lien par défaut de var1 à var2
+        "distance": 100, // Distance par défaut entre les nœuds
         "width": {
           "value": 1.5
         },
@@ -70,18 +71,19 @@ export class VisGraph extends HTMLElement {
     };
   }
 
+  // --- GETTERS ET SETTERS POUR L'API PUBLIQUE ---
+
   /**
-   * Définit la configuration pour le visual mapping.
+   * Définit la configuration pour l'encoding visuel.
    * Cette méthode déclenche une nouvelle transformation et un nouveau rendu.
-   * @param {object} vegaMapping - La configuration de mapping au format JSON.
+   * @param {object} encoding - La configuration d'encoding au format JSON.
    */
-  setVegaMapping(vegaMapping) {
-    console.log('[vis-graph] 🎨 New visual mapping received.');
-    // A deep merge would be more robust, but for this purpose, a shallow merge is sufficient.
-    this.vegaVisualMapping = { ...this.getDefaultVegaMapping(), ...vegaMapping };
+  setEncoding(encoding) {
+    console.log('[vis-graph] 🎨 New encoding received.');
+    this.visualEncoding = { ...this.getDefaultEncoding(), ...encoding };
 
     if (this.sparqlData) {
-        console.log('[vis-graph] 🔄 Re-transforming and re-rendering with new mapping.');
+        console.log('[vis-graph] 🔄 Re-transforming and re-rendering with new encoding.');
         const transformedData = this.transformSparqlResults(this.sparqlData);
         this.nodes = transformedData.nodes;
         this.links = transformedData.links;
@@ -89,14 +91,10 @@ export class VisGraph extends HTMLElement {
     }
   }
 
-  /**
-   * Obtient la configuration de visual mapping actuelle.
-   */
-  getVegaMapping() {
-    return this.vegaVisualMapping;
+  getEncoding() {
+    return this.visualEncoding;
   }
 
-  // Getters and setters for SPARQL configuration
   set sparqlQuery(query) {
     const data = this.internalData.get(this) || {};
     data.sparqlQuery = query;
@@ -117,24 +115,91 @@ export class VisGraph extends HTMLElement {
     return this.internalData.get(this)?.sparqlEndpoint;
   }
 
-  set sparqlProxy(url) {
+  set sparqlResult(jsonData) {
     const data = this.internalData.get(this) || {};
-    data.sparqlProxy = url;
+    data.sparqlResult = jsonData;
     this.internalData.set(this, data);
   }
-  
-  get sparqlProxy() {
-    return this.internalData.get(this)?.sparqlProxy;
+
+  get sparqlResult() {
+    return this.internalData.get(this)?.sparqlResult;
+  }
+
+  set encoding(mapping) {
+    const data = this.internalData.get(this) || {};
+    data.encoding = mapping;
+    this.internalData.set(this, data);
+    this.setEncoding(mapping);
+  }
+
+  get encoding() {
+    return this.internalData.get(this)?.encoding;
+  }
+
+  set proxy(url) {
+    const data = this.internalData.get(this) || {};
+    data.proxy = url;
+    this.internalData.set(this, data);
+  }
+
+  get proxy() {
+    return this.internalData.get(this)?.proxy;
+  }
+
+  /**
+   * Lance la récupération des données, leur transformation et le rendu du graphe.
+   * Cette méthode est le point d'entrée principal et fonctionne sans paramètres.
+   * Elle utilise les propriétés définies sur le composant et orchestre automatiquement
+   * l'appel des méthodes appropriées selon les données disponibles.
+   */
+  async launch() {
+    console.log('[vis-graph] 🚀 Lancement du processus de visualisation...');
+
+    try {
+      // 1. Appliquer l'encoding visuel personnalisé si défini
+      if (this.encoding && this.encoding !== this.getDefaultEncoding()) {
+        console.log('[vis-graph] -> Application de l\'encoding visuel personnalisé');
+        this.setEncoding(this.encoding);
+      }
+
+      // 2. Priorité 1: Utiliser sparqlResult (données JSON pré-formatées)
+      if (this.sparqlResult) {
+        console.log('[vis-graph] -> Priorité 1: Traitement des données JSON (sparqlResult)');
+        return await this.setSparqlResult(this.sparqlResult);
+      }
+
+      // 3. Priorité 2: Exécuter une requête SPARQL
+      if (this.sparqlEndpoint && this.sparqlQuery) {
+        console.log('[vis-graph] -> Priorité 2: Exécution de la requête SPARQL');
+        return await this.executeSparqlQuery();
+      }
+
+      // 4. Priorité 3: Utiliser les données manuelles si elles existent
+      if (this.nodes && this.nodes.length > 0) {
+        console.log('[vis-graph] -> Priorité 3: Rendu des données manuelles existantes');
+        this.render();
+        return { status: 'success', message: 'Données manuelles rendues.' };
+      }
+
+      // Si aucune source de données n'est configurée
+      const errorMessage = 'Aucune source de données configurée. Définissez `sparqlResult`, `sparqlEndpoint`/`sparqlQuery`, ou `nodes`/`links` avant d\'appeler launch().';
+      console.warn(`[vis-graph] ${errorMessage}`);
+      throw new Error(errorMessage);
+
+    } catch (error) {
+      console.error('[vis-graph] ❌ Erreur lors du lancement:', error);
+      return { status: 'error', message: error.message };
+    }
   }
 
   /**
    * Execute SPARQL query using the configured endpoint, query and proxy
    * This is the new simplified method that uses the getters/setters
    */
-  async setSparqlQuery() {
+  async executeSparqlQuery() {// executeSparqlQuery()
     const endpoint = this.sparqlEndpoint;
     const query = this.sparqlQuery;
-    const proxyUrl = this.sparqlProxy;
+    const proxyUrl = this.proxy;
     
     if (!endpoint || !query) {
       throw new Error('Veuillez configurer sparqlEndpoint et sparqlQuery avant d\'exécuter la requête');
@@ -385,7 +450,7 @@ export class VisGraph extends HTMLElement {
     const vars = results.head.vars;
     console.log("Available SPARQL variables:", vars);
     
-    const mapping = this.vegaVisualMapping;
+    const mapping = this.visualEncoding;
 
     // --- FIELD MAPPING ---
     const linkField = mapping.links?.field || (vars.length > 1 ? `${vars[0]}-${vars[1]}` : null);
@@ -2037,10 +2102,10 @@ export class VisGraph extends HTMLElement {
       return;
     }
 
-    const mapping = this.vegaVisualMapping;
+    const mapping = this.visualEncoding;
 
     // --- ENCODING LOGIC ---
-    // Create clear, explicit functions to get visual properties based on the mapping.
+    // Create clear, explicit functions to get visual properties based on the encoding.
     
     // Node Color
     const nodeColorConfig = mapping.nodes.color || {};
@@ -2228,8 +2293,8 @@ export class VisGraph extends HTMLElement {
         scale = d3.scaleOrdinal();
         break;
     }
-    return scale.domain(scaleConfig.domain).range(range);
-  }
+          return scale.domain(scaleConfig.domain).range(range);
+    }
 }
 
 // Enregistrer le composant

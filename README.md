@@ -1,19 +1,23 @@
 # @jmoncada/vis-graph
 
-A web component for visualizing SPARQL knowledge graphs with D3.js.
+A web component for visualizing SPARQL knowledge graphs with D3.js and configurable visual mapping.
 
 ![npm version](https://img.shields.io/npm/v/@jmoncada/vis-graph)
 ![license](https://img.shields.io/npm/l/@jmoncada/vis-graph)
 
 ## ✨ Features
 
-- 🔄 **Automatic loading** from SPARQL endpoints
-- 🌐 **Automatic CORS/Proxy handling** 
-- 🎨 **Interactive visualization** with D3.js
-- 📊 **Enriched details** for each node
-- 🔍 **Smart transformation** of SPARQL data
+- 🚀 **Simple API**: Configure properties → call `launch()` → done!
+- 🔄 **Multiple data sources**: SPARQL endpoints, JSON data, or manual nodes/links
+- 🌐 **Smart CORS handling**: Automatic proxy fallback for cross-origin requests
+- 🎨 **Visual mapping system**: JSON-based styling inspired by Vega-Lite
+- 📊 **Interactive visualization**: Drag, zoom, hover, and contextual details
+- 🔍 **Intelligent data transformation**: Automatic node labeling and deduplication
+- 🛠️ **Zero dependencies**: Self-contained web component (D3.js included)
 
-## 🚀 Installation
+## 🚀 Quick Start
+
+### Installation
 
 ```bash
 npm install @jmoncada/vis-graph
@@ -26,7 +30,7 @@ npm install @jmoncada/vis-graph
 **Option A: ES Module (recommended with a bundler)**
 
 ```javascript
-import '@jmoncada/vis-graph'; // Import and register the Web Component <vis-graph>
+import '@jmoncada/vis-graph';
 ```
 
 **Option B: UMD (for direct use in browser via `<script>`)**
@@ -39,40 +43,13 @@ Include the script in your HTML.
 
 ### 2. Usage
 
-The `<vis-graph>` component is designed to be simple. You configure it with properties, and then you call a method to execute the query.
+To get started with the `vis-graph` component and explore its capabilities, check out the **[vis-graph Component Guide](./docs/VisGraph.md)**.  
+This guide covers everything from basic usage to advanced configuration, including internal operation and component architecture, so you can make the most of your knowledge graph visualizations.
 
-```html
-<!-- Add the component to your page -->
-<vis-graph id="myGraph" width="800" height="600"></vis-graph>
-
-<script>
-  const graph = document.getElementById('myGraph');
-
-  // 1. Configure the component with your SPARQL endpoint and query
-  graph.sparqlEndpoint = 'https://query.wikidata.org/sparql';
-  graph.sparqlQuery = `
-    SELECT ?item ?itemLabel WHERE {
-      ?item wdt:P31 wd:Q5 .
-      SERVICE wikibase:label { bd:serviceParam wikibase:language "en" }
-    } LIMIT 10`;
-  
-  // Optional: configure a proxy if your endpoint has CORS issues
-  graph.sparqlProxy = 'http://localhost:3001/sparql-proxy';
-
-  // 2. Execute the query and load the graph
-  graph.setSparqlQuery().then(result => {
-    if (result.status === 'success') {
-      console.log('Graph loaded with', result.data.nodes.length, 'nodes');
-    } else {
-      console.error('Failed to load graph:', result.message);
-    }
-  });
-</script>
-```
 
 ### What the component does for you:
 
-The `vis-graph` component handles the complexity behind the scenes. When you call `setSparqlQuery()`:
+The `vis-graph` component handles the complexity behind the scenes. When you call `launch()`:
 
 -   It uses its internal `SparqlDataFetcher`.
 -   It automatically tries to connect to the endpoint.
@@ -90,6 +67,6 @@ You don't need to worry about the details, just provide the configuration and th
 - **[SparqlDataFetcher Guide](./docs/dataFetcher-setup.md)** - Simple usage of the data retrieval module
 - **[SPARQL Proxy Configuration](./docs/proxy-setup.md)** - Resolving CORS issues
 
-## License
+## 📄 License
 
 This project is licensed under [MIT](./LICENSE). 

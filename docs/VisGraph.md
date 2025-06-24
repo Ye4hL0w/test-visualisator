@@ -4,23 +4,38 @@ The `vis-graph.js` file defines a web component (`<vis-graph>`) capable of displ
 
 ## Public API
 
-The component is configured through properties and controlled by methods.
+The component follows a simple **"configure properties → launch"** pattern. Set the properties you need, then call `launch()` to execute.
 
-| Type      | Name                     | Description                                                          |
-|-----------|--------------------------|----------------------------------------------------------------------|
-| Property  | `sparqlEndpoint`         | **(setter)** Sets the URL of the SPARQL endpoint.                      |
-| Property  | `sparqlQuery`            | **(setter)** Sets the SPARQL query string.                             |
-| Property  | `sparqlProxy`            | **(setter)** Sets the optional proxy URL for CORS.                     |
-| Method    | `setSparqlQuery()`       | Asynchronously executes the query and loads the data.                   |
-| Method    | `setData()`              | Manually sets graph data (`nodes`, `links`).                           |
-| Method    | `setSparqlResult()`      | Loads data directly from a SPARQL JSON result.                        |
-| Method    | `setVegaMapping(config)` | Sets a custom visual mapping configuration and re-renders the graph. |
-| Method    | `getVegaMapping()`       | Returns the currently active visual mapping configuration object.      |
-| Method    | `getDefaultVegaMapping()`| Returns the component's default mapping configuration object.        |
+### Main Properties
+
+| Property         | Type     | Description                                                    |
+|------------------|----------|----------------------------------------------------------------|
+| `sparqlEndpoint` | string   | URL of the SPARQL endpoint                                     |
+| `sparqlQuery`    | string   | SPARQL query string                                            |
+| `sparqlResult`   | object   | Pre-formatted SPARQL JSON result (alternative to endpoint)    |
+| `proxy`          | string   | Optional proxy URL for CORS issues                             |
+| `encoding`       | object   | Custom visual encoding configuration                           |
+| `nodes`          | array    | Manual node data (alternative to SPARQL)                      |
+| `links`          | array    | Manual link data (alternative to SPARQL)                      |
+
+### Main Method
+
+| Method                    | Description                                                          |
+|---------------------------|----------------------------------------------------------------------|
+| `launch()`                | **Main entry point**: Executes data loading and rendering based on configured properties |
+
+### Helper Methods
+
+| Method                    | Description                                                          |
+|---------------------------|----------------------------------------------------------------------|
+| `getEncoding()`           | Returns the currently active visual encoding configuration object   |
+| `getDefaultEncoding()`    | Returns the component's default encoding configuration object       |
 
 ## 🚀 Quick Usage
 
-The `<vis-graph>` component is designed to be simple. You configure it with properties, and then you call a method to execute the query.
+The `<vis-graph>` component follows a simple **"configure → launch"** pattern. Set the properties you need, then call `launch()` once.
+
+### Basic SPARQL Query
 
 ```html
 <!-- Add the component to your page -->
@@ -29,7 +44,7 @@ The `<vis-graph>` component is designed to be simple. You configure it with prop
 <script>
   const graph = document.getElementById('myGraph');
 
-  // 1. Configure the component with your SPARQL endpoint and query
+  // 1. Configure the component properties
   graph.sparqlEndpoint = 'https://query.wikidata.org/sparql';
   graph.sparqlQuery = `
     SELECT ?item ?itemLabel WHERE {
@@ -38,10 +53,10 @@ The `<vis-graph>` component is designed to be simple. You configure it with prop
     } LIMIT 10`;
   
   // Optional: configure a proxy if your endpoint has CORS issues
-  graph.sparqlProxy = 'http://localhost:3001/sparql-proxy';
+  graph.proxy = 'http://localhost:3001/sparql-proxy';
 
-  // 2. Execute the query and load the graph
-  graph.setSparqlQuery().then(result => {
+  // 2. Launch the visualization
+  graph.launch().then(result => {
     if (result.status === 'success') {
       console.log('Graph loaded with', result.data.nodes.length, 'nodes');
     } else {
@@ -50,6 +65,33 @@ The `<vis-graph>` component is designed to be simple. You configure it with prop
   });
 </script>
 ```
+
+### Alternative Data Sources
+
+You can also use pre-formatted SPARQL JSON data or manual node/link arrays:
+
+```javascript
+// Option 1: Use pre-formatted SPARQL JSON
+graph.sparqlResult = mySparqlJsonData;
+graph.launch();
+
+// Option 2: Use manual data
+graph.nodes = [
+  { id: 'node1', label: 'First Node' },
+  { id: 'node2', label: 'Second Node' }
+];
+graph.links = [
+  { source: 'node1', target: 'node2' }
+];
+graph.launch();
+```
+
+### Data Source Priority
+
+The component follows this priority order:
+1. **Manual data**: `nodes` and `links` arrays
+2. **SPARQL JSON**: `sparqlResult` object  
+3. **SPARQL Query**: `sparqlEndpoint` + `sparqlQuery`
 
 ## 🎨 Visual Mapping System
 
@@ -69,7 +111,7 @@ The mapping works in two main stages:
 
 ### Default Mapping Structure
 
-Here is the default configuration, which you can retrieve via `getDefaultVegaMapping()`. Use this as a template for your own mappings.
+Here is the default configuration, which you can retrieve via `getDefaultEncoding()`. Use this as a template for your own encodings.
 
 ```json
 {
@@ -111,12 +153,13 @@ Here is the default configuration, which you can retrieve via `getDefaultVegaMap
 
 ### Applying a Custom Mapping
 
-To apply your custom configuration, create a configuration object and pass it to the `setVegaMapping` method.
+To apply your custom configuration, set the `encoding` property before calling `launch()`.
 
 ```javascript
 const graph = document.getElementById('myGraph');
 
-const myCustomMapping = {
+// Configure the visual encoding
+graph.encoding = {
   nodes: {
     color: {
       field: "type",
@@ -138,23 +181,52 @@ const myCustomMapping = {
   }
 };
 
-// Apply the new mapping.
-// The component will automatically re-render the graph with the new styles.
-graph.setVegaMapping(myCustomMapping);
+// Configure your data source
+graph.sparqlEndpoint = 'https://example.com/sparql';
+graph.sparqlQuery = 'SELECT ?item ?type WHERE { ... }';
+
+// Launch with custom encoding applied
+graph.launch();
+```
+
+### Complete Configuration Example
+
+```javascript
+const graph = document.getElementById('myGraph');
+
+// Configure all properties at once
+graph.sparqlEndpoint = 'https://query.wikidata.org/sparql';
+graph.sparqlQuery = 'SELECT ?person ?personLabel ?birthPlace WHERE { ... }';
+graph.proxy = 'http://localhost:3001/sparql-proxy';
+graph.encoding = {
+  nodes: {
+    color: { field: "type", scale: { type: "ordinal", domain: ["person", "place"], range: ["blue", "green"] }},
+    size: { field: "connections", scale: { type: "linear", domain: [1, 10], range: [10, 30] }}
+  },
+  links: {
+    distance: 150,
+    color: { value: "#333" }
+  }
+};
+
+// Launch everything at once
+graph.launch().then(result => {
+  console.log('Visualization ready:', result.status);
+});
 ```
 
 ## General Operation
 
 1.  **Configuration**: The user configures the component by setting the `sparqlEndpoint`, `sparqlQuery`, and optional `sparqlProxy` properties.
 
-2.  **Data Loading**: The user calls `setSparqlQuery()`. This method internally calls `loadFromSparqlEndpoint(endpoint, query, jsonData, proxyUrl)` which:
+2.  **Data Loading**: The user calls `executeSparqlQuery()`. This method internally calls `loadFromSparqlEndpoint(endpoint, query, jsonData, proxyUrl)` which:
     *   Uses the `SparqlDataFetcher` with automatic CORS error and proxy management
     *   Stores raw data in `this.sparqlData` (component property)
     *   Transforms SPARQL results into nodes and links via `transformSparqlResults`
     *   Displays notifications and error panels if necessary
 
 3.  **Data Transformation (`transformSparqlResults`)**:
-    *   **Field Mapping**: Uses the `links.field` from the visual mapping to determine the source and target variables. Defaults to the first and second variables if not specified.
+    *   **Field Mapping**: Uses the `links.field` from the visual encoding to determine the source and target variables. Defaults to the first and second variables if not specified.
     *   **Smart Labels**: The `_determineNodeLabelFromBinding()` method finds the best label by analyzing:
         1.  Direct literal values
         2.  Conventional label variables (e.g., `geneLabel` for `gene`)
@@ -164,7 +236,7 @@ graph.setVegaMapping(myCustomMapping);
     *   **Deduplication**: Nodes and links are automatically deduplicated.
 
 4.  **Interactive Rendering (`createForceGraph`)**:
-    *   **Encoding**: Reads the `color`, `size`, `distance`, etc. from the visual mapping to style SVG elements.
+    *   **Encoding**: Reads the `color`, `size`, `distance`, etc. from the visual encoding to style SVG elements.
     *   **Rendering**: Creates a force-directed graph with D3.js.
     *   **Interactivity**: Handles hover, drag & drop, and context menu events.
 
@@ -183,7 +255,7 @@ graph.setVegaMapping(myCustomMapping);
 ## Key Points
 
 *   **Flexibility**: Adapts to different SPARQL schemas through intelligent label detection and configurable `field` mapping.
-*   **Customization**: Fully customizable appearance via the `encoding` properties of the visual mapping.
+*   **Customization**: Fully customizable appearance via the `encoding` properties of the visual encoding.
 *   **Robustness**: Automatic CORS management, proxy, deduplication, and fallback rendering logic.
 *   **Performance**: Relation deduplication and optimized data storage.
 *   **Extensibility**: Original data preserved for future enhancements.
