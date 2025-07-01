@@ -146,14 +146,28 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Retirer l'encoding visuel personnalisé et revenir au défaut
+    // Retirer l'encoding visuel personnalisé et revenir au défaut adaptatif
     removeMappingBtn.addEventListener('click', function() {
-        const defaultMapping = graph.getDefaultEncoding();
-        graph.encoding = defaultMapping;
-        visualMappingTextarea.value = JSON.stringify(defaultMapping, null, 2);
-        queryStatus.textContent = 'Encoding visuel par défaut restauré.';
-        queryStatus.className = 'status-message status-success';
-        console.log("🎨 Default visual encoding restored.");
+        // Remettre à null pour forcer la régénération de l'encoding adaptatif
+        graph.encoding = null;
+        
+        // Régénérer l'encoding adaptatif en relançant la transformation
+        if (graph.sparqlData) {
+            graph.launch().then(() => {
+                // Récupérer l'encoding adaptatif généré
+                const adaptiveMapping = graph.getEncoding();
+                visualMappingTextarea.value = JSON.stringify(adaptiveMapping, null, 2);
+                queryStatus.textContent = 'Encoding visuel adaptatif restauré.';
+                queryStatus.className = 'status-message status-success';
+                console.log("🎨 Adaptive visual encoding restored.");
+            });
+        } else {
+            // Si pas de données, utiliser l'encoding par défaut
+            const defaultMapping = graph.getDefaultEncoding();
+            visualMappingTextarea.value = JSON.stringify(defaultMapping, null, 2);
+            queryStatus.textContent = 'Encoding visuel par défaut restauré (aucune donnée).';
+            queryStatus.className = 'status-message status-success';
+        }
     });
     
     // Exécuter la requête SPARQL
@@ -187,6 +201,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 queryStatus.textContent = result.message;
                 queryStatus.className = 'status-message status-success';
                 
+                // Mettre à jour l'encoding dans la textarea avec l'encoding adaptatif réellement utilisé
+                const currentEncoding = graph.getEncoding();
+                visualMappingTextarea.value = JSON.stringify(currentEncoding, null, 2);
+                
                 // Mettre à jour les aperçus de données
                 updateDataPreviews(result.rawData, result.data);
                 
@@ -219,9 +237,12 @@ document.addEventListener('DOMContentLoaded', function() {
         graph.links = [];
         table.setData([]);
         
-        // Rétablir l'encoding par défaut et mettre à jour la textarea
+        // Effacer les données SPARQL pour forcer un retour à l'encoding par défaut
+        graph.sparqlData = null;
+        graph.encoding = null;
+        
+        // Rétablir l'encoding par défaut statique (car plus de données SPARQL)
         const defaultMapping = graph.getDefaultEncoding();
-        graph.encoding = defaultMapping;
         visualMappingTextarea.value = JSON.stringify(defaultMapping, null, 2);
         
         // Réinitialiser les aperçus

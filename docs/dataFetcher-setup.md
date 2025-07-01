@@ -33,7 +33,7 @@ const fetcher = new SparqlDataFetcher();
 
 **What it does:** This method is used **internally by the `<vis-graph>` component** to retrieve data from a SPARQL endpoint with several fallback options.
 
-**When it's called:** Automatically by the component when you use `setSparqlQuery()`.
+**When it's called:** Automatically by the component when you use `executeSparqlQuery()`.
 
 **What it retrieves for the component:**
 ```javascript
