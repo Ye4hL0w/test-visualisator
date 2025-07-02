@@ -4,6 +4,7 @@
  */
 // import * as d3 from 'd3'; // penser a décommenter si l'on veut publier le composant
 import { SparqlDataFetcher } from './SparqlDataFetcher.js';
+import { DomainCalculator } from './DomainCalculator.js';
 
 export class VisGraph extends HTMLElement {
   constructor() {
@@ -21,6 +22,9 @@ export class VisGraph extends HTMLElement {
     
     // Instance du fetcher pour récupérer les données SPARQL
     this.sparqlFetcher = new SparqlDataFetcher();
+    
+    // Instance du calculateur de domaines pour l'encoding visuel
+    this.domainCalculator = new DomainCalculator();
     
     // Organisation des attributs privés (requête, endpoint, etc.)
     this.internalData = new WeakMap();
@@ -108,6 +112,9 @@ export class VisGraph extends HTMLElement {
    */
   setEncoding(encoding) {
     console.log('[vis-graph] 🎨 New encoding received.');
+    
+    // Nettoyer le cache du calculateur de domaines car l'encoding change
+    this.domainCalculator.clearCache();
     
     // Si encoding est null, réinitialiser à l'encoding adaptatif ou par défaut
     if (encoding === null) {
@@ -355,7 +362,51 @@ export class VisGraph extends HTMLElement {
     console.log('[vis-graph] 📋 Définition manuelle des données');
     this.nodes = nodes;
     this.links = links;
+    // Nettoyer le cache pour les nouvelles données manuelles
+    this.domainCalculator.clearCache();
     this.render();
+  }
+
+  /**
+   * Obtient les statistiques de domaine pour un champ donné
+   * @param {string} field - Le champ à analyser
+   * @param {string} dataType - 'nodes' ou 'links'
+   * @returns {Object} Statistiques du domaine
+   */
+  getDomainStats(field, dataType = 'nodes') {
+    const data = dataType === 'nodes' ? this.nodes : this.links;
+    if (!data || data.length === 0) {
+      console.warn(`[vis-graph] ⚠️ Aucune donnée ${dataType} disponible pour les statistiques`);
+      return null;
+    }
+    return this.domainCalculator.getDomainStats(data, field);
+  }
+
+  /**
+   * Obtient toutes les statistiques de domaine pour les champs d'encoding actuels
+   * @returns {Object} Statistiques complètes
+   */
+  getAllDomainStats() {
+    const stats = {
+      nodes: {},
+      links: {},
+      encoding: this.visualEncoding
+    };
+
+    // Statistiques pour les nœuds
+    if (this.visualEncoding.nodes?.color?.field) {
+      stats.nodes.color = this.getDomainStats(this.visualEncoding.nodes.color.field, 'nodes');
+    }
+    if (this.visualEncoding.nodes?.size?.field) {
+      stats.nodes.size = this.getDomainStats(this.visualEncoding.nodes.size.field, 'nodes');
+    }
+
+    // Statistiques pour les liens
+    if (this.visualEncoding.links?.color?.field) {
+      stats.links.color = this.getDomainStats(this.visualEncoding.links.color.field, 'links');
+    }
+
+    return stats;
   }
 
   /**
@@ -424,6 +475,9 @@ export class VisGraph extends HTMLElement {
       
       if (result.status === 'success') {
         this.sparqlData = result.data; // Conserver les données brutes
+
+        // Nettoyer le cache du calculateur de domaines pour les nouvelles données
+        this.domainCalculator.clearCache();
 
         if (result.method === 'direct-json') {
           // Données JSON directes
@@ -2267,7 +2321,8 @@ export class VisGraph extends HTMLElement {
     
     // Node Color
     const nodeColorConfig = mapping.nodes.color || {};
-    const nodeColorScale = nodeColorConfig.scale ? this.createD3Scale(nodeColorConfig.scale) : null;
+    const nodeColorScale = nodeColorConfig.scale ? 
+      this.createD3Scale({...nodeColorConfig.scale, field: nodeColorConfig.field}, this.nodes) : null;
     const getNodeColor = d => {
       if (nodeColorScale && nodeColorConfig.field && d[nodeColorConfig.field] !== undefined) {
         // CORRECTION: On vérifie que la valeur du noeud est bien dans le domaine de l'échelle
@@ -2283,7 +2338,8 @@ export class VisGraph extends HTMLElement {
 
     // Node Size (Radius)
     const nodeSizeConfig = mapping.nodes.size || {};
-    const nodeSizeScale = nodeSizeConfig.scale ? this.createD3Scale(nodeSizeConfig.scale) : null;
+    const nodeSizeScale = nodeSizeConfig.scale ? 
+      this.createD3Scale({...nodeSizeConfig.scale, field: nodeSizeConfig.field}, this.nodes) : null;
     const getNodeRadius = d => {
       if (nodeSizeScale && nodeSizeConfig.field && d[nodeSizeConfig.field] !== undefined) {
         return nodeSizeScale(d[nodeSizeConfig.field]);
@@ -2293,7 +2349,8 @@ export class VisGraph extends HTMLElement {
 
     // Link Color
     const linkColorConfig = mapping.links.color || {};
-    const linkColorScale = linkColorConfig.scale ? this.createD3Scale(linkColorConfig.scale) : null;
+    const linkColorScale = linkColorConfig.scale ? 
+      this.createD3Scale({...linkColorConfig.scale, field: linkColorConfig.field}, this.links) : null;
     const getLinkColor = d => {
       if (linkColorScale && linkColorConfig.field && d[linkColorConfig.field] !== undefined) {
         // CORRECTION: On vérifie aussi pour les liens
@@ -2416,13 +2473,14 @@ export class VisGraph extends HTMLElement {
   }
 
   /**
-   * Crée une échelle D3 à partir d'une configuration de type VEGA.
-   * @param {object} scaleConfig - La configuration de l'échelle (`domain`, `range`, `type`).
+   * Crée une échelle D3 à partir d'une configuration de type VEGA avec calcul intelligent du domaine.
+   * @param {object} scaleConfig - La configuration de l'échelle (`domain`, `range`, `type`, `field`).
+   * @param {Array} data - Les données pour calculer le domaine (nodes ou links).
    * @param {d3.Scale} defaultScale - L'échelle D3 à utiliser si la configuration est invalide.
    * @returns {d3.Scale} L'échelle D3 configurée.
    */
-  createD3Scale(scaleConfig, defaultScale) {
-    if (!scaleConfig || !scaleConfig.domain || !scaleConfig.range) {
+  createD3Scale(scaleConfig, data = [], defaultScale = null) {
+    if (!scaleConfig || !scaleConfig.range) {
       return defaultScale;
     }
 
@@ -2434,6 +2492,21 @@ export class VisGraph extends HTMLElement {
     if (!range) {
         console.warn(`[vis-graph] Invalid color scheme or range provided: ${scaleConfig.range}`);
         return defaultScale;
+    }
+    
+    // Calculer le domaine intelligemment avec DomainCalculator
+    let domain = scaleConfig.domain;
+    if (scaleConfig.field && data && data.length > 0) {
+      domain = this.domainCalculator.getDomain(
+        data, 
+        scaleConfig.field, 
+        scaleConfig.domain, 
+        type
+      );
+      console.log(`[vis-graph] 🎯 Domaine calculé pour "${scaleConfig.field}":`, domain);
+    } else if (!domain) {
+      console.warn(`[vis-graph] ⚠️ Aucun domaine défini et aucune donnée pour calculer automatiquement`);
+      return defaultScale;
     }
     
     switch (type) {
@@ -2451,8 +2524,9 @@ export class VisGraph extends HTMLElement {
         scale = d3.scaleOrdinal();
         break;
     }
-          return scale.domain(scaleConfig.domain).range(range);
-    }
+    
+    return scale.domain(domain).range(range);
+  }
 }
 
 // Enregistrer le composant
