@@ -41,9 +41,9 @@ export class VisGraph extends HTMLElement {
       "height": 600,
       "autosize": "none",
       "nodes": {
-        "field": "source", // Variable source par défaut de la requête SPARQL (sera adaptée dynamiquement)
+        "field": "source", // adapté dynamiquement
         "color": {
-          "field": "type", // Colorer les nœuds par propriété 'type' (ex: 'uri', 'literal')
+          "field": "type", // Colorer les nœuds par propriété
           "scale": {
             "type": "ordinal",
             "domain": ["uri", "literal"],
