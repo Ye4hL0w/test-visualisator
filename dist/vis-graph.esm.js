@@ -20873,17 +20873,18 @@ class VisGraph extends HTMLElement {
 
   /**
    * Configuration VEGA par défaut pour l'encoding visuel.
+   * Peut être adaptée dynamiquement selon les variables SPARQL disponibles.
    */
   getDefaultEncoding() {
-          return {
-        "description": "Configuration d'encoding visuel par défaut",
+    return {
+      "description": "Configuration d'encoding visuel par défaut",
       "width": 800,
       "height": 600,
       "autosize": "none",
       "nodes": {
-        "field": "source", // Variable source par défaut de la requête SPARQL
+        "field": ["source"], // array avec minimum 1 valeur
         "color": {
-          "field": "type", // Colorer les nœuds par propriété 'type' (ex: 'uri', 'literal')
+          "field": "type", // Colorer les nœuds par propriété
           "scale": {
             "type": "ordinal",
             "domain": ["uri", "literal"],
@@ -20900,7 +20901,7 @@ class VisGraph extends HTMLElement {
         }
       },
       "links": {
-        "field": "source-target", // Lien par défaut de var1 à var2
+        "field": {source: "source", target: "target"}, // Lien directionnel par défaut
         "distance": 100, // Distance par défaut entre les nœuds
         "width": {
           "value": 1.5
@@ -20912,6 +20913,36 @@ class VisGraph extends HTMLElement {
     };
   }
 
+  /**
+   * Crée un encoding adaptatif basé sur les variables SPARQL disponibles.
+   * @param {Array} sparqlVars - Les variables disponibles dans les données SPARQL
+   * @returns {Object} Encoding adapté aux données
+   */
+  createAdaptiveEncoding(sparqlVars) {
+    if (!sparqlVars || sparqlVars.length === 0) {
+      return this.getDefaultEncoding();
+    }
+
+    const defaultEncoding = this.getDefaultEncoding();
+    
+    // Adapter le field des nœuds à la première variable SPARQL (format array)
+    defaultEncoding.nodes.field = [sparqlVars[0]];
+    
+    // Adapter le field des liens si on a au moins 2 variables
+    if (sparqlVars.length > 1) {
+      defaultEncoding.links.field = {source: sparqlVars[0], target: sparqlVars[1]};
+    } else {
+      // Si une seule variable, créer un lien sémantique
+      defaultEncoding.links.field = sparqlVars[0];
+    }
+    
+    console.log(`[vis-graph] 🎯 Encoding adaptatif créé avec les variables SPARQL:`, sparqlVars);
+    console.log(`[vis-graph] -> Nœuds basés sur:`, defaultEncoding.nodes.field);
+    console.log(`[vis-graph] -> Liens basés sur:`, defaultEncoding.links.field);
+    
+    return defaultEncoding;
+  }
+
   // --- GETTERS ET SETTERS POUR L'API PUBLIQUE ---
 
   /**
@@ -20921,15 +20952,163 @@ class VisGraph extends HTMLElement {
    */
   setEncoding(encoding) {
     console.log('[vis-graph] 🎨 New encoding received.');
-    this.visualEncoding = { ...this.getDefaultEncoding(), ...encoding };
+    
+    // Vérifier les problèmes potentiels d'encoding
+    if (encoding?.links?.field) {
+      console.log('[vis-graph] 🔍 Validation de l\'encoding des liens...');
+      
+      // Avertissement sur les clés dupliquées
+      console.warn('[vis-graph] ⚠️ IMPORTANT: Si vous avez défini "field" plusieurs fois dans links (ex: field: "goLabel" puis field: {source: "x", target: "y"}), JavaScript ne garde que la dernière définition !');
+      
+      if (typeof encoding.links.field === 'string') {
+        console.log('[vis-graph] 📝 Lien sémantique détecté avec field:', encoding.links.field);
+      } else if (typeof encoding.links.field === 'object') {
+        console.log('[vis-graph] 📝 Lien directionnel détecté avec field:', encoding.links.field);
+      }
+    }
+    
+    // Si encoding est null, réinitialiser à l'encoding adaptatif ou par défaut
+    if (encoding === null) {
+      if (this.sparqlData && this.sparqlData.head && this.sparqlData.head.vars) {
+        // Créer un encoding adaptatif basé sur les données SPARQL existantes
+        this.visualEncoding = this.createAdaptiveEncoding(this.sparqlData.head.vars);
+        console.log('[vis-graph] 🔄 Reset to adaptive encoding based on existing SPARQL data');
+      } else {
+        // Pas de données SPARQL, utiliser l'encoding par défaut
+        this.visualEncoding = this.getDefaultEncoding();
+        console.log('[vis-graph] 🔄 Reset to default encoding (no SPARQL data)');
+      }
+    } else {
+      // Valider l'encoding par rapport aux données SPARQL disponibles
+      if (this.sparqlData && this.sparqlData.head && this.sparqlData.head.vars) {
+        const validationResult = this.validateEncoding(encoding, this.sparqlData.head.vars);
+        if (!validationResult.isValid) {
+          console.error('[vis-graph] ❌ Validation échouée:', validationResult.warnings);
+          // Afficher les erreurs à l'utilisateur
+          validationResult.warnings.forEach(warning => {
+            this.showNotification(warning, 'error');
+          });
+          // Arrêter le processus - pas de fallback ni de rendu
+          return;
+        }
+      }
+      
+      this.visualEncoding = { ...this.getDefaultEncoding(), ...encoding };
+    }
 
     if (this.sparqlData) {
         console.log('[vis-graph] 🔄 Re-transforming and re-rendering with new encoding.');
-        const transformedData = this.transformSparqlResults(this.sparqlData);
-        this.nodes = transformedData.nodes;
-        this.links = transformedData.links;
-        this.render();
+        try {
+          const transformedData = this.transformSparqlResults(this.sparqlData);
+          this.nodes = transformedData.nodes;
+          this.links = transformedData.links;
+          this.render();
+        } catch (error) {
+          console.error('[vis-graph] ❌ Erreur lors de la transformation des données:', error.message);
+          this.showNotification(error.message, 'error');
+          return;
+        }
     }
+  }
+
+  /**
+   * Valide un encoding par rapport aux variables SPARQL disponibles.
+   * @param {Object} encoding - L'encoding à valider
+   * @param {Array} sparqlVars - Les variables SPARQL disponibles
+   * @returns {Object} Résultat de validation avec isValid et warnings
+   */
+  validateEncoding(encoding, sparqlVars) {
+    const warnings = [];
+    let isValid = true;
+
+    // Valider le field des nœuds (doit être un array avec minimum 1 valeur)
+    if (encoding.nodes?.field) {
+      const nodeField = encoding.nodes.field;
+      if (!Array.isArray(nodeField) || nodeField.length === 0) {
+        console.error('[vis-graph] ❌ Le field des nœuds doit être un array avec au moins une valeur');
+        warnings.push('Le field des nœuds doit être un array avec au moins une valeur');
+        isValid = false;
+      } else {
+        // Valider chaque champ du tableau
+        nodeField.forEach((field, index) => {
+          if (field !== "connections" && field !== "type" && !sparqlVars.includes(field)) {
+            warnings.push(`Field nœud #${index+1} "${field}" n'existe pas dans les données. Variables disponibles: ${sparqlVars.join(', ')}`);
+            isValid = false;
+          }
+        });
+      }
+    }
+
+    // Note importante : JavaScript écrase automatiquement les clés dupliquées
+    // Si l'utilisateur définit field deux fois, seule la dernière sera conservée
+    // On ajoute un avertissement préventif
+    if (encoding.links?.field) {
+      console.warn('[vis-graph] ⚠️ Attention: si vous avez défini "field" plusieurs fois dans links, JavaScript ne garde que la dernière définition');
+    }
+
+    // Valider le field des liens
+    if (encoding.links?.field) {
+      const linkField = encoding.links.field;
+      
+      // Cas 1: Lien sémantique (string)
+      if (typeof linkField === 'string') {
+        if (!sparqlVars.includes(linkField)) {
+          warnings.push(`Field lien sémantique "${linkField}" n'existe pas dans les données. Variables disponibles: ${sparqlVars.join(', ')}`);
+          isValid = false;
+        }
+        
+        // Vérifier qu'on a au moins 2 nœuds pour les liens sémantiques
+        if (encoding.nodes?.field && Array.isArray(encoding.nodes.field)) {
+          if (encoding.nodes.field.length < 2) {
+            console.error('[vis-graph] ❌ Pour les liens sémantiques, il faut au moins 2 variables dans le field des nœuds');
+            warnings.push('Pour les liens sémantiques, il faut au moins 2 variables dans le field des nœuds');
+            isValid = false;
+          }
+        } else {
+          console.error('[vis-graph] ❌ Pour les liens sémantiques, le field des nœuds doit être un array avec au moins 2 variables');
+          warnings.push('Pour les liens sémantiques, le field des nœuds doit être un array avec au moins 2 variables');
+          isValid = false;
+        }
+      }
+      // Cas 2: Lien directionnel (objet {source, target})
+      else if (typeof linkField === 'object' && linkField !== null) {
+        if (!linkField.source || !linkField.target) {
+          console.error('[vis-graph] ❌ Le field directionnel des liens doit avoir les propriétés "source" et "target"');
+          warnings.push('Le field directionnel des liens doit avoir les propriétés "source" et "target"');
+          isValid = false;
+        } else {
+          if (!sparqlVars.includes(linkField.source)) {
+            warnings.push(`Variable source "${linkField.source}" n'existe pas dans les données. Variables disponibles: ${sparqlVars.join(', ')}`);
+            isValid = false;
+          }
+          if (!sparqlVars.includes(linkField.target)) {
+            warnings.push(`Variable target "${linkField.target}" n'existe pas dans les données. Variables disponibles: ${sparqlVars.join(', ')}`);
+            isValid = false;
+          }
+        }
+      } else {
+        console.error('[vis-graph] ❌ Le field des liens doit être soit une string (lien sémantique) soit un objet {source, target} (lien directionnel)');
+        warnings.push('Le field des liens doit être soit une string soit un objet {source, target}');
+        isValid = false;
+      }
+    }
+
+    // Valider les fields dans les configurations de couleur et taille
+    if (encoding.nodes?.color?.field) {
+      const colorField = encoding.nodes.color.field;
+      if (colorField !== "type" && colorField !== "connections" && !sparqlVars.includes(colorField)) {
+        warnings.push(`Field couleur "${colorField}" n'existe pas dans les données. Variables disponibles: ${sparqlVars.join(', ')}`);
+      }
+    }
+
+    if (encoding.nodes?.size?.field) {
+      const sizeField = encoding.nodes.size.field;
+      if (sizeField !== "connections" && !sparqlVars.includes(sizeField)) {
+        warnings.push(`Field taille "${sizeField}" n'existe pas dans les données. Variables disponibles: ${sparqlVars.join(', ')}`);
+      }
+    }
+
+    return { isValid, warnings };
   }
 
   getEncoding() {
@@ -20990,8 +21169,6 @@ class VisGraph extends HTMLElement {
   /**
    * Lance la récupération des données, leur transformation et le rendu du graphe.
    * Cette méthode est le point d'entrée principal et fonctionne sans paramètres.
-   * Elle utilise les propriétés définies sur le composant et orchestre automatiquement
-   * l'appel des méthodes appropriées selon les données disponibles.
    */
   async launch() {
     console.log('[vis-graph] 🚀 Lancement du processus de visualisation...');
@@ -21157,28 +21334,48 @@ class VisGraph extends HTMLElement {
 
         if (result.method === 'direct-json') {
           // Données JSON directes
-          const transformedData = this.transformSparqlResults(result.data);
-          this.nodes = transformedData.nodes;
-          this.links = transformedData.links;
-          this.render();
-          
-          return {
-            ...result,
-            message: `Données chargées depuis JSON: ${this.nodes.length} nœuds, ${this.links.length} liens`,
-            data: transformedData
-          };
+          try {
+            const transformedData = this.transformSparqlResults(result.data);
+            this.nodes = transformedData.nodes;
+            this.links = transformedData.links;
+            this.render();
+            
+            return {
+              ...result,
+              message: `Données chargées depuis JSON: ${this.nodes.length} nœuds, ${this.links.length} liens`,
+              data: transformedData
+            };
+          } catch (error) {
+            console.error('[vis-graph] ❌ Erreur lors de la transformation (JSON):', error.message);
+            this.showNotification(error.message, 'error');
+            return {
+              status: 'error',
+              message: error.message,
+              data: null
+            };
+          }
         } else {
           // Données depuis endpoint/proxy
-          const transformedData = this.transformSparqlResults(result.data);
-          this.nodes = transformedData.nodes;
-          this.links = transformedData.links;
-          this.render();
-          
-          return {
-            ...result,
-            message: `Données chargées: ${this.nodes.length} nœuds, ${this.links.length} liens`,
-            data: transformedData
-          };
+          try {
+            const transformedData = this.transformSparqlResults(result.data);
+            this.nodes = transformedData.nodes;
+            this.links = transformedData.links;
+            this.render();
+            
+            return {
+              ...result,
+              message: `Données chargées: ${this.nodes.length} nœuds, ${this.links.length} liens`,
+              data: transformedData
+            };
+          } catch (error) {
+            console.error('[vis-graph] ❌ Erreur lors de la transformation (SPARQL):', error.message);
+            this.showNotification(error.message, 'error');
+            return {
+              status: 'error',
+              message: error.message,
+              data: null
+            };
+          }
         }
       }
       
@@ -21291,22 +21488,35 @@ class VisGraph extends HTMLElement {
     const vars = results.head.vars;
     console.log("Available SPARQL variables:", vars);
     
-    const mapping = this.visualEncoding;
+    // Si aucun encoding personnalisé n'a été défini, utiliser l'encoding adaptatif
+    let mapping = this.visualEncoding;
+    const isDefaultEncoding = !this.encoding || 
+      (this.encoding === this.getDefaultEncoding()) ||
+      (this.visualEncoding.nodes.field === "source" && this.visualEncoding.links.field === "source-target");
+    
+    if (isDefaultEncoding) {
+      mapping = this.createAdaptiveEncoding(vars);
+      this.visualEncoding = mapping; // Mettre à jour l'encoding courant
+      console.log("[vis-graph] 🔄 Utilisation de l'encoding adaptatif");
+    } else {
+      console.log("[vis-graph] 🎨 Utilisation de l'encoding personnalisé");
+    }
 
     // --- FIELD MAPPING ---
-    const linkField = mapping.links?.field || (vars.length > 1 ? `${vars[0]}-${vars[1]}` : null);
-
-    let sourceVar = vars[0];
-    let targetVar = vars.length > 1 ? vars[1] : null;
-
-    if (linkField) {
-        const parts = linkField.split('-');
-        if (parts.length === 2 && vars.includes(parts[0]) && vars.includes(parts[1])) {
-            sourceVar = parts[0];
-            targetVar = parts[1];
-        }
+    // Résoudre les champs de mapping selon les variables SPARQL disponibles
+    const resolvedMapping = this.resolveFieldMapping(mapping, vars);
+    
+    const sourceVar = resolvedMapping.sourceVar;
+    const targetVar = resolvedMapping.targetVar;
+    const linkType = resolvedMapping.linkType;
+    
+    // Pour les liens sémantiques, récupérer la variable sémantique
+    const semanticVar = (linkType === 'semantic' && typeof mapping.links.field === 'string') ? mapping.links.field : null;
+    
+    console.log(`[vis-graph] 🎯 Mapping final - Source: '${sourceVar}', Target: '${targetVar}', Type: '${linkType}'`);
+    if (semanticVar) {
+      console.log(`[vis-graph] 🎯 Variable sémantique: '${semanticVar}'`);
     }
-    console.log(`[vis-graph] Using source: '${sourceVar}', target: '${targetVar}' based on mapping.`);
 
     results.results.bindings.forEach(binding => {
       if (binding[sourceVar]) {
@@ -21329,7 +21539,7 @@ class VisGraph extends HTMLElement {
           nodesMap.set(sourceId, node);
         }
 
-        if (targetVar && binding[targetVar]) {
+        if (linkType === 'directional' && targetVar && binding[targetVar]) {
           const targetId = this.extractIdFromBinding(binding[targetVar]);
           if (!nodesMap.has(targetId)) {
             const node = {
@@ -21350,7 +21560,49 @@ class VisGraph extends HTMLElement {
 
           const linkKey = `${sourceId}-${targetId}`;
           if (!linksMap.has(linkKey)) {
-            const link = { source: sourceId, target: targetId };
+            const link = { 
+              source: sourceId, 
+              target: targetId,
+              type: 'directional'
+            };
+            // Attach all data to the link as well
+            for (const varName of vars) {
+              if (binding[varName]) {
+                link[varName] = binding[varName].value;
+              }
+            }
+            linksMap.set(linkKey, link);
+          }
+        } else if (linkType === 'semantic' && targetVar && binding[targetVar]) {
+          // Pour les liens sémantiques, créer un lien entre les nœuds avec le label sémantique
+          const targetId = this.extractIdFromBinding(binding[targetVar]);
+          if (!nodesMap.has(targetId)) {
+            const node = {
+              id: targetId,
+              label: this._determineNodeLabelFromBinding(binding[targetVar], targetVar, binding, vars),
+              uri: binding[targetVar].type === 'uri' ? binding[targetVar].value : null,
+              type: binding[targetVar].type,
+              originalData: {}
+            };
+            for (const varName of vars) {
+              if (binding[varName]) {
+                node[varName] = binding[varName].value;
+                node.originalData[varName] = binding[varName];
+              }
+            }
+            nodesMap.set(targetId, node);
+          }
+
+          const linkKey = `${sourceId}-${targetId}-semantic`;
+          if (!linksMap.has(linkKey)) {
+            const semanticLabel = (semanticVar && binding[semanticVar]) ? binding[semanticVar].value : 'relation';
+            const link = { 
+              source: sourceId, 
+              target: targetId,
+              type: 'semantic',
+              semanticLabel: semanticLabel,
+              tooltip: semanticLabel
+            };
             // Attach all data to the link as well
             for (const varName of vars) {
               if (binding[varName]) {
@@ -21375,10 +21627,63 @@ class VisGraph extends HTMLElement {
     });
     finalNodes.forEach(n => n.connections = connectionCount.get(n.id));
 
+    console.log(`[vis-graph] ✅ Transformation terminée: ${finalNodes.length} nœuds, ${finalLinks.length} liens`);
+    
     return {
       nodes: finalNodes,
       links: finalLinks
     };
+  }
+
+  /**
+   * Résout le mapping des champs selon les variables SPARQL disponibles.
+   * @param {Object} mapping - La configuration d'encoding
+   * @param {Array} vars - Les variables SPARQL disponibles
+   * @returns {Object} Le mapping résolu avec sourceVar, targetVar et linkType
+   */
+  resolveFieldMapping(mapping, vars) {
+    const linkField = mapping.links?.field;
+    let sourceVar = vars[0]; // Par défaut, première variable
+    let targetVar = vars.length > 1 ? vars[1] : null; // Par défaut, deuxième variable
+    let linkType = 'directional'; // Par défaut directionnel
+
+    // Si un field spécifique est défini pour les nœuds, utiliser le premier
+    if (mapping.nodes?.field && Array.isArray(mapping.nodes.field) && mapping.nodes.field.length > 0) {
+      sourceVar = mapping.nodes.field[0];
+    }
+
+    // Résoudre le mapping des liens
+    if (linkField) {
+      if (typeof linkField === 'string') {
+        // Lien sémantique : une seule variable, mais on a besoin des variables des nœuds
+        if (vars.includes(linkField)) {
+          linkType = 'semantic';
+          // Pour les liens sémantiques, on utilise les variables des nœuds
+          if (mapping.nodes?.field && Array.isArray(mapping.nodes.field) && mapping.nodes.field.length >= 2) {
+            sourceVar = mapping.nodes.field[0];
+            targetVar = mapping.nodes.field[1];
+          } else {
+            console.error(`[vis-graph] ❌ Pour les liens sémantiques, il faut au moins 2 variables dans nodes.field`);
+            throw new Error('Pour les liens sémantiques, il faut au moins 2 variables dans nodes.field');
+          }
+        } else {
+          console.warn(`[vis-graph] ⚠️ Variable de lien sémantique "${linkField}" non trouvée. Variables disponibles:`, vars);
+        }
+      } else if (typeof linkField === 'object' && linkField !== null) {
+        // Lien directionnel : objet {source, target}
+        if (linkField.source && linkField.target) {
+          if (vars.includes(linkField.source) && vars.includes(linkField.target)) {
+            sourceVar = linkField.source;
+            targetVar = linkField.target;
+            linkType = 'directional';
+          } else {
+            console.warn(`[vis-graph] ⚠️ Variables de lien directionnel non trouvées. Source: "${linkField.source}", Target: "${linkField.target}". Variables disponibles:`, vars);
+          }
+        }
+      }
+    }
+
+    return { sourceVar, targetVar, linkType };
   }
   
   /**
@@ -21695,6 +22000,8 @@ class VisGraph extends HTMLElement {
     this.addDetailedInfoRow(section, 'Label', node.label);
     this.addDetailedInfoRow(section, 'URI', node.uri, true);
     this.addDetailedInfoRow(section, 'Accession', this.extractAccessionFromURI(node.uri));
+    
+
     
     const connections = this.links.filter(l => 
       l.source.id === node.id || l.target.id === node.id
@@ -22368,6 +22675,8 @@ class VisGraph extends HTMLElement {
         tooltip.appendChild(uri);
       }
       
+
+      
       const connections = this.links.filter(l => 
         l.source.id === node.id || l.target.id === node.id
       ).length;
@@ -22391,6 +22700,41 @@ class VisGraph extends HTMLElement {
     }
     
     const tooltip = this.shadowRoot.querySelector('.tooltip');
+    if (tooltip) {
+      tooltip.remove();
+    }
+  }
+
+  /**
+   * Affiche une infobulle pour les liens
+   */
+  showLinkTooltip(text, x, y) {
+    this.hideLinkTooltip();
+    
+    const tooltip = document.createElement('div');
+    tooltip.className = 'link-tooltip';
+    tooltip.style.position = 'absolute';
+    tooltip.style.background = 'rgba(0, 0, 0, 0.8)';
+    tooltip.style.color = 'white';
+    tooltip.style.padding = '5px 10px';
+    tooltip.style.borderRadius = '4px';
+    tooltip.style.fontSize = '12px';
+    tooltip.style.pointerEvents = 'none';
+    tooltip.style.zIndex = '20';
+    tooltip.style.left = `${x + 10}px`;
+    tooltip.style.top = `${y - 10}px`;
+    tooltip.style.whiteSpace = 'pre-line';
+    
+    tooltip.textContent = text;
+    
+    this.shadowRoot.querySelector('.graph-container').appendChild(tooltip);
+  }
+  
+  /**
+   * Cache l'infobulle des liens
+   */
+  hideLinkTooltip() {
+    const tooltip = this.shadowRoot.querySelector('.link-tooltip');
     if (tooltip) {
       tooltip.remove();
     }
@@ -22461,6 +22805,13 @@ class VisGraph extends HTMLElement {
           stroke: #999;
           stroke-opacity: 0.6;
           transition: stroke 0.3s, stroke-width 0.3s;
+        }
+        .links .directional {
+          marker-end: url(#arrowhead);
+        }
+        .links .semantic {
+          stroke: #888;
+          stroke-opacity: 0.7;
         }
         .nodes circle {
           stroke: #fff;
@@ -22925,6 +23276,20 @@ class VisGraph extends HTMLElement {
     
     svg.selectAll("*").remove();
     
+    // Ajouter les définitions pour les flèches
+    const defs = svg.append("defs");
+    defs.append("marker")
+      .attr("id", "arrowhead")
+      .attr("viewBox", "0 -5 10 10")
+      .attr("refX", 8)
+      .attr("refY", 0)
+      .attr("markerWidth", 6)
+      .attr("markerHeight", 6)
+      .attr("orient", "auto")
+      .append("path")
+      .attr("d", "M0,-5L10,0L0,5")
+      .attr("fill", "#999");
+    
     if (!this.nodes || this.nodes.length === 0) {
       svg.append("text")
         .attr("x", width / 2)
@@ -23017,8 +23382,28 @@ class VisGraph extends HTMLElement {
       .data(this.links)
       .enter()
       .append('line')
+      .attr('class', d => d.type || 'directional')
       .attr('stroke', getLinkColor)
-      .attr('stroke-width', getLinkWidth());
+      .attr('stroke-width', getLinkWidth())
+      .on('mouseover', (event, d) => {
+        // Tooltip pour les liens
+        let tooltipText = '';
+        if (d.type === 'semantic') {
+          const sourceNode = this.nodes.find(n => n.id === d.source.id);
+          const targetNode = this.nodes.find(n => n.id === d.target.id);
+          tooltipText = `${sourceNode ? sourceNode.label : d.source.id} ↔ ${targetNode ? targetNode.label : d.target.id}`;
+          tooltipText += `\nRelation: ${d.semanticLabel || d.tooltip || 'relation'}`;
+        } else {
+          // Liens directionnels
+          const sourceNode = this.nodes.find(n => n.id === d.source.id);
+          const targetNode = this.nodes.find(n => n.id === d.target.id);
+          tooltipText = `${sourceNode ? sourceNode.label : d.source.id} → ${targetNode ? targetNode.label : d.target.id}`;
+        }
+        this.showLinkTooltip(tooltipText, event.offsetX, event.offsetY);
+      })
+      .on('mouseout', () => {
+        this.hideLinkTooltip();
+      });
       
     const nodeGroup = svg.append('g')
       .attr('class', 'nodes')

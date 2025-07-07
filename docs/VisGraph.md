@@ -102,7 +102,10 @@ The component's appearance is controlled by a JSON configuration object, inspire
 The mapping works in two main stages:
 
 1.  **Field Mapping (`field`)**: This happens during data transformation (`transformSparqlResults`). It tells the component **which variables** from the SPARQL results to use for creating the graph structure.
-    *   `links.field`: Defines the source and target variables for links, formatted as `"sourceVar-targetVar"`. For example, `"gene-protein"`.
+    *   `nodes.field`: **Array format (required)** - List of SPARQL variables for nodes. Minimum 1 value. Example: `["gene", "protein"]`
+    *   `links.field`: Two formats supported:
+        - **Directional links**: `{source: "gene", target: "protein"}` (object format) - Creates directed links with arrows
+        - **Semantic links**: `"goLabel"` (string format) - Creates semantic relationships. Requires at least 2 variables in `nodes.field`
 
 2.  **Encoding (`color`, `size`, `width`, `distance`)**: This happens during D3 rendering (`createForceGraph`). It defines the **visual properties** of the SVG elements. For each property, the system follows a priority order:
     1.  **Dynamic Scale**: If a `field` and a `scale` are provided, the component uses a D3 scale to map data values (e.g., node type) to visual values (e.g., color). If a value is not in the scale's domain, the fallback is used.
@@ -120,7 +123,7 @@ Here is the default configuration, which you can retrieve via `getDefaultEncodin
   "height": 600,
   "autosize": "none",
   "nodes": {
-    "field": "source",
+    "field": ["source"],
     "color": {
       "field": "type",
       "scale": {
@@ -139,7 +142,7 @@ Here is the default configuration, which you can retrieve via `getDefaultEncodin
     }
   },
   "links": {
-    "field": "source-target",
+    "field": {source: "source", target: "target"},
     "distance": 100,
     "width": {
       "value": 1.5
@@ -155,12 +158,15 @@ Here is the default configuration, which you can retrieve via `getDefaultEncodin
 
 To apply your custom configuration, set the `encoding` property before calling `launch()`.
 
+#### Example 1: Directional Links
+
 ```javascript
 const graph = document.getElementById('myGraph');
 
-// Configure the visual encoding
+// Configure visual encoding for directional links
 graph.encoding = {
   nodes: {
+    field: ["gene", "protein"], // Array format - required
     color: {
       field: "type",
       scale: {
@@ -174,6 +180,7 @@ graph.encoding = {
     }
   },
   links: {
+    field: {source: "gene", target: "protein"}, // Object format for directional links
     distance: 200, // Increase distance between nodes
     color: {
       value: "black"
@@ -183,9 +190,41 @@ graph.encoding = {
 
 // Configure your data source
 graph.sparqlEndpoint = 'https://example.com/sparql';
-graph.sparqlQuery = 'SELECT ?item ?type WHERE { ... }';
+graph.sparqlQuery = 'SELECT ?gene ?protein WHERE { ... }';
 
 // Launch with custom encoding applied
+graph.launch();
+```
+
+#### Example 2: Semantic Links
+
+```javascript
+const graph = document.getElementById('myGraph');
+
+// Configure visual encoding for semantic links
+graph.encoding = {
+  nodes: {
+    field: ["anatomicalEntity", "goClass"], // At least 2 variables required for semantic links
+    color: {
+      field: "type",
+      scale: {
+        type: "ordinal",
+        domain: ["uri", "literal"],
+        range: ["#1f77b4", "#ff7f0e"]
+      }
+    }
+  },
+  links: {
+    field: "goLabel", // String format for semantic links
+    distance: 150,
+    color: {
+      value: "#666"
+    }
+  }
+};
+
+graph.sparqlEndpoint = 'https://example.com/sparql';
+graph.sparqlQuery = 'SELECT ?anatomicalEntity ?goClass ?goLabel WHERE { ... }';
 graph.launch();
 ```
 
@@ -200,10 +239,12 @@ graph.sparqlQuery = 'SELECT ?person ?personLabel ?birthPlace WHERE { ... }';
 graph.proxy = 'http://localhost:3001/sparql-proxy';
 graph.encoding = {
   nodes: {
+    field: ["person", "birthPlace"], // Array format with 2 variables
     color: { field: "type", scale: { type: "ordinal", domain: ["person", "place"], range: ["blue", "green"] }},
     size: { field: "connections", scale: { type: "linear", domain: [1, 10], range: [10, 30] }}
   },
   links: {
+    field: {source: "person", target: "birthPlace"}, // Directional links object format
     distance: 150,
     color: { value: "#333" }
   }
@@ -214,6 +255,58 @@ graph.launch().then(result => {
   console.log('Visualization ready:', result.status);
 });
 ```
+
+## Field Validation & Error Handling
+
+The component now enforces **strict validation** on field configurations. Invalid configurations will prevent graph rendering entirely (no fallback).
+
+### Validation Rules
+
+| Rule | Description | Example |
+|------|-------------|---------|
+| **Nodes field format** | Must be an array with at least 1 value | ✅ `["gene"]` ❌ `"gene"` |
+| **Semantic links requirement** | String field requires ≥2 variables in nodes.field | ✅ `nodes: ["gene", "protein"], links: "goLabel"` |
+| **Directional links format** | Object must have both `source` and `target` | ✅ `{source: "gene", target: "protein"}` |
+| **Variable existence** | All field variables must exist in SPARQL results | Component validates against actual data |
+
+### Error Examples
+
+```javascript
+// ❌ ERROR: Node field not an array
+graph.encoding = {
+  nodes: { field: "gene" }, // Should be ["gene"]
+  links: { field: "goLabel" }
+};
+
+// ❌ ERROR: Semantic links with insufficient node variables  
+graph.encoding = {
+  nodes: { field: ["gene"] }, // Only 1 variable
+  links: { field: "goLabel" } // Semantic links need ≥2 node variables
+};
+
+// ❌ ERROR: Incomplete directional field
+graph.encoding = {
+  nodes: { field: ["gene"] },
+  links: { field: {source: "gene"} } // Missing target property
+};
+
+// ✅ VALID: Properly configured semantic links
+graph.encoding = {
+  nodes: { field: ["anatomicalEntity", "goClass"] },
+  links: { field: "goLabel" }
+};
+
+// ✅ VALID: Properly configured directional links
+graph.encoding = {
+  nodes: { field: ["gene"] },
+  links: { field: {source: "gene", target: "protein"} }
+};
+```
+
+When validation fails, the component will:
+- Log detailed error messages to console
+- Display error notifications in the UI
+- **Stop execution completely** (no graph will be rendered)
 
 ## General Operation
 
@@ -226,7 +319,13 @@ graph.launch().then(result => {
     *   Displays notifications and error panels if necessary
 
 3.  **Data Transformation (`transformSparqlResults`)**:
-    *   **Field Mapping**: Uses the `links.field` from the visual encoding to determine the source and target variables. Defaults to the first and second variables if not specified.
+    *   **Field Mapping**: Uses the new field formats from the visual encoding:
+        - `nodes.field` (array): Determines which SPARQL variables to use for creating nodes
+        - `links.field` (object/string): For directional links `{source: "var1", target: "var2"}` or semantic links `"semanticVar"`
+    *   **Link Type Detection**: Automatically determines if links are directional (with arrows) or semantic (relationships)
+    *   **Interactive Links**: Hover tooltips show different information based on link type:
+        - Directional: "Source → Target"  
+        - Semantic: "Source ↔ Target" + relationship label
     *   **Smart Labels**: The `_determineNodeLabelFromBinding()` method finds the best label by analyzing:
         1.  Direct literal values
         2.  Conventional label variables (e.g., `geneLabel` for `gene`)
