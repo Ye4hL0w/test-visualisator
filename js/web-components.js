@@ -21,6 +21,20 @@ document.addEventListener('DOMContentLoaded', function() {
         visualMappingTextarea.value = JSON.stringify(graph.getEncoding(), null, 2);
       }
     
+    // Écouteur pour la mise à jour automatique de la textarea après calcul des domaines
+    graph.addEventListener('domainsCalculated', function(event) {
+        console.log('[web-components] 🎯 Domaines recalculés automatiquement, mise à jour de la textarea');
+        if (visualMappingTextarea) {
+            visualMappingTextarea.value = JSON.stringify(event.detail.encoding, null, 2);
+            
+            // Notification visuelle que la textarea a été mise à jour
+            visualMappingTextarea.style.borderColor = '#28a745';
+            setTimeout(() => {
+                visualMappingTextarea.style.borderColor = '';
+            }, 1000);
+        }
+    });
+    
     // Basculer entre graphe et tableau
     document.getElementById('btn-graph').addEventListener('click', function() {
         this.classList.add('active');
@@ -120,7 +134,7 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => executeButton.classList.remove('highlight'), 2000);
         }
     });
-    
+       
     // Gestion des requêtes SPARQL
     const endpointInput = document.getElementById('endpoint-url');
     const proxyInput = document.getElementById('proxy-url');
