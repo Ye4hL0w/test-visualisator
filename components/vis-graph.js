@@ -2,7 +2,7 @@
  * Composant Web pour la visualisation de graphes de connaissances.
  * Utilise D3.js pour le rendu SVG et un système d'encoding visuel configurable.
  */
-import * as d3 from 'd3'; // penser a décommenter si l'on veut publier le composant
+// import * as d3 from 'd3'; // penser a décommenter si l'on veut publier le composant
 import { SparqlDataFetcher } from './SparqlDataFetcher.js';
 import { DomainCalculator } from './DomainCalculator.js';
 
