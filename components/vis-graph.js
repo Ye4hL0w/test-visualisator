@@ -2,7 +2,7 @@
  * Composant Web pour la visualisation de graphes de connaissances.
  * Utilise D3.js pour le rendu SVG et un système d'encoding visuel configurable.
  */
-// import * as d3 from 'd3'; // penser a décommenter si l'on veut publier le composant
+import * as d3 from 'd3'; // penser a décommenter si l'on veut publier le composant
 import { SparqlDataFetcher } from './SparqlDataFetcher.js';
 import { DomainCalculator } from './DomainCalculator.js';
 
@@ -104,6 +104,63 @@ export class VisGraph extends HTMLElement {
     console.log(`[vis-graph] -> Liens basés sur:`, defaultEncoding.links.field);
     
     return defaultEncoding;
+  }
+
+  /**
+   * Améliore l'encoding adaptatif avec détection automatique des champs de classification
+   * et génération des palettes de couleurs. Appelée après la transformation des données.
+   * @param {Array} sparqlVars - Les variables SPARQL disponibles
+   * @param {Array} nodeData - Les données des nœuds à analyser
+   */
+  enhanceAdaptiveEncodingWithClassification(sparqlVars, nodeData = null) {
+    const nodes = nodeData || this.nodes;
+    if (!nodes || nodes.length === 0 || !sparqlVars) {
+      console.log('[vis-graph] ⚠️ Pas de données pour améliorer l\'encoding adaptatif');
+      return;
+    }
+
+    console.log('[vis-graph] 🔍 Amélioration de l\'encoding adaptatif avec détection automatique...');
+
+    // Détecter le meilleur champ de classification pour les couleurs des nœuds
+    const bestClassificationField = this.detectClassificationField(nodes, sparqlVars);
+    
+    if (bestClassificationField.field !== 'type') {
+      console.log(`[vis-graph] 🎨 Remplacement du champ couleur "type" par "${bestClassificationField.field}"`);
+      
+      // Mettre à jour l'encoding avec le meilleur champ détecté
+      this.visualEncoding.nodes.color.field = bestClassificationField.field;
+      
+      // Générer automatiquement le domaine et la palette de couleurs
+      const fieldValues = this.domainCalculator.getVal(nodes, bestClassificationField.field);
+      const sortedDomain = this.domainCalculator.sortDomainValues(fieldValues, 'ordinal');
+      const colorPalette = this.generateColorPalette(sortedDomain.length);
+      
+      // Mettre à jour l'échelle de couleur
+      this.visualEncoding.nodes.color.scale = {
+        type: 'ordinal',
+        domain: sortedDomain,
+        range: colorPalette
+      };
+      
+      console.log(`[vis-graph] ✅ Encoding couleur mis à jour:`);
+      console.log(`[vis-graph] -> Champ: "${bestClassificationField.field}"`);
+      console.log(`[vis-graph] -> Domaine (${sortedDomain.length} valeurs):`, sortedDomain);
+      console.log(`[vis-graph] -> Palette:`, colorPalette);
+      
+      // Émettre un événement pour notifier le changement
+      this.dispatchEvent(new CustomEvent('encodingEnhanced', {
+        detail: {
+          field: bestClassificationField.field,
+          reason: bestClassificationField.reason,
+          domain: sortedDomain,
+          palette: colorPalette,
+          timestamp: new Date().toISOString()
+        },
+        bubbles: true
+      }));
+    } else {
+      console.log('[vis-graph] 📝 Conservation du champ couleur "type" (aucun meilleur champ trouvé)');
+    }
   }
 
   // --- GETTERS ET SETTERS POUR L'API PUBLIQUE ---
@@ -234,16 +291,19 @@ export class VisGraph extends HTMLElement {
           isValid = false;
         }
         
-        // Vérifier qu'on a au moins 2 nœuds pour les liens sémantiques
+        // Vérifier qu'on a au moins 1 nœud pour les liens sémantiques
         if (encoding.nodes?.field && Array.isArray(encoding.nodes.field)) {
-          if (encoding.nodes.field.length < 2) {
-            console.error('[vis-graph] ❌ Pour les liens sémantiques, il faut au moins 2 variables dans le field des nœuds');
-            warnings.push('Pour les liens sémantiques, il faut au moins 2 variables dans le field des nœuds');
+          if (encoding.nodes.field.length < 1) {
+            console.error('[vis-graph] ❌ Pour les liens sémantiques, il faut au moins 1 variable dans le field des nœuds');
+            warnings.push('Pour les liens sémantiques, il faut au moins 1 variable dans le field des nœuds');
             isValid = false;
+          } else if (encoding.nodes.field.length === 1) {
+            console.log('[vis-graph] 📊 Liens sémantiques avec 1 seule variable - utilisation de la cooccurrence automatique');
+            // Dans ce cas, on calculera automatiquement la cooccurrence dans transformSparqlResults
           }
         } else {
-          console.error('[vis-graph] ❌ Pour les liens sémantiques, le field des nœuds doit être un array avec au moins 2 variables');
-          warnings.push('Pour les liens sémantiques, le field des nœuds doit être un array avec au moins 2 variables');
+          console.error('[vis-graph] ❌ Pour les liens sémantiques, le field des nœuds doit être un array avec au moins 1 variable');
+          warnings.push('Pour les liens sémantiques, le field des nœuds doit être un array avec au moins 1 variable');
           isValid = false;
         }
       }
@@ -782,6 +842,9 @@ export class VisGraph extends HTMLElement {
       return { nodes: [], links: [] };
     }
     
+    // CORRECTION: Nettoyer les données temporaires d'une transformation précédente
+    this.cooccurrenceData = null;
+    
     const nodesMap = new Map();
     const linksMap = new Map();
     
@@ -794,9 +857,11 @@ export class VisGraph extends HTMLElement {
       (this.encoding === this.getDefaultEncoding()) ||
       (this.visualEncoding.nodes.field === "source" && this.visualEncoding.links.field === "source-target");
     
+    let usingAdaptiveEncoding = false;
     if (isDefaultEncoding) {
       mapping = this.createAdaptiveEncoding(vars);
       this.visualEncoding = mapping; // Mettre à jour l'encoding courant
+      usingAdaptiveEncoding = true;
       console.log("[vis-graph] 🔄 Utilisation de l'encoding adaptatif");
     } else {
       console.log("[vis-graph] 🎨 Utilisation de l'encoding personnalisé");
@@ -911,9 +976,57 @@ export class VisGraph extends HTMLElement {
             }
             linksMap.set(linkKey, link);
           }
+        } else if (linkType === 'semantic' && !targetVar) {
+          // Mode cooccurrence : collecter les binding pour calculer les liens après
+          if (!this.cooccurrenceData) {
+            this.cooccurrenceData = new Map();
+          }
+          
+          const semanticValue = (semanticVar && binding[semanticVar]) ? binding[semanticVar].value : 'relation';
+          
+          if (!this.cooccurrenceData.has(semanticValue)) {
+            this.cooccurrenceData.set(semanticValue, new Set());
+          }
+          
+          this.cooccurrenceData.get(semanticValue).add(sourceId);
         }
       }
     });
+
+    // Traitement de la cooccurrence après avoir collecté toutes les données
+    if (linkType === 'semantic' && !targetVar && this.cooccurrenceData) {
+      console.log('[vis-graph] 📊 Calcul des liens de cooccurrence...');
+      
+      for (const [semanticValue, nodeSet] of this.cooccurrenceData.entries()) {
+        const nodes = Array.from(nodeSet);
+        
+        // Créer des liens entre tous les nœuds qui partagent la même valeur sémantique
+        for (let i = 0; i < nodes.length; i++) {
+          for (let j = i + 1; j < nodes.length; j++) {
+            const sourceNodeId = nodes[i];
+            const targetNodeId = nodes[j];
+            
+            const linkKey = `${sourceNodeId}-${targetNodeId}-cooccurrence`;
+            if (!linksMap.has(linkKey)) {
+              const link = {
+                source: sourceNodeId,
+                target: targetNodeId,
+                type: 'semantic',
+                semanticLabel: semanticValue,
+                tooltip: `Cooccurrence via ${semanticValue}`,
+                cooccurrence: true
+              };
+              linksMap.set(linkKey, link);
+            }
+          }
+        }
+      }
+      
+      console.log(`[vis-graph] ✅ ${linksMap.size} liens de cooccurrence créés`);
+      
+      // Nettoyer les données temporaires
+      this.cooccurrenceData = null;
+    }
 
     const finalNodes = Array.from(nodesMap.values());
     const finalLinks = Array.from(linksMap.values());
@@ -932,6 +1045,15 @@ export class VisGraph extends HTMLElement {
     // Vider le cache du calculateur de domaines car de nouvelles données ont été transformées
     if (this.domainCalculator) {
       this.domainCalculator.clearCache();
+    }
+    
+    // Si on utilise l'encoding adaptatif, améliorer automatiquement avec détection des champs de classification
+    if (usingAdaptiveEncoding) {
+      try {
+        this.enhanceAdaptiveEncodingWithClassification(vars, finalNodes);
+      } catch (error) {
+        console.warn('[vis-graph] ⚠️ Erreur lors de l\'amélioration de l\'encoding adaptatif:', error.message);
+      }
     }
     
     return {
@@ -967,9 +1089,14 @@ export class VisGraph extends HTMLElement {
           if (mapping.nodes?.field && Array.isArray(mapping.nodes.field) && mapping.nodes.field.length >= 2) {
             sourceVar = mapping.nodes.field[0];
             targetVar = mapping.nodes.field[1];
+          } else if (mapping.nodes?.field && Array.isArray(mapping.nodes.field) && mapping.nodes.field.length === 1) {
+            // Cas spécial : une seule variable de nœud, on calculera la cooccurrence
+            sourceVar = mapping.nodes.field[0];
+            targetVar = null; // Sera calculé automatiquement par cooccurrence
+            console.log(`[vis-graph] 📊 Mode cooccurrence activé pour la variable "${sourceVar}"`);
           } else {
-            console.error(`[vis-graph] ❌ Pour les liens sémantiques, il faut au moins 2 variables dans nodes.field`);
-            throw new Error('Pour les liens sémantiques, il faut au moins 2 variables dans nodes.field');
+            console.error(`[vis-graph] ❌ Pour les liens sémantiques, il faut au moins 1 variable dans nodes.field`);
+            throw new Error('Pour les liens sémantiques, il faut au moins 1 variable dans nodes.field');
           }
         } else {
           console.warn(`[vis-graph] ⚠️ Variable de lien sémantique "${linkField}" non trouvée. Variables disponibles:`, vars);
@@ -2595,6 +2722,7 @@ export class VisGraph extends HTMLElement {
       .attr("d", "M0,-5L10,0L0,5")
       .attr("fill", "#999");
     
+    // CORRECTION: Validation stricte des données avant le rendu
     if (!this.nodes || this.nodes.length === 0) {
       svg.append("text")
         .attr("x", width / 2)
@@ -2613,6 +2741,34 @@ export class VisGraph extends HTMLElement {
       return;
     }
 
+    // CORRECTION: Vérification de l'intégrité des données
+    const validNodes = this.nodes.filter(node => node && node.id !== undefined && node.id !== null);
+    const validLinks = this.links.filter(link => 
+      link && 
+      link.source !== undefined && link.source !== null &&
+      link.target !== undefined && link.target !== null
+    );
+
+    if (validNodes.length !== this.nodes.length) {
+      console.warn(`[vis-graph] ⚠️ ${this.nodes.length - validNodes.length} nœuds invalides supprimés`);
+      this.nodes = validNodes;
+    }
+
+    if (validLinks.length !== this.links.length) {
+      console.warn(`[vis-graph] ⚠️ ${this.links.length - validLinks.length} liens invalides supprimés`);
+      this.links = validLinks;
+    }
+
+    if (validNodes.length === 0) {
+      svg.append("text")
+        .attr("x", width / 2)
+        .attr("y", height / 2)
+        .attr("text-anchor", "middle")
+        .style("font-size", "16px")
+        .text("Erreur: données corrompues détectées");
+      return;
+    }
+
     const mapping = this.visualEncoding;
 
     // --- ENCODING LOGIC ---
@@ -2623,16 +2779,22 @@ export class VisGraph extends HTMLElement {
     const nodeColorScale = nodeColorConfig.scale ? 
       this.createD3Scale(nodeColorConfig.scale, this.nodes, nodeColorConfig.field) : null;
     const getNodeColor = d => {
-      if (nodeColorScale && nodeColorConfig.field && d[nodeColorConfig.field] !== undefined) {
-        // CORRECTION: On vérifie que la valeur du noeud est bien dans le domaine de l'échelle
-        if (nodeColorScale.domain().includes(d[nodeColorConfig.field])) {
-          return nodeColorScale(d[nodeColorConfig.field]);
+      try {
+        if (nodeColorScale && nodeColorConfig.field && d[nodeColorConfig.field] !== undefined) {
+          // CORRECTION: On vérifie que la valeur du noeud est bien dans le domaine de l'échelle
+          if (nodeColorScale.domain().includes(d[nodeColorConfig.field])) {
+            const color = nodeColorScale(d[nodeColorConfig.field]);
+            return color || '#cccccc'; // Protection contre les couleurs invalides
+          }
+          // Si la valeur n'est pas dans le domaine, on ignore l'échelle et on passe aux fallbacks.
         }
-        // Si la valeur n'est pas dans le domaine, on ignore l'échelle et on passe aux fallbacks.
+        // Fallback 1: Utiliser une valeur directe si elle est définie
+        // Fallback 2: Utiliser un gris neutre pour les cas non définis
+        return nodeColorConfig.value || '#cccccc';
+      } catch (error) {
+        console.warn('[vis-graph] ⚠️ Erreur dans getNodeColor:', error.message);
+        return '#cccccc'; // Couleur de sécurité
       }
-      // Fallback 1: Utiliser une valeur directe si elle est définie
-      // Fallback 2: Utiliser un gris neutre pour les cas non définis
-      return nodeColorConfig.value || '#cccccc';
     };
 
     // Node Size (Radius)
@@ -2640,10 +2802,20 @@ export class VisGraph extends HTMLElement {
     const nodeSizeScale = nodeSizeConfig.scale ? 
       this.createD3Scale(nodeSizeConfig.scale, this.nodes, nodeSizeConfig.field) : null;
     const getNodeRadius = d => {
-      if (nodeSizeScale && nodeSizeConfig.field && d[nodeSizeConfig.field] !== undefined) {
-        return nodeSizeScale(d[nodeSizeConfig.field]);
+      try {
+        if (nodeSizeScale && nodeSizeConfig.field && d[nodeSizeConfig.field] !== undefined) {
+          const radius = nodeSizeScale(d[nodeSizeConfig.field]);
+          // Vérifier que le rayon est un nombre valide et positif
+          if (typeof radius === 'number' && !isNaN(radius) && radius > 0) {
+            return radius;
+          }
+        }
+        const fallbackRadius = nodeSizeConfig.value || 10;
+        return typeof fallbackRadius === 'number' && !isNaN(fallbackRadius) && fallbackRadius > 0 ? fallbackRadius : 10;
+      } catch (error) {
+        console.warn('[vis-graph] ⚠️ Erreur dans getNodeRadius:', error.message);
+        return 10; // Rayon de sécurité
       }
-      return nodeSizeConfig.value || 10; // Final fallback
     };
 
     // Link Color
@@ -2764,12 +2936,16 @@ export class VisGraph extends HTMLElement {
       nodeGroup.each(constrainNode);
       
       link
-        .attr('x1', d => d.source.x)
-        .attr('y1', d => d.source.y)
-        .attr('x2', d => d.target.x)
-        .attr('y2', d => d.target.y);
+        .attr('x1', d => isNaN(d.source.x) ? 0 : d.source.x)
+        .attr('y1', d => isNaN(d.source.y) ? 0 : d.source.y)
+        .attr('x2', d => isNaN(d.target.x) ? 0 : d.target.x)
+        .attr('y2', d => isNaN(d.target.y) ? 0 : d.target.y);
       
-      nodeGroup.attr('transform', d => `translate(${d.x},${d.y})`);
+      nodeGroup.attr('transform', d => {
+        const x = isNaN(d.x) ? width / 2 : d.x;
+        const y = isNaN(d.y) ? height / 2 : d.y;
+        return `translate(${x},${y})`;
+      });
     });
     
     function dragstarted(event, d) {
@@ -2822,20 +2998,25 @@ export class VisGraph extends HTMLElement {
     if (data && field && this.domainCalculator) {
       // Utiliser le DomainCalculator pour calculer le domaine approprié
       const userDomain = scaleConfig.domain; // Peut être undefined/null
-      finalDomain = this.domainCalculator.getDomain(data, field, userDomain, type);
+      try {
+        finalDomain = this.domainCalculator.getDomain(data, field, userDomain, type);
+      } catch (error) {
+        console.warn(`[vis-graph] ⚠️ Erreur lors du calcul du domaine pour "${field}":`, error.message);
+        return defaultScale;
+      }
       
       console.log(`[vis-graph] 🎯 Domaine calculé automatiquement:`, finalDomain);
       
-      if (finalDomain.length === 0) {
+      if (!finalDomain || finalDomain.length === 0) {
         console.warn(`[vis-graph] ⚠️ Aucune valeur trouvée pour le champ "${field}"`);
         return defaultScale;
       }
-    } else if (scaleConfig.domain) {
-      // Utiliser le domaine fourni tel quel
+    } else if (scaleConfig.domain && Array.isArray(scaleConfig.domain) && scaleConfig.domain.length > 0) {
+      // Utiliser le domaine fourni tel quel (avec validation)
       finalDomain = scaleConfig.domain;
       console.log(`[vis-graph] 📝 Utilisation du domaine fourni:`, finalDomain);
     } else {
-      console.warn(`[vis-graph] ⚠️ Aucun domaine disponible pour créer l'échelle`);
+      console.warn(`[vis-graph] ⚠️ Aucun domaine valide disponible pour créer l'échelle`);
       return defaultScale;
     }
     
@@ -2864,6 +3045,235 @@ export class VisGraph extends HTMLElement {
     console.log(`[vis-graph] -> Range:`, finalScale.range());
     
     return finalScale;
+  }
+
+  /**
+   * Détecte automatiquement les champs de classification de niveau supérieur
+   * dans les données pour l'encodage des couleurs.
+   * @param {Array} data - Les données (nodes ou links)
+   * @param {Array} sparqlVars - Les variables SPARQL disponibles
+   * @returns {Object} Information sur le meilleur champ de classification trouvé
+   */
+  detectClassificationField(data, sparqlVars) {
+    if (!data || data.length === 0 || !sparqlVars) {
+      return { field: 'type', reason: 'Aucune donnée disponible, utilisation du fallback' };
+    }
+
+    // Mots-clés qui indiquent des champs de classification (par ordre de priorité)
+    const classificationKeywords = [
+      { keywords: ['class', 'category', 'groupe', 'group'], priority: 5, description: 'Classification principale' },
+      { keywords: ['type', 'kind', 'sort'], priority: 4, description: 'Type/sorte' },
+      { keywords: ['level', 'niveau', 'rank', 'rang'], priority: 3, description: 'Niveau hiérarchique' },
+      { keywords: ['domain', 'domaine', 'realm'], priority: 3, description: 'Domaine' },
+      { keywords: ['namespace', 'ns', 'prefix'], priority: 2, description: 'Espace de noms' },
+      { keywords: ['source', 'origin', 'provenance'], priority: 2, description: 'Source/origine' },
+      { keywords: ['label', 'name', 'title'], priority: 1, description: 'Label (plus granulaire)' }
+    ];
+
+    const candidateFields = [];
+
+    // Analyser chaque variable SPARQL pour trouver des champs de classification
+    console.log(`[vis-graph] 🔍 Analyse des variables SPARQL pour détection de classification:`, sparqlVars);
+    
+    sparqlVars.forEach(varName => {
+      const lowerVarName = varName.toLowerCase();
+      
+      // Chercher des correspondances avec les mots-clés de classification
+      classificationKeywords.forEach(({ keywords, priority, description }) => {
+        keywords.forEach(keyword => {
+          if (lowerVarName.includes(keyword)) {
+            console.log(`[vis-graph] 🎯 Variable "${varName}" correspond au mot-clé "${keyword}"`);
+            
+            // Analyser les valeurs de ce champ dans les données
+            const fieldStats = this.analyzeFieldForClassification(data, varName);
+            
+            console.log(`[vis-graph] 📊 Stats pour "${varName}":`, {
+              uniqueCount: fieldStats.uniqueCount,
+              coverage: Math.round(fieldStats.coverage * 100) + '%',
+              isGood: fieldStats.isGoodForClassification,
+              samples: fieldStats.sampleValues
+            });
+            
+            if (fieldStats.isGoodForClassification) {
+              candidateFields.push({
+                field: varName,
+                priority: priority,
+                description: description,
+                uniqueCount: fieldStats.uniqueCount,
+                coverage: fieldStats.coverage,
+                sampleValues: fieldStats.sampleValues,
+                reason: `Détecté via mot-clé "${keyword}" - ${description}`
+              });
+            }
+          }
+        });
+      });
+    });
+
+    // Si aucun champ candidat trouvé, analyser tous les champs pour trouver de bonnes classifications
+    if (candidateFields.length === 0) {
+      console.log('[vis-graph] 🔍 Aucun champ de classification évident, analyse de tous les champs...');
+      
+      sparqlVars.forEach(varName => {
+        const fieldStats = this.analyzeFieldForClassification(data, varName);
+        
+        if (fieldStats.isGoodForClassification) {
+          candidateFields.push({
+            field: varName,
+            priority: 1, // Priorité plus basse car pas de mot-clé évident
+            description: 'Classification détectée par analyse',
+            uniqueCount: fieldStats.uniqueCount,
+            coverage: fieldStats.coverage,
+            sampleValues: fieldStats.sampleValues,
+            reason: `Analyse automatique - ${fieldStats.uniqueCount} valeurs uniques`
+          });
+        }
+      });
+    }
+
+    // Afficher tous les candidats trouvés
+    if (candidateFields.length > 0) {
+      console.log(`[vis-graph] 📋 ${candidateFields.length} champ(s) candidat(s) trouvé(s):`);
+      candidateFields.forEach((candidate, index) => {
+        console.log(`[vis-graph]   ${index + 1}. "${candidate.field}" (priorité: ${candidate.priority}, ${candidate.uniqueCount} valeurs, ${Math.round(candidate.coverage * 100)}%)`);
+      });
+    }
+
+    // Trier les candidats par priorité et qualité
+    candidateFields.sort((a, b) => {
+      // D'abord par priorité (plus élevée = mieux)
+      if (b.priority !== a.priority) {
+        return b.priority - a.priority;
+      }
+      // Ensuite par nombre optimal de valeurs uniques (entre 2 et 12 idéalement)
+      const optimalA = Math.abs(a.uniqueCount - 6); // 6 est le nombre "idéal"
+      const optimalB = Math.abs(b.uniqueCount - 6);
+      if (optimalA !== optimalB) {
+        return optimalA - optimalB;
+      }
+      // Enfin par couverture (plus élevée = mieux)
+      return b.coverage - a.coverage;
+    });
+
+    if (candidateFields.length > 0) {
+      const bestField = candidateFields[0];
+      console.log(`[vis-graph] 🎯 Meilleur champ de classification détecté: "${bestField.field}"`);
+      console.log(`[vis-graph] -> Raison: ${bestField.reason}`);
+      console.log(`[vis-graph] -> Valeurs uniques: ${bestField.uniqueCount}, Couverture: ${Math.round(bestField.coverage * 100)}%`);
+      console.log(`[vis-graph] -> Échantillon de valeurs:`, bestField.sampleValues);
+      
+      return bestField;
+    }
+
+    // Fallback vers le champ "type" calculé
+    console.log('[vis-graph] ⚠️ Aucun champ de classification adapté trouvé, utilisation du fallback "type"');
+    return { 
+      field: 'type', 
+      reason: 'Fallback - aucun champ de classification adapté détecté',
+      uniqueCount: 2,
+      coverage: 1.0,
+      sampleValues: ['uri', 'literal']
+    };
+  }
+
+  /**
+   * Analyse un champ spécifique pour déterminer s'il convient à la classification.
+   * @param {Array} data - Les données à analyser
+   * @param {string} fieldName - Le nom du champ à analyser
+   * @returns {Object} Statistiques d'analyse du champ
+   */
+  analyzeFieldForClassification(data, fieldName) {
+    const values = this.domainCalculator.getVal(data, fieldName);
+    const uniqueCount = values.length;
+    const totalCount = data.length;
+    const coverage = totalCount > 0 ? uniqueCount / totalCount : 0;
+    
+    // Critères pour qu'un champ soit bon pour la classification :
+    // 1. Au moins 2 valeurs uniques (sinon pas de distinction)
+    // 2. Pas plus de 20 valeurs uniques (sinon trop granulaire pour les couleurs)
+    // 3. Couverture raisonnable (pas trop de valeurs manquantes)
+    // 4. Les valeurs ne sont pas toutes des URIs longues (pas lisible)
+    
+    const isGoodForClassification = 
+      uniqueCount >= 2 && 
+      uniqueCount <= 20 && 
+      coverage >= 0.1 && // Au moins 10% des éléments ont cette propriété
+      this.areValuesReadableForClassification(values);
+    
+    return {
+      isGoodForClassification,
+      uniqueCount,
+      coverage,
+      sampleValues: values.slice(0, 3), // Échantillon des 3 premières valeurs
+      avgValueLength: values.reduce((sum, val) => sum + String(val).length, 0) / values.length
+    };
+  }
+
+  /**
+   * Vérifie si les valeurs d'un champ sont lisibles pour la classification.
+   * @param {Array} values - Les valeurs à analyser
+   * @returns {boolean} True si les valeurs sont lisibles
+   */
+  areValuesReadableForClassification(values) {
+    if (values.length === 0) return false;
+    
+    // Calculer la longueur moyenne des valeurs
+    const avgLength = values.reduce((sum, val) => sum + String(val).length, 0) / values.length;
+    
+    // Compter combien de valeurs semblent être des URIs complètes
+    const longUriCount = values.filter(val => {
+      const str = String(val);
+      return str.length > 50 && (str.startsWith('http://') || str.startsWith('https://'));
+    }).length;
+    
+    const longUriRatio = longUriCount / values.length;
+    
+    // Le champ est considéré comme lisible si :
+    // - Longueur moyenne raisonnable (< 30 caractères)
+    // - Moins de 50% d'URIs longues
+    return avgLength < 30 && longUriRatio < 0.5;
+  }
+
+  /**
+   * Génère automatiquement une palette de couleurs adaptée au nombre de valeurs.
+   * @param {number} valueCount - Nombre de valeurs uniques
+   * @returns {Array} Palette de couleurs
+   */
+  generateColorPalette(valueCount) {
+    // Palettes prédéfinies optimisées pour la distinction visuelle
+    const palettes = {
+      2: ['#1f77b4', '#ff7f0e'], // Bleu, Orange
+      3: ['#1f77b4', '#ff7f0e', '#2ca02c'], // + Vert
+      4: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728'], // + Rouge
+      5: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd'], // + Violet
+      6: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b'], // + Marron
+      7: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2'], // + Rose
+      8: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f'], // + Gris
+      9: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22'], // + Olive
+      10: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'] // + Cyan
+    };
+    
+    if (valueCount <= 10 && palettes[valueCount]) {
+      return palettes[valueCount];
+    }
+    
+    // Pour plus de 10 valeurs, utiliser des schémas D3 étendus ou fallback
+    if (valueCount <= 12 && typeof d3.schemeSet3 !== 'undefined') {
+      return d3.schemeSet3.slice(0, valueCount); // 12 couleurs distinctes
+    } else if (valueCount <= 20 && typeof d3.schemeCategory20 !== 'undefined') {
+      return d3.schemeCategory20.slice(0, valueCount); // 20 couleurs (si disponible)
+    } else {
+      // Pour un grand nombre ou si les schémas D3 ne sont pas disponibles, générer une palette HSL
+      console.log(`[vis-graph] 🎨 Génération d'une palette HSL pour ${valueCount} valeurs`);
+      const colors = [];
+      for (let i = 0; i < valueCount; i++) {
+        const hue = (i * 360 / valueCount) % 360;
+        const saturation = 65 + (i % 4) * 5; // Variation entre 65-80%
+        const lightness = 45 + (i % 3) * 8;  // Variation entre 45-61%
+        colors.push(`hsl(${hue}, ${saturation}%, ${lightness}%)`);
+      }
+      return colors;
+    }
   }
 }
 

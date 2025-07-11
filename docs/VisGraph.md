@@ -108,7 +108,7 @@ The mapping works in two main stages:
         - **Semantic links**: `"goLabel"` (string format) - Creates semantic relationships. Requires at least 2 variables in `nodes.field`
 
 2.  **Encoding (`color`, `size`, `width`, `distance`)**: This happens during D3 rendering (`createForceGraph`). It defines the **visual properties** of the SVG elements. For each property, the system follows a priority order:
-    1.  **Dynamic Scale**: If a `field` and a `scale` are provided, the component uses a D3 scale to map data values (e.g., node type) to visual values (e.g., color). If a value is not in the scale's domain, the fallback is used.
+    1.  **Dynamic Scale**: If a `field` and a `scale` are provided, the component uses a D3 scale to map data values (e.g., detected classification field) to visual values (e.g., color). Domains are auto-calculated from data. If a value is not in the scale's domain, the fallback is used.
     2.  **Fixed Value**: If a `value` is provided, it's applied to all elements.
     3.  **Component Default**: If no configuration is provided, a hardcoded fallback value is used to ensure the graph renders.
 
@@ -123,26 +123,26 @@ Here is the default configuration, which you can retrieve via `getDefaultEncodin
   "height": 600,
   "autosize": "none",
   "nodes": {
-    "field": ["source"],
+    "field": ["anatomicalEntity"],
     "color": {
-      "field": "type",
+      "field": "goLabel", // Automatically detected best classification field
       "scale": {
         "type": "ordinal",
-        "domain": ["uri", "literal"],
-        "range": ["#69b3a2", "#ff7f0e"]
+        "domain": ["extracellular space", "hormone activity", "response to glucose"], // Auto-calculated from data
+        "range": ["#1f77b4", "#ff7f0e", "#2ca02c"]
       }
     },
     "size": {
       "field": "connections",
       "scale": {
         "type": "linear",
-        "domain": [0, 10],
+        "domain": [0, 10, 1, 2, 3, 9],
         "range": [8, 25]
       }
     }
   },
   "links": {
-    "field": {source: "source", target: "target"},
+    "field": {source: "anatomicalEntity", target: "goClass"},
     "distance": 100,
     "width": {
       "value": 1.5
@@ -168,11 +168,11 @@ graph.encoding = {
   nodes: {
     field: ["gene", "protein"], // Array format - required
     color: {
-      field: "type",
+      field: "geneCategory", // Automatically detected classification field
       scale: {
         type: "ordinal",
-        domain: ["uri", "literal"],
-        range: ["#d62728", "#2ca02c"] // Use red and green instead
+        domain: ["oncogene", "tumor_suppressor", "metabolic_enzyme"], // Auto-calculated from data
+        range: ["#d62728", "#2ca02c", "#1f77b4"] // Colors for 3 categories
       }
     },
     size: {
@@ -206,11 +206,11 @@ graph.encoding = {
   nodes: {
     field: ["anatomicalEntity", "goClass"], // At least 2 variables required for semantic links
     color: {
-      field: "type",
+      field: "entityType", // Automatically detected classification field
       scale: {
         type: "ordinal",
-        domain: ["uri", "literal"],
-        range: ["#1f77b4", "#ff7f0e"]
+        domain: ["organ", "tissue", "cell_type", "molecular_function"], // Auto-calculated from data
+        range: ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]
       }
     }
   },
@@ -235,13 +235,27 @@ const graph = document.getElementById('myGraph');
 
 // Configure all properties at once
 graph.sparqlEndpoint = 'https://query.wikidata.org/sparql';
-graph.sparqlQuery = 'SELECT ?person ?personLabel ?birthPlace WHERE { ... }';
+graph.sparqlQuery = 'SELECT ?person ?personLabel ?birthPlace ?occupation WHERE { ... }';
 graph.proxy = 'http://localhost:3001/sparql-proxy';
 graph.encoding = {
   nodes: {
     field: ["person", "birthPlace"], // Array format with 2 variables
-    color: { field: "type", scale: { type: "ordinal", domain: ["person", "place"], range: ["blue", "green"] }},
-    size: { field: "connections", scale: { type: "linear", domain: [1, 10], range: [10, 30] }}
+    color: { 
+      field: "occupation", // Automatically detected classification field
+      scale: { 
+        type: "ordinal", 
+        domain: ["scientist", "artist", "politician", "writer"], // Auto-calculated from data
+        range: ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"] 
+      }
+    },
+    size: { 
+      field: "connections", 
+      scale: { 
+        type: "linear", 
+        domain: [1, 15, 2, 3, 8, 12], // Auto-calculated from actual connections
+        range: [10, 30] 
+      }
+    }
   },
   links: {
     field: {source: "person", target: "birthPlace"}, // Directional links object format
@@ -278,28 +292,10 @@ graph.encoding = {
   links: { field: "goLabel" }
 };
 
-// ❌ ERROR: Semantic links with insufficient node variables  
-graph.encoding = {
-  nodes: { field: ["gene"] }, // Only 1 variable
-  links: { field: "goLabel" } // Semantic links need ≥2 node variables
-};
-
 // ❌ ERROR: Incomplete directional field
 graph.encoding = {
   nodes: { field: ["gene"] },
   links: { field: {source: "gene"} } // Missing target property
-};
-
-// ✅ VALID: Properly configured semantic links
-graph.encoding = {
-  nodes: { field: ["anatomicalEntity", "goClass"] },
-  links: { field: "goLabel" }
-};
-
-// ✅ VALID: Properly configured directional links
-graph.encoding = {
-  nodes: { field: ["gene"] },
-  links: { field: {source: "gene", target: "protein"} }
 };
 ```
 

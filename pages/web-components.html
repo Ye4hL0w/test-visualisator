@@ -126,6 +126,29 @@ WHERE {
                     <vis-table id="metabolite-table" width="800" height="600" show-json="true" style="display: none;"></vis-table>
                 </div>
                 
+                <!-- Encodings visuels -->
+                <div class="encoding-comparison-preview">
+                    <h3>Encodings visuels - Base vs Modifié</h3>
+                    <div class="encoding-comparison" style="display: flex; gap: 20px; overflow: auto;">
+                        <div class="encoding-column" style="flex: 1;">
+                            <h4>Encoding de base (généré automatiquement)</h4>
+                            <pre id="base-encoding" class="code-preview">
+// Encoding de base non disponible. Exécutez une requête d'abord.
+</pre>
+                        </div>
+                        <div class="encoding-column" style="flex: 1;">
+                            <h4>Encoding actuel (avec modifications)</h4>
+                            <pre id="current-encoding" class="code-preview">
+// Encoding actuel non disponible. Exécutez une requête d'abord.
+</pre>
+                        </div>
+                    </div>
+                    <div class="encoding-actions" style="margin-top: 10px; text-align: center;">
+                        <button id="reset-to-base-encoding" class="secondary-button" style="margin-right: 10px;">Restaurer l'encoding de base</button>
+                        <button id="copy-current-encoding" class="secondary-button">Copier l'encoding actuel</button>
+                    </div>
+                </div>
+
                 <!-- Transformation des données -->
                 <div class="data-transformation-preview">
                     <h3>Aperçu des données et de leur transformation</h3>

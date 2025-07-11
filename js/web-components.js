@@ -10,20 +10,123 @@ document.addEventListener('DOMContentLoaded', function() {
     const applyMappingBtn = document.getElementById('apply-mapping-btn');
     const removeMappingBtn = document.getElementById('remove-mapping-btn');
     
+    // Nouveaux éléments pour la comparaison d'encodings
+    const baseEncodingPreview = document.getElementById('base-encoding');
+    const currentEncodingPreview = document.getElementById('current-encoding');
+    const resetToBaseEncodingBtn = document.getElementById('reset-to-base-encoding');
+    const copyCurrentEncodingBtn = document.getElementById('copy-current-encoding');
+    
+    // Variable pour stocker l'encoding de base
+    let baseEncoding = null;
+    
     // Initialiser les valeurs d'affichage
     document.getElementById('component-width-value').textContent = 
         graph.getAttribute('width') || '800';
     document.getElementById('component-height-value').textContent = 
         graph.getAttribute('height') || '600';
     
-          // Remplir la zone de texte de l'encoding visuel avec la configuration par défaut au chargement
-      if (visualMappingTextarea) {
+    // Remplir la zone de texte de l'encoding visuel avec la configuration par défaut au chargement
+    if (visualMappingTextarea) {
         visualMappingTextarea.value = JSON.stringify(graph.getEncoding(), null, 2);
-      }
+    }
+    
+    // === GESTION DES ENCODINGS ===
+    
+    // Fonction pour mettre à jour les aperçus d'encoding (SANS modifier la textarea)
+    function updateEncodingPreviews() {
+        const currentEncoding = graph.getEncoding();
+        
+        // Mettre à jour l'aperçu de l'encoding actuel
+        if (currentEncodingPreview) {
+            currentEncodingPreview.textContent = JSON.stringify(currentEncoding, null, 2);
+        }
+        
+        // Mettre à jour l'aperçu de l'encoding de base (s'il existe)
+        if (baseEncoding && baseEncodingPreview) {
+            baseEncodingPreview.textContent = JSON.stringify(baseEncoding, null, 2);
+        }
+        
+        // IMPORTANTE: NE PAS modifier la textarea ici - elle garde son comportement original
+    }
+    
+    // Fonction pour sauvegarder l'encoding de base
+    function saveBaseEncoding() {
+        baseEncoding = JSON.parse(JSON.stringify(graph.getEncoding())); // Copie profonde
+        console.log('[web-components] 📋 Encoding de base sauvegardé:', baseEncoding);
+        
+        if (baseEncodingPreview) {
+            baseEncodingPreview.textContent = JSON.stringify(baseEncoding, null, 2);
+        }
+    }
+    
+    // Fonction pour réinitialiser l'encoding
+    function resetEncoding() {
+        console.log('[web-components] 🔄 Reset de l\'encoding...');
+        
+        // Remettre à null pour forcer la régénération automatique
+        graph.encoding = null;
+        baseEncoding = null;
+        
+        // Réinitialiser les aperçus
+        if (baseEncodingPreview) {
+            baseEncodingPreview.textContent = '// Encoding de base non disponible. Exécutez une requête d\'abord.';
+        }
+        if (currentEncodingPreview) {
+            currentEncodingPreview.textContent = '// Encoding actuel non disponible. Exécutez une requête d\'abord.';
+        }
+        
+        // COMPORTEMENT ORIGINAL: Mettre à jour la textarea avec l'encoding par défaut
+        if (visualMappingTextarea) {
+            visualMappingTextarea.value = JSON.stringify(graph.getDefaultEncoding(), null, 2);
+        }
+    }
+    
+    // Gestionnaires pour les nouveaux boutons
+    if (resetToBaseEncodingBtn) {
+        resetToBaseEncodingBtn.addEventListener('click', function() {
+            if (baseEncoding) {
+                graph.encoding = JSON.parse(JSON.stringify(baseEncoding)); // Copie profonde
+                
+                // COMPORTEMENT ORIGINAL: Mettre à jour la textarea
+                if (visualMappingTextarea) {
+                    visualMappingTextarea.value = JSON.stringify(baseEncoding, null, 2);
+                }
+                
+                // Mettre à jour les aperçus
+                updateEncodingPreviews();
+                
+                queryStatus.textContent = 'Encoding de base restauré.';
+                queryStatus.className = 'status-message status-success';
+                console.log('[web-components] 🔄 Encoding de base restauré');
+            } else {
+                queryStatus.textContent = 'Aucun encoding de base disponible. Exécutez une requête d\'abord.';
+                queryStatus.className = 'status-message status-error';
+            }
+        });
+    }
+    
+    if (copyCurrentEncodingBtn) {
+        copyCurrentEncodingBtn.addEventListener('click', async function() {
+            try {
+                const currentEncoding = graph.getEncoding();
+                const encodingText = JSON.stringify(currentEncoding, null, 2);
+                await navigator.clipboard.writeText(encodingText);
+                queryStatus.textContent = 'Encoding actuel copié dans le presse-papiers.';
+                queryStatus.className = 'status-message status-success';
+                console.log('[web-components] 📋 Encoding copié');
+            } catch (error) {
+                console.error('Erreur lors de la copie:', error);
+                queryStatus.textContent = 'Erreur lors de la copie dans le presse-papiers.';
+                queryStatus.className = 'status-message status-error';
+            }
+        });
+    }
     
     // Écouteur pour la mise à jour automatique de la textarea après calcul des domaines
     graph.addEventListener('domainsCalculated', function(event) {
-        console.log('[web-components] 🎯 Domaines recalculés automatiquement, mise à jour de la textarea');
+        console.log('[web-components] 🎯 Domaines recalculés automatiquement, mise à jour de la textarea ET des aperçus');
+        
+        // COMPORTEMENT ORIGINAL: Mettre à jour la textarea avec l'encoding réel
         if (visualMappingTextarea) {
             visualMappingTextarea.value = JSON.stringify(event.detail.encoding, null, 2);
             
@@ -33,6 +136,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 visualMappingTextarea.style.borderColor = '';
             }, 1000);
         }
+        
+        // Mettre à jour aussi les aperçus
+        updateEncodingPreviews();
     });
     
     // Basculer entre graphe et tableau
@@ -128,6 +234,10 @@ document.addEventListener('DOMContentLoaded', function() {
             graph.sparqlQuery = selectedExample.query;
             // Le proxy reste celui configuré par l'utilisateur dans le champ
             
+            // RESET ENCODING lors du changement d'exemple (préparation pour nouveau chargement)
+            console.log('[web-components] 🔄 Nouvel exemple sélectionné - Préparation du reset encoding');
+            // Note : le reset complet sera fait lors du clic sur "Exécuter"
+            
             // Mettre en évidence le bouton d'exécution
             const executeButton = document.getElementById('execute-query');
             executeButton.classList.add('highlight');
@@ -150,6 +260,10 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const encodingConfig = JSON.parse(visualMappingTextarea.value);
             graph.encoding = encodingConfig;
+            
+            // Mettre à jour les aperçus d'encoding
+            updateEncodingPreviews();
+            
             queryStatus.textContent = 'Nouvel encoding visuel appliqué.';
             queryStatus.className = 'status-message status-success';
             console.log("🎨 Custom visual encoding applied from textarea.");
@@ -168,9 +282,13 @@ document.addEventListener('DOMContentLoaded', function() {
         // Régénérer l'encoding adaptatif en relançant la transformation
         if (graph.sparqlData) {
             graph.launch().then(() => {
-                // Récupérer l'encoding adaptatif généré
+                // COMPORTEMENT ORIGINAL: Mettre à jour la textarea avec l'encoding adaptatif généré
                 const adaptiveMapping = graph.getEncoding();
                 visualMappingTextarea.value = JSON.stringify(adaptiveMapping, null, 2);
+                
+                // Mettre à jour les aperçus d'encoding
+                updateEncodingPreviews();
+                
                 queryStatus.textContent = 'Encoding visuel adaptatif restauré.';
                 queryStatus.className = 'status-message status-success';
                 console.log("🎨 Adaptive visual encoding restored.");
@@ -179,6 +297,10 @@ document.addEventListener('DOMContentLoaded', function() {
             // Si pas de données, utiliser l'encoding par défaut
             const defaultMapping = graph.getDefaultEncoding();
             visualMappingTextarea.value = JSON.stringify(defaultMapping, null, 2);
+            
+            // Mettre à jour les aperçus
+            updateEncodingPreviews();
+            
             queryStatus.textContent = 'Encoding visuel par défaut restauré (aucune donnée).';
             queryStatus.className = 'status-message status-success';
         }
@@ -198,6 +320,10 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
+        // RESET ENCODING à chaque nouvelle requête
+        console.log('[web-components] 🔄 Nouveau chargement détecté - Reset de l\'encoding');
+        resetEncoding();
+        
         // Afficher l'état de chargement
         queryStatus.textContent = 'Chargement des données...';
         queryStatus.className = 'status-message status-loading';
@@ -215,9 +341,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 queryStatus.textContent = result.message;
                 queryStatus.className = 'status-message status-success';
                 
-                // Mettre à jour l'encoding dans la textarea avec l'encoding adaptatif réellement utilisé
+                // SAUVEGARDER L'ENCODING DE BASE (généré automatiquement)
+                saveBaseEncoding();
+                
+                // COMPORTEMENT ORIGINAL: Mettre à jour l'encoding dans la textarea avec l'encoding adaptatif réellement utilisé
                 const currentEncoding = graph.getEncoding();
                 visualMappingTextarea.value = JSON.stringify(currentEncoding, null, 2);
+                
+                // Mettre à jour les aperçus d'encoding
+                updateEncodingPreviews();
                 
                 // Mettre à jour les aperçus de données
                 updateDataPreviews(result.rawData, result.data);
@@ -255,11 +387,10 @@ document.addEventListener('DOMContentLoaded', function() {
         graph.sparqlData = null;
         graph.encoding = null;
         
-        // Rétablir l'encoding par défaut statique (car plus de données SPARQL)
-        const defaultMapping = graph.getDefaultEncoding();
-        visualMappingTextarea.value = JSON.stringify(defaultMapping, null, 2);
+        // RESET complet des encodings
+        resetEncoding();
         
-        // Réinitialiser les aperçus
+        // Réinitialiser les aperçus de données
         rawDataPreview.textContent = '// Aucune donnée SPARQL. Exécutez une requête pour voir les résultats.';
         transformedDataPreview.textContent = '// Aucune donnée transformée. Exécutez une requête d\'abord.';
         

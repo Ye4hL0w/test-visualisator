@@ -38,39 +38,40 @@ Central method that automatically handles the 3 cases.
 
 ```javascript
 const data = [
-  { type: 'uri', connections: 5 },
-  { type: 'literal', connections: 2 }
+  { goCategory: 'molecular_function', connections: 5 },
+  { goCategory: 'biological_process', connections: 2 },
+  { goCategory: 'cellular_component', connections: 3 }
 ];
 
 // Case 1: No domain → auto generation
-calculator.getDomain(data, 'type');
-// → ['literal', 'uri']
+calculator.getDomain(data, 'goCategory');
+// → ['biological_process', 'cellular_component', 'molecular_function']
 
 // Case 2: Invalid domain → correction
-calculator.getDomain(data, 'type', ['nonexistent']);
-// → ['literal', 'uri']
+calculator.getDomain(data, 'goCategory', ['nonexistent']);
+// → ['biological_process', 'cellular_component', 'molecular_function']
 
 // Case 3: Incomplete domain → completion
-calculator.getDomain(data, 'type', ['uri']);
-// → ['uri', 'literal']
+calculator.getDomain(data, 'goCategory', ['molecular_function']);
+// → ['molecular_function', 'biological_process', 'cellular_component']
 ```
 
 ### With vis-graph
 
 ```javascript
 // Encoding is automatically completed
-const encoding = { nodes: { color: { field: 'type', scale: { domain: ['uri'] } } } };
+const encoding = { nodes: { color: { field: 'goCategory', scale: { domain: ['molecular_function'] } } } };
 visGraphElement.setEncoding(encoding);
 
 // getEncoding() returns complete domain
 visGraphElement.getEncoding().nodes.color.scale.domain;
-// → ['uri', 'literal']
+// → ['molecular_function', 'biological_process', 'cellular_component']
 ```
 
 ## Advantages
 
 - 🚀 **Automation** : No need to know values in advance
-- 🧠 **Intelligence** : Automatic data type detection and adaptive sorting
+- 🧠 **Intelligence** : Automatic field detection, data type analysis and adaptive sorting
 - 💾 **Performance** : Intelligent cache and optimized processing
 - 🔧 **Flexibility** : Support for all D3 scale types
 - 🛡️ **Robustness** : Error handling and rigorous validation

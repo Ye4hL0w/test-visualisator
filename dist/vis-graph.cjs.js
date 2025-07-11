@@ -20844,6 +20844,481 @@ class SparqlDataFetcher {
 }
 
 /**
+ * Calculateur de domaines pour l'encoding visuel des graphes de connaissances.
+ * Cette classe analyse les données pour générer automatiquement les domaines
+ * appropriés selon les besoins de l'utilisateur et la nature des données.
+ */
+class DomainCalculator {
+  constructor() {
+    // Cache pour les domaines calculés par champ
+    this.domainCache = new Map();
+    // Cache pour les statistiques des champs
+    this.fieldStatsCache = new Map();
+  }
+
+  /**
+   * Méthode principale pour obtenir le domaine d'un champ.
+   * Gère automatiquement les 3 cas : aucune donnée, données erronées, données incomplètes.
+   * 
+   * @param {Array} data - Les données du graphe (nodes ou links)
+   * @param {string} field - Le nom du champ à analyser
+   * @param {Array|null} userDomain - Le domaine fourni par l'utilisateur (peut être null/undefined)
+   * @param {string} scaleType - Le type d'échelle ('ordinal', 'linear', 'sqrt', 'log')
+   * @returns {Array} Le domaine calculé pour ce champ
+   */
+  getDomain(data, field, userDomain = null, scaleType = 'ordinal') {
+    if (!data || data.length === 0) {
+      console.warn(`[DomainCalculator] ⚠️ Aucune donnée disponible pour le champ "${field}"`);
+      return [];
+    }
+
+    // Extraire les valeurs existantes du champ dans les données
+    const extractedValues = this.getVal(data, field);
+    
+    if (extractedValues.length === 0) {
+      console.warn(`[DomainCalculator] ⚠️ Aucune valeur trouvée dans les données pour le champ "${field}"`);
+      return [];
+    }
+
+    console.log(`[DomainCalculator] 🔍 Analyse du champ "${field}": ${extractedValues.length} valeurs uniques trouvées`);
+    console.log(`[DomainCalculator] 📋 Valeurs extraites des données:`, extractedValues);
+    console.log(`[DomainCalculator] 👤 Domaine utilisateur fourni:`, userDomain);
+
+    // Cas 1: Pas de domaine utilisateur -> utiliser les valeurs extraites
+    if (!userDomain || userDomain.length === 0) {
+      const reason = !userDomain ? "domaine utilisateur non défini (null/undefined)" : "domaine utilisateur vide (array vide)";
+      console.log(`[DomainCalculator] 📊 Cas 1: Génération automatique du domaine - Raison: ${reason}`);
+      console.log(`[DomainCalculator] ➡️ Génération automatique basée sur les ${extractedValues.length} valeurs des données`);
+      const sortedDomain = this.sortDomainValues(extractedValues, scaleType);
+      console.log(`[DomainCalculator] ✅ Domaine généré (${scaleType}):`, sortedDomain);
+      return sortedDomain;
+    }
+
+    // Cas 2: Domaine utilisateur erroné -> le corriger
+    const invalidityReport = this.analyzeDomainInvalidity(userDomain, extractedValues);
+    if (invalidityReport.isInvalid) {
+      console.warn(`[DomainCalculator] 🔧 Cas 2: Correction du domaine erroné`);
+      console.warn(`[DomainCalculator] ❌ Problème détecté: ${invalidityReport.reason}`);
+      console.warn(`[DomainCalculator] 📊 Domaine utilisateur:`, userDomain);
+      console.warn(`[DomainCalculator] 🔄 Valeurs invalides:`, invalidityReport.invalidValues);
+      console.warn(`[DomainCalculator] ✅ Valeurs valides trouvées:`, invalidityReport.validValues);
+      
+      const fixedDomain = this.fixDomain(userDomain, extractedValues, scaleType);
+      console.log(`[DomainCalculator] 🔧 Domaine corrigé:`, fixedDomain);
+      return fixedDomain;
+    }
+
+    // Cas 3: Domaine utilisateur incomplet -> le compléter
+    const incompletenessReport = this.analyzeDomainIncompleteness(userDomain, extractedValues);
+    if (incompletenessReport.isIncomplete) {
+      console.warn(`[DomainCalculator] ➕ Cas 3: Complétion du domaine incomplet`);
+      console.warn(`[DomainCalculator] 📊 Domaine utilisateur:`, userDomain);
+      console.warn(`[DomainCalculator] ❌ Valeurs manquantes (${incompletenessReport.missingValues.length}):`, incompletenessReport.missingValues);
+      console.warn(`[DomainCalculator] ✅ Valeurs déjà présentes (${incompletenessReport.existingValues.length}):`, incompletenessReport.existingValues);
+      console.warn(`[DomainCalculator] 📈 Couverture actuelle: ${Math.round(incompletenessReport.coverage * 100)}%`);
+      
+      const completedDomain = this.completeDomain(userDomain, extractedValues, scaleType);
+      console.log(`[DomainCalculator] ➕ Domaine complété (${userDomain.length} → ${completedDomain.length} valeurs):`, completedDomain);
+      return completedDomain;
+    }
+
+    // Cas 4: Domaine utilisateur valide -> le conserver tel quel
+    console.log(`[DomainCalculator] ✅ Domaine utilisateur valide, conservation à l'identique`);
+    console.log(`[DomainCalculator] 🎯 Toutes les valeurs du domaine utilisateur correspondent aux données`);
+    console.log(`[DomainCalculator] 📊 Domaine conservé:`, userDomain);
+    return [...userDomain]; // Copie pour éviter les modifications externes
+  }
+
+  /**
+   * Extrait toutes les valeurs uniques d'un champ depuis les données.
+   * Gère les champs spéciaux comme 'connections' et 'type'.
+   * 
+   * @param {Array} data - Les données à analyser
+   * @param {string} field - Le nom du champ
+   * @returns {Array} Les valeurs uniques trouvées
+   */
+  getVal(data, field) {
+    const values = new Set();
+    
+    data.forEach((item, index) => {
+      let value = null;
+      
+      // Gestion des champs spéciaux calculés
+      if (field === 'connections' && typeof item.connections !== 'undefined') {
+        value = item.connections;
+      } else if (field === 'type' && typeof item.type !== 'undefined') {
+        value = item.type;
+      } else if (item[field] !== undefined && item[field] !== null) {
+        value = item[field];
+      }
+      
+      if (value !== null && value !== undefined && value !== '') {
+        values.add(value);
+      }
+    });
+    
+    const result = Array.from(values);
+    
+    // Mettre en cache les statistiques
+    this.cacheFieldStats(field, result, data.length);
+    
+    return result;
+  }
+
+  /**
+   * Trie les valeurs du domaine selon le type d'échelle.
+   * 
+   * @param {Array} values - Les valeurs à trier
+   * @param {string} scaleType - Le type d'échelle
+   * @returns {Array} Les valeurs triées
+   */
+  sortDomainValues(values, scaleType) {
+    if (scaleType === 'ordinal') {
+      // Pour les échelles ordinales, tri alphanumérique
+      return [...values].sort((a, b) => {
+        if (typeof a === 'string' && typeof b === 'string') {
+          return a.localeCompare(b, 'fr', { numeric: true });
+        }
+        return String(a).localeCompare(String(b), 'fr', { numeric: true });
+      });
+    } else {
+      // Pour les échelles numériques, tri numérique
+      return [...values].sort((a, b) => {
+        const numA = this.convertToNumber(a);
+        const numB = this.convertToNumber(b);
+        return numA - numB;
+      });
+    }
+  }
+
+  /**
+   * Analyse en détail la validité d'un domaine utilisateur.
+   * 
+   * @param {Array} userDomain - Le domaine fourni par l'utilisateur
+   * @param {Array} extractedValues - Les valeurs extraites des données
+   * @returns {Object} Rapport détaillé de validité
+   */
+  analyzeDomainInvalidity(userDomain, extractedValues) {
+    if (!Array.isArray(userDomain)) {
+      return {
+        isInvalid: true,
+        reason: "Le domaine utilisateur n'est pas un array",
+        invalidValues: [userDomain],
+        validValues: [],
+        totalUserValues: userDomain ? 1 : 0
+      };
+    }
+
+    const validValues = [];
+    const invalidValues = [];
+
+    userDomain.forEach(domainValue => {
+      const isValid = extractedValues.some(dataValue => this.valuesAreEqual(domainValue, dataValue));
+      if (isValid) {
+        validValues.push(domainValue);
+      } else {
+        invalidValues.push(domainValue);
+      }
+    });
+
+    const isInvalid = validValues.length === 0;
+    
+    let reason = "";
+    if (isInvalid) {
+      if (invalidValues.length === userDomain.length) {
+        reason = "Aucune valeur du domaine utilisateur ne correspond aux données";
+      } else {
+        reason = `${invalidValues.length}/${userDomain.length} valeurs du domaine utilisateur ne correspondent pas aux données`;
+      }
+    }
+
+    return {
+      isInvalid,
+      reason,
+      invalidValues,
+      validValues,
+      totalUserValues: userDomain.length,
+      validityRate: validValues.length / userDomain.length
+    };
+  }
+
+  /**
+   * Analyse en détail la complétude d'un domaine utilisateur.
+   * 
+   * @param {Array} userDomain - Le domaine fourni par l'utilisateur
+   * @param {Array} extractedValues - Les valeurs extraites des données
+   * @returns {Object} Rapport détaillé de complétude
+   */
+  analyzeDomainIncompleteness(userDomain, extractedValues) {
+    if (!Array.isArray(userDomain)) {
+      return {
+        isIncomplete: false,
+        missingValues: [],
+        existingValues: [],
+        coverage: 0
+      };
+    }
+
+    const existingValues = [];
+    const missingValues = [];
+
+    extractedValues.forEach(dataValue => {
+      const exists = userDomain.some(domainValue => this.valuesAreEqual(domainValue, dataValue));
+      if (exists) {
+        existingValues.push(dataValue);
+      } else {
+        missingValues.push(dataValue);
+      }
+    });
+
+    const coverage = existingValues.length / extractedValues.length;
+    const isIncomplete = missingValues.length > 0;
+
+    return {
+      isIncomplete,
+      missingValues,
+      existingValues,
+      coverage,
+      totalDataValues: extractedValues.length,
+      missingCount: missingValues.length
+    };
+  }
+
+  /**
+   * Vérifie si le domaine utilisateur est invalide par rapport aux données.
+   * 
+   * @param {Array} userDomain - Le domaine fourni par l'utilisateur
+   * @param {Array} extractedValues - Les valeurs extraites des données
+   * @returns {boolean} True si le domaine est invalide
+   */
+  isDomainInvalid(userDomain, extractedValues) {
+    const report = this.analyzeDomainInvalidity(userDomain, extractedValues);
+    return report.isInvalid;
+  }
+
+  /**
+   * Vérifie si le domaine utilisateur est incomplet.
+   * 
+   * @param {Array} userDomain - Le domaine fourni par l'utilisateur
+   * @param {Array} extractedValues - Les valeurs extraites des données
+   * @returns {boolean} True si le domaine est incomplet
+   */
+  isDomainIncomplete(userDomain, extractedValues) {
+    const report = this.analyzeDomainIncompleteness(userDomain, extractedValues);
+    return report.isIncomplete;
+  }
+
+  /**
+   * Corrige un domaine invalide en utilisant les valeurs des données.
+   * 
+   * @param {Array} invalidDomain - Le domaine invalide
+   * @param {Array} extractedValues - Les valeurs extraites des données
+   * @param {string} scaleType - Le type d'échelle
+   * @returns {Array} Le domaine corrigé
+   */
+  fixDomain(invalidDomain, extractedValues, scaleType) {
+    console.log(`[DomainCalculator] 🔧 Correction d'un domaine invalide...`);
+    console.log(`[DomainCalculator] ❌ Domaine invalide:`, invalidDomain);
+    console.log(`[DomainCalculator] 📊 Données disponibles:`, extractedValues);
+    console.log(`[DomainCalculator] 🔄 Remplacement complet par les valeurs des données`);
+    
+    // Pour un domaine complètement invalide, utiliser toutes les valeurs des données
+    const sortedDomain = this.sortDomainValues(extractedValues, scaleType);
+    
+    console.log(`[DomainCalculator] ✅ Domaine corrigé (tri ${scaleType}):`, sortedDomain);
+    console.log(`[DomainCalculator] 📈 Changement: ${invalidDomain.length} → ${sortedDomain.length} valeurs`);
+    
+    return sortedDomain;
+  }
+
+  /**
+   * Complète un domaine incomplet en préservant l'ordre de l'utilisateur.
+   * 
+   * @param {Array} incompleteDomain - Le domaine incomplet
+   * @param {Array} extractedValues - Les valeurs extraites des données
+   * @param {string} scaleType - Le type d'échelle
+   * @returns {Array} Le domaine complété
+   */
+  completeDomain(incompleteDomain, extractedValues, scaleType) {
+    console.log(`[DomainCalculator] ➕ Complétion d'un domaine incomplet...`);
+    console.log(`[DomainCalculator] 📊 Domaine utilisateur:`, incompleteDomain);
+    
+    // Garder l'ordre de l'utilisateur pour les valeurs qu'il a spécifiées
+    const completedDomain = [...incompleteDomain];
+    
+    // Ajouter les valeurs manquantes
+    const missingValues = extractedValues.filter(dataValue => 
+      !incompleteDomain.some(domainValue => this.valuesAreEqual(domainValue, dataValue))
+    );
+    
+    console.log(`[DomainCalculator] ❌ Valeurs manquantes détectées:`, missingValues);
+    
+    // Trier les valeurs manquantes selon le type d'échelle
+    const sortedMissingValues = this.sortDomainValues(missingValues, scaleType);
+    
+    console.log(`[DomainCalculator] 🔄 Valeurs manquantes triées (${scaleType}):`, sortedMissingValues);
+    console.log(`[DomainCalculator] ➕ Ajout des valeurs manquantes à la fin du domaine utilisateur`);
+    
+    // Les ajouter à la fin du domaine utilisateur
+    completedDomain.push(...sortedMissingValues);
+    
+    console.log(`[DomainCalculator] ✅ Domaine complété:`, completedDomain);
+    console.log(`[DomainCalculator] 📈 Changement: ${incompleteDomain.length} → ${completedDomain.length} valeurs`);
+    console.log(`[DomainCalculator] 🎯 Préservation: ordre utilisateur maintenu pour les ${incompleteDomain.length} premières valeurs`);
+    
+    return completedDomain;
+  }
+
+  /**
+   * Compare deux valeurs pour déterminer si elles sont équivalentes.
+   * Gère les comparaisons de types différents (string/number).
+   * 
+   * @param {*} value1 - Première valeur
+   * @param {*} value2 - Deuxième valeur
+   * @returns {boolean} True si les valeurs sont équivalentes
+   */
+  valuesAreEqual(value1, value2) {
+    // Comparaison directe
+    if (value1 === value2) return true;
+    
+    // Comparaison après conversion en string (pour gérer "1" vs 1)
+    if (String(value1) === String(value2)) return true;
+    
+    // Comparaison numérique si les deux valeurs peuvent être converties
+    const num1 = this.convertToNumber(value1);
+    const num2 = this.convertToNumber(value2);
+    if (!isNaN(num1) && !isNaN(num2) && num1 === num2) return true;
+    
+    return false;
+  }
+
+  /**
+   * Convertit une valeur en nombre si possible.
+   * 
+   * @param {*} value - La valeur à convertir
+   * @returns {number} Le nombre ou NaN si impossible
+   */
+  convertToNumber(value) {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+      const num = parseFloat(value);
+      return isNaN(num) ? NaN : num;
+    }
+    return NaN;
+  }
+
+  /**
+   * Met en cache les statistiques d'un champ pour optimiser les calculs futurs.
+   * 
+   * @param {string} field - Le nom du champ
+   * @param {Array} uniqueValues - Les valeurs uniques trouvées
+   * @param {number} totalCount - Le nombre total d'éléments dans les données
+   */
+  cacheFieldStats(field, uniqueValues, totalCount) {
+    const stats = {
+      uniqueValues: [...uniqueValues],
+      uniqueCount: uniqueValues.length,
+      totalCount: totalCount,
+      coverage: uniqueValues.length / totalCount,
+      lastUpdated: Date.now()
+    };
+    
+    this.fieldStatsCache.set(field, stats);
+  }
+
+  /**
+   * Récupère les statistiques d'un champ depuis le cache.
+   * 
+   * @param {string} field - Le nom du champ
+   * @returns {Object|null} Les statistiques ou null si non trouvées
+   */
+  getFieldStats(field) {
+    return this.fieldStatsCache.get(field) || null;
+  }
+
+  /**
+   * Vide le cache pour forcer le recalcul lors de la prochaine utilisation.
+   */
+  clearCache() {
+    this.domainCache.clear();
+    this.fieldStatsCache.clear();
+  }
+
+  /**
+   * Génère un domaine suggéré pour un champ numérique basé sur les statistiques.
+   * Utile pour les échelles linéaires, sqrt, log.
+   * 
+   * @param {Array} data - Les données à analyser
+   * @param {string} field - Le nom du champ numérique
+   * @param {number} steps - Le nombre de pas suggérés (défaut: 5)
+   * @returns {Array} Le domaine numérique suggéré
+   */
+  generateNumericDomain(data, field, steps = 5) {
+    const values = this.getVal(data, field)
+      .map(v => this.convertToNumber(v))
+      .filter(v => !isNaN(v));
+    
+    if (values.length === 0) return [];
+    
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const step = (max - min) / (steps - 1);
+    
+    const domain = [];
+    for (let i = 0; i < steps; i++) {
+      domain.push(min + (step * i));
+    }
+    
+    return domain;
+  }
+
+  /**
+   * Analyse la nature d'un champ pour suggérer le type d'échelle approprié.
+   * 
+   * @param {Array} data - Les données à analyser
+   * @param {string} field - Le nom du champ
+   * @returns {Object} Analyse avec type suggéré et statistiques
+   */
+  analyzeFieldType(data, field) {
+    const values = this.getVal(data, field);
+    if (values.length === 0) {
+      return {
+        suggestedScale: 'ordinal',
+        isNumeric: false,
+        uniqueCount: 0,
+        samples: []
+      };
+    }
+    
+    // Tester si toutes les valeurs sont numériques
+    const numericValues = values.map(v => this.convertToNumber(v)).filter(v => !isNaN(v));
+    const isNumeric = numericValues.length === values.length;
+    
+    // Calculer des statistiques
+    const uniqueCount = values.length;
+    const samples = values.slice(0, 5); // Échantillon pour aperçu
+    
+    // Suggérer le type d'échelle
+    let suggestedScale = 'ordinal';
+    if (isNumeric) {
+      if (uniqueCount <= 10) {
+        suggestedScale = 'ordinal'; // Peu de valeurs numériques -> ordinal
+      } else {
+        suggestedScale = 'linear'; // Beaucoup de valeurs numériques -> linéaire
+      }
+    }
+    
+    return {
+      suggestedScale,
+      isNumeric,
+      uniqueCount,
+      samples,
+      coverage: uniqueCount / data.length
+    };
+  }
+}
+
+/**
  * Composant Web pour la visualisation de graphes de connaissances.
  * Utilise D3.js pour le rendu SVG et un système d'encoding visuel configurable.
  */
@@ -20864,6 +21339,9 @@ class VisGraph extends HTMLElement {
     
     // Instance du fetcher pour récupérer les données SPARQL
     this.sparqlFetcher = new SparqlDataFetcher();
+    
+    // Instance du calculateur de domaines pour l'encoding visuel
+    this.domainCalculator = new DomainCalculator();
     
     // Organisation des attributs privés (requête, endpoint, etc.)
     this.internalData = new WeakMap();
@@ -20945,6 +21423,63 @@ class VisGraph extends HTMLElement {
     return defaultEncoding;
   }
 
+  /**
+   * Améliore l'encoding adaptatif avec détection automatique des champs de classification
+   * et génération des palettes de couleurs. Appelée après la transformation des données.
+   * @param {Array} sparqlVars - Les variables SPARQL disponibles
+   * @param {Array} nodeData - Les données des nœuds à analyser
+   */
+  enhanceAdaptiveEncodingWithClassification(sparqlVars, nodeData = null) {
+    const nodes = nodeData || this.nodes;
+    if (!nodes || nodes.length === 0 || !sparqlVars) {
+      console.log('[vis-graph] ⚠️ Pas de données pour améliorer l\'encoding adaptatif');
+      return;
+    }
+
+    console.log('[vis-graph] 🔍 Amélioration de l\'encoding adaptatif avec détection automatique...');
+
+    // Détecter le meilleur champ de classification pour les couleurs des nœuds
+    const bestClassificationField = this.detectClassificationField(nodes, sparqlVars);
+    
+    if (bestClassificationField.field !== 'type') {
+      console.log(`[vis-graph] 🎨 Remplacement du champ couleur "type" par "${bestClassificationField.field}"`);
+      
+      // Mettre à jour l'encoding avec le meilleur champ détecté
+      this.visualEncoding.nodes.color.field = bestClassificationField.field;
+      
+      // Générer automatiquement le domaine et la palette de couleurs
+      const fieldValues = this.domainCalculator.getVal(nodes, bestClassificationField.field);
+      const sortedDomain = this.domainCalculator.sortDomainValues(fieldValues, 'ordinal');
+      const colorPalette = this.generateColorPalette(sortedDomain.length);
+      
+      // Mettre à jour l'échelle de couleur
+      this.visualEncoding.nodes.color.scale = {
+        type: 'ordinal',
+        domain: sortedDomain,
+        range: colorPalette
+      };
+      
+      console.log(`[vis-graph] ✅ Encoding couleur mis à jour:`);
+      console.log(`[vis-graph] -> Champ: "${bestClassificationField.field}"`);
+      console.log(`[vis-graph] -> Domaine (${sortedDomain.length} valeurs):`, sortedDomain);
+      console.log(`[vis-graph] -> Palette:`, colorPalette);
+      
+      // Émettre un événement pour notifier le changement
+      this.dispatchEvent(new CustomEvent('encodingEnhanced', {
+        detail: {
+          field: bestClassificationField.field,
+          reason: bestClassificationField.reason,
+          domain: sortedDomain,
+          palette: colorPalette,
+          timestamp: new Date().toISOString()
+        },
+        bubbles: true
+      }));
+    } else {
+      console.log('[vis-graph] 📝 Conservation du champ couleur "type" (aucun meilleur champ trouvé)');
+    }
+  }
+
   // --- GETTERS ET SETTERS POUR L'API PUBLIQUE ---
 
   /**
@@ -21004,12 +21539,26 @@ class VisGraph extends HTMLElement {
           const transformedData = this.transformSparqlResults(this.sparqlData);
           this.nodes = transformedData.nodes;
           this.links = transformedData.links;
+          
+          // IMPORTANT: Mettre à jour l'encoding avec les domaines calculés automatiquement
+          this.updateEncodingWithCalculatedDomains();
+          
           this.render();
         } catch (error) {
           console.error('[vis-graph] ❌ Erreur lors de la transformation des données:', error.message);
           this.showNotification(error.message, 'error');
           return;
         }
+    } else if (this.nodes && this.nodes.length > 0) {
+        // Cas où on a déjà des données mais pas de sparqlData (données manuelles)
+        console.log('[vis-graph] 🔄 Mise à jour de l\'encoding avec données existantes');
+        
+        // Mettre à jour l'encoding avec les domaines calculés
+        this.updateEncodingWithCalculatedDomains();
+        
+        this.render();
+    } else {
+        console.log('[vis-graph] ⚠️ Aucune donnée disponible pour appliquer le nouvel encoding');
     }
   }
 
@@ -21059,16 +21608,19 @@ class VisGraph extends HTMLElement {
           isValid = false;
         }
         
-        // Vérifier qu'on a au moins 2 nœuds pour les liens sémantiques
+        // Vérifier qu'on a au moins 1 nœud pour les liens sémantiques
         if (encoding.nodes?.field && Array.isArray(encoding.nodes.field)) {
-          if (encoding.nodes.field.length < 2) {
-            console.error('[vis-graph] ❌ Pour les liens sémantiques, il faut au moins 2 variables dans le field des nœuds');
-            warnings.push('Pour les liens sémantiques, il faut au moins 2 variables dans le field des nœuds');
+          if (encoding.nodes.field.length < 1) {
+            console.error('[vis-graph] ❌ Pour les liens sémantiques, il faut au moins 1 variable dans le field des nœuds');
+            warnings.push('Pour les liens sémantiques, il faut au moins 1 variable dans le field des nœuds');
             isValid = false;
+          } else if (encoding.nodes.field.length === 1) {
+            console.log('[vis-graph] 📊 Liens sémantiques avec 1 seule variable - utilisation de la cooccurrence automatique');
+            // Dans ce cas, on calculera automatiquement la cooccurrence dans transformSparqlResults
           }
         } else {
-          console.error('[vis-graph] ❌ Pour les liens sémantiques, le field des nœuds doit être un array avec au moins 2 variables');
-          warnings.push('Pour les liens sémantiques, le field des nœuds doit être un array avec au moins 2 variables');
+          console.error('[vis-graph] ❌ Pour les liens sémantiques, le field des nœuds doit être un array avec au moins 1 variable');
+          warnings.push('Pour les liens sémantiques, le field des nœuds doit être un array avec au moins 1 variable');
           isValid = false;
         }
       }
@@ -21113,8 +21665,114 @@ class VisGraph extends HTMLElement {
     return { isValid, warnings };
   }
 
+  /**
+   * Met à jour l'encoding visuel interne avec les domaines calculés automatiquement.
+   * Cette méthode modifie directement this.visualEncoding.
+   */
+  updateEncodingWithCalculatedDomains() {
+    if (!this.nodes || this.nodes.length === 0) {
+      console.warn('[vis-graph] ⚠️ Aucune donnée disponible pour calculer les domaines');
+      return;
+    }
+
+    console.log('[vis-graph] 🔄 Mise à jour des domaines dans l\'encoding interne...');
+    console.log('[vis-graph] 🔍 Debug - encoding actuel:', this.visualEncoding);
+
+    // --- DOMAINES DES NŒUDS ---
+    
+    // Domaine pour la couleur des nœuds
+    console.log('[vis-graph] 🔍 Debug couleur - Conditions:');
+    console.log('  -> nodes.color.field:', this.visualEncoding.nodes?.color?.field);
+    console.log('  -> nodes.color.scale:', this.visualEncoding.nodes?.color?.scale);
+    
+    if (this.visualEncoding.nodes?.color?.field && this.visualEncoding.nodes?.color?.scale) {
+      const colorField = this.visualEncoding.nodes.color.field;
+      const userDomain = this.visualEncoding.nodes.color.scale.domain;
+      const scaleType = this.visualEncoding.nodes.color.scale.type || 'ordinal';
+      
+      console.log(`[vis-graph] 🎨 Calcul du domaine couleur pour le champ "${colorField}" avec domaine utilisateur:`, userDomain);
+      
+      this.visualEncoding.nodes.color.scale.domain = this.domainCalculator.getDomain(
+        this.nodes, 
+        colorField, 
+        userDomain, 
+        scaleType
+      );
+      
+      console.log(`[vis-graph] 🎨 Domaine couleur nœuds mis à jour:`, this.visualEncoding.nodes.color.scale.domain);
+    } else {
+      console.log('[vis-graph] ⚠️ Pas de configuration couleur nœuds valide - conditions non remplies');
+    }
+    
+    // Domaine pour la taille des nœuds
+    if (this.visualEncoding.nodes?.size?.field && this.visualEncoding.nodes?.size?.scale) {
+      const sizeField = this.visualEncoding.nodes.size.field;
+      const userDomain = this.visualEncoding.nodes.size.scale.domain;
+      const scaleType = this.visualEncoding.nodes.size.scale.type || 'linear';
+      
+      this.visualEncoding.nodes.size.scale.domain = this.domainCalculator.getDomain(
+        this.nodes, 
+        sizeField, 
+        userDomain, 
+        scaleType
+      );
+      
+      console.log(`[vis-graph] 📏 Domaine taille nœuds mis à jour:`, this.visualEncoding.nodes.size.scale.domain);
+    }
+
+    // --- DOMAINES DES LIENS ---
+    
+    // Domaine pour la couleur des liens
+    if (this.visualEncoding.links?.color?.field && this.visualEncoding.links?.color?.scale && this.links) {
+      const colorField = this.visualEncoding.links.color.field;
+      const userDomain = this.visualEncoding.links.color.scale.domain;
+      const scaleType = this.visualEncoding.links.color.scale.type || 'ordinal';
+      
+      this.visualEncoding.links.color.scale.domain = this.domainCalculator.getDomain(
+        this.links, 
+        colorField, 
+        userDomain, 
+        scaleType
+      );
+      
+      console.log(`[vis-graph] 🌈 Domaine couleur liens mis à jour:`, this.visualEncoding.links.color.scale.domain);
+    }
+
+    console.log('[vis-graph] ✅ Encoding interne mis à jour avec domaines calculés');
+    
+    // Émettre un événement personnalisé pour notifier que les domaines ont été mis à jour
+    this.dispatchEvent(new CustomEvent('domainsCalculated', {
+      detail: {
+        encoding: this.getEncoding(),
+        timestamp: new Date().toISOString()
+      },
+      bubbles: true
+    }));
+  }
+
+  /**
+   * Retourne l'encoding visuel avec les domaines calculés automatiquement.
+   * Les domaines sont maintenus à jour automatiquement dans this.visualEncoding.
+   * @returns {Object} L'encoding avec domaines à jour
+   */
   getEncoding() {
-    return this.visualEncoding;
+    // Créer une copie de l'encoding pour éviter de modifier l'original
+    const encodingCopy = JSON.parse(JSON.stringify(this.visualEncoding));
+    
+    // Afficher les métadonnées en console uniquement
+    const metadata = {
+      domainsUpdated: true,
+      lastUpdate: new Date().toISOString(),
+      dataStats: {
+        nodeCount: this.nodes ? this.nodes.length : 0,
+        linkCount: this.links ? this.links.length : 0
+      }
+    };
+
+    console.log('[vis-graph] 📋 Encoding avec domaines à jour retourné');
+    console.log('[vis-graph] 📊 Métadonnées:', metadata);
+    
+    return encodingCopy; // Sans les métadonnées
   }
 
   set sparqlQuery(query) {
@@ -21264,6 +21922,15 @@ class VisGraph extends HTMLElement {
     console.log('[vis-graph] 📋 Définition manuelle des données');
     this.nodes = nodes;
     this.links = links;
+    
+    // Vider le cache du calculateur de domaines car les données ont changé
+    if (this.domainCalculator) {
+      this.domainCalculator.clearCache();
+    }
+    
+    // Mettre à jour l'encoding avec les domaines calculés
+    this.updateEncodingWithCalculatedDomains();
+    
     this.render();
   }
 
@@ -21340,6 +22007,10 @@ class VisGraph extends HTMLElement {
             const transformedData = this.transformSparqlResults(result.data);
             this.nodes = transformedData.nodes;
             this.links = transformedData.links;
+            
+            // Mettre à jour l'encoding avec les domaines calculés
+            this.updateEncodingWithCalculatedDomains();
+            
             this.render();
             
             return {
@@ -21362,6 +22033,10 @@ class VisGraph extends HTMLElement {
             const transformedData = this.transformSparqlResults(result.data);
             this.nodes = transformedData.nodes;
             this.links = transformedData.links;
+            
+            // Mettre à jour l'encoding avec les domaines calculés
+            this.updateEncodingWithCalculatedDomains();
+            
             this.render();
             
             return {
@@ -21484,6 +22159,9 @@ class VisGraph extends HTMLElement {
       return { nodes: [], links: [] };
     }
     
+    // CORRECTION: Nettoyer les données temporaires d'une transformation précédente
+    this.cooccurrenceData = null;
+    
     const nodesMap = new Map();
     const linksMap = new Map();
     
@@ -21496,9 +22174,11 @@ class VisGraph extends HTMLElement {
       (this.encoding === this.getDefaultEncoding()) ||
       (this.visualEncoding.nodes.field === "source" && this.visualEncoding.links.field === "source-target");
     
+    let usingAdaptiveEncoding = false;
     if (isDefaultEncoding) {
       mapping = this.createAdaptiveEncoding(vars);
       this.visualEncoding = mapping; // Mettre à jour l'encoding courant
+      usingAdaptiveEncoding = true;
       console.log("[vis-graph] 🔄 Utilisation de l'encoding adaptatif");
     } else {
       console.log("[vis-graph] 🎨 Utilisation de l'encoding personnalisé");
@@ -21613,9 +22293,57 @@ class VisGraph extends HTMLElement {
             }
             linksMap.set(linkKey, link);
           }
+        } else if (linkType === 'semantic' && !targetVar) {
+          // Mode cooccurrence : collecter les binding pour calculer les liens après
+          if (!this.cooccurrenceData) {
+            this.cooccurrenceData = new Map();
+          }
+          
+          const semanticValue = (semanticVar && binding[semanticVar]) ? binding[semanticVar].value : 'relation';
+          
+          if (!this.cooccurrenceData.has(semanticValue)) {
+            this.cooccurrenceData.set(semanticValue, new Set());
+          }
+          
+          this.cooccurrenceData.get(semanticValue).add(sourceId);
         }
       }
     });
+
+    // Traitement de la cooccurrence après avoir collecté toutes les données
+    if (linkType === 'semantic' && !targetVar && this.cooccurrenceData) {
+      console.log('[vis-graph] 📊 Calcul des liens de cooccurrence...');
+      
+      for (const [semanticValue, nodeSet] of this.cooccurrenceData.entries()) {
+        const nodes = Array.from(nodeSet);
+        
+        // Créer des liens entre tous les nœuds qui partagent la même valeur sémantique
+        for (let i = 0; i < nodes.length; i++) {
+          for (let j = i + 1; j < nodes.length; j++) {
+            const sourceNodeId = nodes[i];
+            const targetNodeId = nodes[j];
+            
+            const linkKey = `${sourceNodeId}-${targetNodeId}-cooccurrence`;
+            if (!linksMap.has(linkKey)) {
+              const link = {
+                source: sourceNodeId,
+                target: targetNodeId,
+                type: 'semantic',
+                semanticLabel: semanticValue,
+                tooltip: `Cooccurrence via ${semanticValue}`,
+                cooccurrence: true
+              };
+              linksMap.set(linkKey, link);
+            }
+          }
+        }
+      }
+      
+      console.log(`[vis-graph] ✅ ${linksMap.size} liens de cooccurrence créés`);
+      
+      // Nettoyer les données temporaires
+      this.cooccurrenceData = null;
+    }
 
     const finalNodes = Array.from(nodesMap.values());
     const finalLinks = Array.from(linksMap.values());
@@ -21630,6 +22358,20 @@ class VisGraph extends HTMLElement {
     finalNodes.forEach(n => n.connections = connectionCount.get(n.id));
 
     console.log(`[vis-graph] ✅ Transformation terminée: ${finalNodes.length} nœuds, ${finalLinks.length} liens`);
+    
+    // Vider le cache du calculateur de domaines car de nouvelles données ont été transformées
+    if (this.domainCalculator) {
+      this.domainCalculator.clearCache();
+    }
+    
+    // Si on utilise l'encoding adaptatif, améliorer automatiquement avec détection des champs de classification
+    if (usingAdaptiveEncoding) {
+      try {
+        this.enhanceAdaptiveEncodingWithClassification(vars, finalNodes);
+      } catch (error) {
+        console.warn('[vis-graph] ⚠️ Erreur lors de l\'amélioration de l\'encoding adaptatif:', error.message);
+      }
+    }
     
     return {
       nodes: finalNodes,
@@ -21664,9 +22406,14 @@ class VisGraph extends HTMLElement {
           if (mapping.nodes?.field && Array.isArray(mapping.nodes.field) && mapping.nodes.field.length >= 2) {
             sourceVar = mapping.nodes.field[0];
             targetVar = mapping.nodes.field[1];
+          } else if (mapping.nodes?.field && Array.isArray(mapping.nodes.field) && mapping.nodes.field.length === 1) {
+            // Cas spécial : une seule variable de nœud, on calculera la cooccurrence
+            sourceVar = mapping.nodes.field[0];
+            targetVar = null; // Sera calculé automatiquement par cooccurrence
+            console.log(`[vis-graph] 📊 Mode cooccurrence activé pour la variable "${sourceVar}"`);
           } else {
-            console.error(`[vis-graph] ❌ Pour les liens sémantiques, il faut au moins 2 variables dans nodes.field`);
-            throw new Error('Pour les liens sémantiques, il faut au moins 2 variables dans nodes.field');
+            console.error(`[vis-graph] ❌ Pour les liens sémantiques, il faut au moins 1 variable dans nodes.field`);
+            throw new Error('Pour les liens sémantiques, il faut au moins 1 variable dans nodes.field');
           }
         } else {
           console.warn(`[vis-graph] ⚠️ Variable de lien sémantique "${linkField}" non trouvée. Variables disponibles:`, vars);
@@ -23292,6 +24039,7 @@ class VisGraph extends HTMLElement {
       .attr("d", "M0,-5L10,0L0,5")
       .attr("fill", "#999");
     
+    // CORRECTION: Validation stricte des données avant le rendu
     if (!this.nodes || this.nodes.length === 0) {
       svg.append("text")
         .attr("x", width / 2)
@@ -23310,6 +24058,34 @@ class VisGraph extends HTMLElement {
       return;
     }
 
+    // CORRECTION: Vérification de l'intégrité des données
+    const validNodes = this.nodes.filter(node => node && node.id !== undefined && node.id !== null);
+    const validLinks = this.links.filter(link => 
+      link && 
+      link.source !== undefined && link.source !== null &&
+      link.target !== undefined && link.target !== null
+    );
+
+    if (validNodes.length !== this.nodes.length) {
+      console.warn(`[vis-graph] ⚠️ ${this.nodes.length - validNodes.length} nœuds invalides supprimés`);
+      this.nodes = validNodes;
+    }
+
+    if (validLinks.length !== this.links.length) {
+      console.warn(`[vis-graph] ⚠️ ${this.links.length - validLinks.length} liens invalides supprimés`);
+      this.links = validLinks;
+    }
+
+    if (validNodes.length === 0) {
+      svg.append("text")
+        .attr("x", width / 2)
+        .attr("y", height / 2)
+        .attr("text-anchor", "middle")
+        .style("font-size", "16px")
+        .text("Erreur: données corrompues détectées");
+      return;
+    }
+
     const mapping = this.visualEncoding;
 
     // --- ENCODING LOGIC ---
@@ -23317,33 +24093,52 @@ class VisGraph extends HTMLElement {
     
     // Node Color
     const nodeColorConfig = mapping.nodes.color || {};
-    const nodeColorScale = nodeColorConfig.scale ? this.createD3Scale(nodeColorConfig.scale) : null;
+    const nodeColorScale = nodeColorConfig.scale ? 
+      this.createD3Scale(nodeColorConfig.scale, this.nodes, nodeColorConfig.field) : null;
     const getNodeColor = d => {
-      if (nodeColorScale && nodeColorConfig.field && d[nodeColorConfig.field] !== undefined) {
-        // CORRECTION: On vérifie que la valeur du noeud est bien dans le domaine de l'échelle
-        if (nodeColorScale.domain().includes(d[nodeColorConfig.field])) {
-          return nodeColorScale(d[nodeColorConfig.field]);
+      try {
+        if (nodeColorScale && nodeColorConfig.field && d[nodeColorConfig.field] !== undefined) {
+          // CORRECTION: On vérifie que la valeur du noeud est bien dans le domaine de l'échelle
+          if (nodeColorScale.domain().includes(d[nodeColorConfig.field])) {
+            const color = nodeColorScale(d[nodeColorConfig.field]);
+            return color || '#cccccc'; // Protection contre les couleurs invalides
+          }
+          // Si la valeur n'est pas dans le domaine, on ignore l'échelle et on passe aux fallbacks.
         }
-        // Si la valeur n'est pas dans le domaine, on ignore l'échelle et on passe aux fallbacks.
+        // Fallback 1: Utiliser une valeur directe si elle est définie
+        // Fallback 2: Utiliser un gris neutre pour les cas non définis
+        return nodeColorConfig.value || '#cccccc';
+      } catch (error) {
+        console.warn('[vis-graph] ⚠️ Erreur dans getNodeColor:', error.message);
+        return '#cccccc'; // Couleur de sécurité
       }
-      // Fallback 1: Utiliser une valeur directe si elle est définie
-      // Fallback 2: Utiliser un gris neutre pour les cas non définis
-      return nodeColorConfig.value || '#cccccc';
     };
 
     // Node Size (Radius)
     const nodeSizeConfig = mapping.nodes.size || {};
-    const nodeSizeScale = nodeSizeConfig.scale ? this.createD3Scale(nodeSizeConfig.scale) : null;
+    const nodeSizeScale = nodeSizeConfig.scale ? 
+      this.createD3Scale(nodeSizeConfig.scale, this.nodes, nodeSizeConfig.field) : null;
     const getNodeRadius = d => {
-      if (nodeSizeScale && nodeSizeConfig.field && d[nodeSizeConfig.field] !== undefined) {
-        return nodeSizeScale(d[nodeSizeConfig.field]);
+      try {
+        if (nodeSizeScale && nodeSizeConfig.field && d[nodeSizeConfig.field] !== undefined) {
+          const radius = nodeSizeScale(d[nodeSizeConfig.field]);
+          // Vérifier que le rayon est un nombre valide et positif
+          if (typeof radius === 'number' && !isNaN(radius) && radius > 0) {
+            return radius;
+          }
+        }
+        const fallbackRadius = nodeSizeConfig.value || 10;
+        return typeof fallbackRadius === 'number' && !isNaN(fallbackRadius) && fallbackRadius > 0 ? fallbackRadius : 10;
+      } catch (error) {
+        console.warn('[vis-graph] ⚠️ Erreur dans getNodeRadius:', error.message);
+        return 10; // Rayon de sécurité
       }
-      return nodeSizeConfig.value || 10; // Final fallback
     };
 
     // Link Color
     const linkColorConfig = mapping.links.color || {};
-    const linkColorScale = linkColorConfig.scale ? this.createD3Scale(linkColorConfig.scale) : null;
+    const linkColorScale = linkColorConfig.scale ? 
+      this.createD3Scale(linkColorConfig.scale, this.links, linkColorConfig.field) : null;
     const getLinkColor = d => {
       if (linkColorScale && linkColorConfig.field && d[linkColorConfig.field] !== undefined) {
         // CORRECTION: On vérifie aussi pour les liens
@@ -23458,12 +24253,16 @@ class VisGraph extends HTMLElement {
       nodeGroup.each(constrainNode);
       
       link
-        .attr('x1', d => d.source.x)
-        .attr('y1', d => d.source.y)
-        .attr('x2', d => d.target.x)
-        .attr('y2', d => d.target.y);
+        .attr('x1', d => isNaN(d.source.x) ? 0 : d.source.x)
+        .attr('y1', d => isNaN(d.source.y) ? 0 : d.source.y)
+        .attr('x2', d => isNaN(d.target.x) ? 0 : d.target.x)
+        .attr('y2', d => isNaN(d.target.y) ? 0 : d.target.y);
       
-      nodeGroup.attr('transform', d => `translate(${d.x},${d.y})`);
+      nodeGroup.attr('transform', d => {
+        const x = isNaN(d.x) ? width / 2 : d.x;
+        const y = isNaN(d.y) ? height / 2 : d.y;
+        return `translate(${x},${y})`;
+      });
     });
     
     function dragstarted(event, d) {
@@ -23486,26 +24285,60 @@ class VisGraph extends HTMLElement {
   }
 
   /**
-   * Crée une échelle D3 à partir d'une configuration de type VEGA.
+   * Crée une échelle D3 à partir d'une configuration de type VEGA avec calcul automatique du domaine.
    * @param {object} scaleConfig - La configuration de l'échelle (`domain`, `range`, `type`).
+   * @param {Array} data - Les données à utiliser pour calculer le domaine (optionnel).
+   * @param {string} field - Le champ à analyser pour calculer le domaine (optionnel).
    * @param {d3.Scale} defaultScale - L'échelle D3 à utiliser si la configuration est invalide.
-   * @returns {d3.Scale} L'échelle D3 configurée.
+   * @returns {d3.Scale} L'échelle D3 configurée avec domaine calculé.
    */
-  createD3Scale(scaleConfig, defaultScale) {
-    if (!scaleConfig || !scaleConfig.domain || !scaleConfig.range) {
+  createD3Scale(scaleConfig, data = null, field = null, defaultScale = null) {
+    console.log(`[vis-graph] 🎨 Création d'échelle D3 pour le champ "${field}"`);
+    
+    if (!scaleConfig || !scaleConfig.range) {
+      console.warn(`[vis-graph] ⚠️ Configuration d'échelle invalide ou range manquant`);
       return defaultScale;
     }
 
-    let scale;
     const type = scaleConfig.type || 'ordinal';
     
     // Support for D3 color schemes e.g., "Reds", "Blues"
     const range = (typeof scaleConfig.range === 'string') ? d3[`scheme${scaleConfig.range}`] : scaleConfig.range;
     if (!range) {
-        console.warn(`[vis-graph] Invalid color scheme or range provided: ${scaleConfig.range}`);
+        console.warn(`[vis-graph] ⚠️ Schéma de couleurs ou range invalide: ${scaleConfig.range}`);
         return defaultScale;
     }
+
+    // --- CALCUL AUTOMATIQUE DU DOMAINE ---
+    let finalDomain;
     
+    if (data && field && this.domainCalculator) {
+      // Utiliser le DomainCalculator pour calculer le domaine approprié
+      const userDomain = scaleConfig.domain; // Peut être undefined/null
+      try {
+        finalDomain = this.domainCalculator.getDomain(data, field, userDomain, type);
+      } catch (error) {
+        console.warn(`[vis-graph] ⚠️ Erreur lors du calcul du domaine pour "${field}":`, error.message);
+        return defaultScale;
+      }
+      
+      console.log(`[vis-graph] 🎯 Domaine calculé automatiquement:`, finalDomain);
+      
+      if (!finalDomain || finalDomain.length === 0) {
+        console.warn(`[vis-graph] ⚠️ Aucune valeur trouvée pour le champ "${field}"`);
+        return defaultScale;
+      }
+    } else if (scaleConfig.domain && Array.isArray(scaleConfig.domain) && scaleConfig.domain.length > 0) {
+      // Utiliser le domaine fourni tel quel (avec validation)
+      finalDomain = scaleConfig.domain;
+      console.log(`[vis-graph] 📝 Utilisation du domaine fourni:`, finalDomain);
+    } else {
+      console.warn(`[vis-graph] ⚠️ Aucun domaine valide disponible pour créer l'échelle`);
+      return defaultScale;
+    }
+    
+    // --- CRÉATION DE L'ÉCHELLE D3 ---
+    let scale;
     switch (type) {
       case 'linear':
         scale = linear();
@@ -23521,8 +24354,242 @@ class VisGraph extends HTMLElement {
         scale = ordinal();
         break;
     }
-          return scale.domain(scaleConfig.domain).range(range);
+    
+    const finalScale = scale.domain(finalDomain).range(range);
+    
+    console.log(`[vis-graph] ✅ Échelle ${type} créée avec succès pour "${field}"`);
+    console.log(`[vis-graph] -> Domaine final:`, finalScale.domain());
+    console.log(`[vis-graph] -> Range:`, finalScale.range());
+    
+    return finalScale;
+  }
+
+  /**
+   * Détecte automatiquement les champs de classification de niveau supérieur
+   * dans les données pour l'encodage des couleurs.
+   * @param {Array} data - Les données (nodes ou links)
+   * @param {Array} sparqlVars - Les variables SPARQL disponibles
+   * @returns {Object} Information sur le meilleur champ de classification trouvé
+   */
+  detectClassificationField(data, sparqlVars) {
+    if (!data || data.length === 0 || !sparqlVars) {
+      return { field: 'type', reason: 'Aucune donnée disponible, utilisation du fallback' };
     }
+
+    // Mots-clés qui indiquent des champs de classification (par ordre de priorité)
+    const classificationKeywords = [
+      { keywords: ['class', 'category', 'groupe', 'group'], priority: 5, description: 'Classification principale' },
+      { keywords: ['type', 'kind', 'sort'], priority: 4, description: 'Type/sorte' },
+      { keywords: ['level', 'niveau', 'rank', 'rang'], priority: 3, description: 'Niveau hiérarchique' },
+      { keywords: ['domain', 'domaine', 'realm'], priority: 3, description: 'Domaine' },
+      { keywords: ['namespace', 'ns', 'prefix'], priority: 2, description: 'Espace de noms' },
+      { keywords: ['source', 'origin', 'provenance'], priority: 2, description: 'Source/origine' },
+      { keywords: ['label', 'name', 'title'], priority: 1, description: 'Label (plus granulaire)' }
+    ];
+
+    const candidateFields = [];
+
+    // Analyser chaque variable SPARQL pour trouver des champs de classification
+    console.log(`[vis-graph] 🔍 Analyse des variables SPARQL pour détection de classification:`, sparqlVars);
+    
+    sparqlVars.forEach(varName => {
+      const lowerVarName = varName.toLowerCase();
+      
+      // Chercher des correspondances avec les mots-clés de classification
+      classificationKeywords.forEach(({ keywords, priority, description }) => {
+        keywords.forEach(keyword => {
+          if (lowerVarName.includes(keyword)) {
+            console.log(`[vis-graph] 🎯 Variable "${varName}" correspond au mot-clé "${keyword}"`);
+            
+            // Analyser les valeurs de ce champ dans les données
+            const fieldStats = this.analyzeFieldForClassification(data, varName);
+            
+            console.log(`[vis-graph] 📊 Stats pour "${varName}":`, {
+              uniqueCount: fieldStats.uniqueCount,
+              coverage: Math.round(fieldStats.coverage * 100) + '%',
+              isGood: fieldStats.isGoodForClassification,
+              samples: fieldStats.sampleValues
+            });
+            
+            if (fieldStats.isGoodForClassification) {
+              candidateFields.push({
+                field: varName,
+                priority: priority,
+                description: description,
+                uniqueCount: fieldStats.uniqueCount,
+                coverage: fieldStats.coverage,
+                sampleValues: fieldStats.sampleValues,
+                reason: `Détecté via mot-clé "${keyword}" - ${description}`
+              });
+            }
+          }
+        });
+      });
+    });
+
+    // Si aucun champ candidat trouvé, analyser tous les champs pour trouver de bonnes classifications
+    if (candidateFields.length === 0) {
+      console.log('[vis-graph] 🔍 Aucun champ de classification évident, analyse de tous les champs...');
+      
+      sparqlVars.forEach(varName => {
+        const fieldStats = this.analyzeFieldForClassification(data, varName);
+        
+        if (fieldStats.isGoodForClassification) {
+          candidateFields.push({
+            field: varName,
+            priority: 1, // Priorité plus basse car pas de mot-clé évident
+            description: 'Classification détectée par analyse',
+            uniqueCount: fieldStats.uniqueCount,
+            coverage: fieldStats.coverage,
+            sampleValues: fieldStats.sampleValues,
+            reason: `Analyse automatique - ${fieldStats.uniqueCount} valeurs uniques`
+          });
+        }
+      });
+    }
+
+    // Afficher tous les candidats trouvés
+    if (candidateFields.length > 0) {
+      console.log(`[vis-graph] 📋 ${candidateFields.length} champ(s) candidat(s) trouvé(s):`);
+      candidateFields.forEach((candidate, index) => {
+        console.log(`[vis-graph]   ${index + 1}. "${candidate.field}" (priorité: ${candidate.priority}, ${candidate.uniqueCount} valeurs, ${Math.round(candidate.coverage * 100)}%)`);
+      });
+    }
+
+    // Trier les candidats par priorité et qualité
+    candidateFields.sort((a, b) => {
+      // D'abord par priorité (plus élevée = mieux)
+      if (b.priority !== a.priority) {
+        return b.priority - a.priority;
+      }
+      // Ensuite par nombre optimal de valeurs uniques (entre 2 et 12 idéalement)
+      const optimalA = Math.abs(a.uniqueCount - 6); // 6 est le nombre "idéal"
+      const optimalB = Math.abs(b.uniqueCount - 6);
+      if (optimalA !== optimalB) {
+        return optimalA - optimalB;
+      }
+      // Enfin par couverture (plus élevée = mieux)
+      return b.coverage - a.coverage;
+    });
+
+    if (candidateFields.length > 0) {
+      const bestField = candidateFields[0];
+      console.log(`[vis-graph] 🎯 Meilleur champ de classification détecté: "${bestField.field}"`);
+      console.log(`[vis-graph] -> Raison: ${bestField.reason}`);
+      console.log(`[vis-graph] -> Valeurs uniques: ${bestField.uniqueCount}, Couverture: ${Math.round(bestField.coverage * 100)}%`);
+      console.log(`[vis-graph] -> Échantillon de valeurs:`, bestField.sampleValues);
+      
+      return bestField;
+    }
+
+    // Fallback vers le champ "type" calculé
+    console.log('[vis-graph] ⚠️ Aucun champ de classification adapté trouvé, utilisation du fallback "type"');
+    return { 
+      field: 'type', 
+      reason: 'Fallback - aucun champ de classification adapté détecté',
+      uniqueCount: 2,
+      coverage: 1.0,
+      sampleValues: ['uri', 'literal']
+    };
+  }
+
+  /**
+   * Analyse un champ spécifique pour déterminer s'il convient à la classification.
+   * @param {Array} data - Les données à analyser
+   * @param {string} fieldName - Le nom du champ à analyser
+   * @returns {Object} Statistiques d'analyse du champ
+   */
+  analyzeFieldForClassification(data, fieldName) {
+    const values = this.domainCalculator.getVal(data, fieldName);
+    const uniqueCount = values.length;
+    const totalCount = data.length;
+    const coverage = totalCount > 0 ? uniqueCount / totalCount : 0;
+    
+    // Critères pour qu'un champ soit bon pour la classification :
+    // 1. Au moins 2 valeurs uniques (sinon pas de distinction)
+    // 2. Pas plus de 20 valeurs uniques (sinon trop granulaire pour les couleurs)
+    // 3. Couverture raisonnable (pas trop de valeurs manquantes)
+    // 4. Les valeurs ne sont pas toutes des URIs longues (pas lisible)
+    
+    const isGoodForClassification = 
+      uniqueCount >= 2 && 
+      uniqueCount <= 20 && 
+      coverage >= 0.1 && // Au moins 10% des éléments ont cette propriété
+      this.areValuesReadableForClassification(values);
+    
+    return {
+      isGoodForClassification,
+      uniqueCount,
+      coverage,
+      sampleValues: values.slice(0, 3), // Échantillon des 3 premières valeurs
+      avgValueLength: values.reduce((sum, val) => sum + String(val).length, 0) / values.length
+    };
+  }
+
+  /**
+   * Vérifie si les valeurs d'un champ sont lisibles pour la classification.
+   * @param {Array} values - Les valeurs à analyser
+   * @returns {boolean} True si les valeurs sont lisibles
+   */
+  areValuesReadableForClassification(values) {
+    if (values.length === 0) return false;
+    
+    // Calculer la longueur moyenne des valeurs
+    const avgLength = values.reduce((sum, val) => sum + String(val).length, 0) / values.length;
+    
+    // Compter combien de valeurs semblent être des URIs complètes
+    const longUriCount = values.filter(val => {
+      const str = String(val);
+      return str.length > 50 && (str.startsWith('http://') || str.startsWith('https://'));
+    }).length;
+    
+    const longUriRatio = longUriCount / values.length;
+    
+    // Le champ est considéré comme lisible si :
+    // - Longueur moyenne raisonnable (< 30 caractères)
+    // - Moins de 50% d'URIs longues
+    return avgLength < 30 && longUriRatio < 0.5;
+  }
+
+  /**
+   * Génère automatiquement une palette de couleurs adaptée au nombre de valeurs.
+   * @param {number} valueCount - Nombre de valeurs uniques
+   * @returns {Array} Palette de couleurs
+   */
+  generateColorPalette(valueCount) {
+    // Palettes prédéfinies optimisées pour la distinction visuelle
+    const palettes = {
+      2: ['#1f77b4', '#ff7f0e'], // Bleu, Orange
+      3: ['#1f77b4', '#ff7f0e', '#2ca02c'], // + Vert
+      4: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728'], // + Rouge
+      5: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd'], // + Violet
+      6: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b'], // + Marron
+      7: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2'], // + Rose
+      8: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f'], // + Gris
+      9: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22'], // + Olive
+      10: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'] // + Cyan
+    };
+    
+    if (valueCount <= 10 && palettes[valueCount]) {
+      return palettes[valueCount];
+    }
+    
+    // Pour plus de 10 valeurs, utiliser des schémas D3 étendus ou fallback
+    if (valueCount <= 12 && typeof Set3 !== 'undefined') {
+      return Set3.slice(0, valueCount); // 12 couleurs distinctes
+    } else {
+      // Pour un grand nombre ou si les schémas D3 ne sont pas disponibles, générer une palette HSL
+      console.log(`[vis-graph] 🎨 Génération d'une palette HSL pour ${valueCount} valeurs`);
+      const colors = [];
+      for (let i = 0; i < valueCount; i++) {
+        const hue = (i * 360 / valueCount) % 360;
+        const saturation = 65 + (i % 4) * 5; // Variation entre 65-80%
+        const lightness = 45 + (i % 3) * 8;  // Variation entre 45-61%
+        colors.push(`hsl(${hue}, ${saturation}%, ${lightness}%)`);
+      }
+      return colors;
+    }
+  }
 }
 
 // Enregistrer le composant
