@@ -5,6 +5,7 @@
 // import * as d3 from 'd3'; // penser a décommenter si l'on veut publier le composant
 import { SparqlDataFetcher } from './SparqlDataFetcher.js';
 import { DomainCalculator } from './DomainCalculator.js';
+import { ColorScaleCalculator, parseD3ColorScheme } from './ColorScaleCalculator.js';
 
 export class VisGraph extends HTMLElement {
   constructor() {
@@ -25,6 +26,9 @@ export class VisGraph extends HTMLElement {
     
     // Instance du calculateur de domaines pour l'encoding visuel
     this.domainCalculator = new DomainCalculator();
+    
+    // Instance du calculateur de palettes de couleurs pour l'encoding visuel
+    this.colorScaleCalculator = new ColorScaleCalculator();
     
     // Organisation des attributs privés (requête, endpoint, etc.)
     this.internalData = new WeakMap();
@@ -133,7 +137,7 @@ export class VisGraph extends HTMLElement {
       // Générer automatiquement le domaine et la palette de couleurs
       const fieldValues = this.domainCalculator.getVal(nodes, bestClassificationField.field);
       const sortedDomain = this.domainCalculator.sortDomainValues(fieldValues, 'ordinal');
-      const colorPalette = this.generateColorPalette(sortedDomain.length);
+      const colorPalette = this.colorScaleCalculator.getColorPalette('Set1', sortedDomain.length);
       
       // Mettre à jour l'échelle de couleur
       this.visualEncoding.nodes.color.scale = {
@@ -611,6 +615,11 @@ export class VisGraph extends HTMLElement {
       this.domainCalculator.clearCache();
     }
     
+    // Vider le cache du calculateur de palettes de couleurs
+    if (this.colorScaleCalculator) {
+      this.colorScaleCalculator.clearCache();
+    }
+    
     // Mettre à jour l'encoding avec les domaines calculés
     this.updateEncodingWithCalculatedDomains();
     
@@ -1045,6 +1054,11 @@ export class VisGraph extends HTMLElement {
     // Vider le cache du calculateur de domaines car de nouvelles données ont été transformées
     if (this.domainCalculator) {
       this.domainCalculator.clearCache();
+    }
+    
+    // Vider le cache du calculateur de palettes de couleurs
+    if (this.colorScaleCalculator) {
+      this.colorScaleCalculator.clearCache();
     }
     
     // Si on utilise l'encoding adaptatif, améliorer automatiquement avec détection des champs de classification
@@ -2978,20 +2992,13 @@ export class VisGraph extends HTMLElement {
   createD3Scale(scaleConfig, data = null, field = null, defaultScale = null) {
     console.log(`[vis-graph] 🎨 Création d'échelle D3 pour le champ "${field}"`);
     
-    if (!scaleConfig || !scaleConfig.range) {
-      console.warn(`[vis-graph] ⚠️ Configuration d'échelle invalide ou range manquant`);
+    if (!scaleConfig) {
+      console.warn(`[vis-graph] ⚠️ Configuration d'échelle invalide`);
       return defaultScale;
     }
 
     const type = scaleConfig.type || 'ordinal';
     
-    // Support for D3 color schemes e.g., "Reds", "Blues"
-    const range = (typeof scaleConfig.range === 'string') ? d3[`scheme${scaleConfig.range}`] : scaleConfig.range;
-    if (!range) {
-        console.warn(`[vis-graph] ⚠️ Schéma de couleurs ou range invalide: ${scaleConfig.range}`);
-        return defaultScale;
-    }
-
     // --- CALCUL AUTOMATIQUE DU DOMAINE ---
     let finalDomain;
     
@@ -3020,31 +3027,37 @@ export class VisGraph extends HTMLElement {
       return defaultScale;
     }
     
-    // --- CRÉATION DE L'ÉCHELLE D3 ---
-    let scale;
-    switch (type) {
-      case 'linear':
-        scale = d3.scaleLinear();
-        break;
-      case 'sqrt':
-        scale = d3.scaleSqrt();
-        break;
-      case 'log':
-        scale = d3.scaleLog();
-        break;
-      case 'ordinal':
-      default:
-        scale = d3.scaleOrdinal();
-        break;
+    // --- CRÉATION DE L'ÉCHELLE D3 AVEC COLORSCALECALCULATOR ---
+    const range = scaleConfig.range || null; // null = fallback intelligent du ColorScaleCalculator
+    const scaleType = type === 'linear' || type === 'sqrt' || type === 'log' || type === 'quantitative' || type === 'sequential' ? 'quantitative' : 'ordinal';
+    
+    try {
+      // Obtenir les clés de données pour validation du domaine
+      const dataKeys = data && field ? this.domainCalculator.getVal(data, field) : [];
+      
+      const colorScaleResult = this.colorScaleCalculator.createColorScale({
+        domain: finalDomain,
+        range: range,
+        dataKeys: dataKeys,
+        scaleType: scaleType,
+        fallbackInterpolator: null, // Utiliser le système intelligent
+        label: `Color[${field}]`
+      });
+      
+      if (colorScaleResult && colorScaleResult.scale) {
+        console.log(`[vis-graph] ✅ Échelle ${scaleType} créée avec ColorScaleCalculator pour "${field}"`);
+        console.log(`[vis-graph] -> Domaine final:`, colorScaleResult.domain);
+        console.log(`[vis-graph] -> Range:`, colorScaleResult.range);
+        
+        return colorScaleResult.scale;
+      } else {
+        console.warn(`[vis-graph] ⚠️ ColorScaleCalculator a échoué, utilisation du fallback`);
+        return defaultScale;
+      }
+    } catch (error) {
+      console.error(`[vis-graph] ❌ Erreur lors de la création de l'échelle avec ColorScaleCalculator:`, error.message);
+      return defaultScale;
     }
-    
-    const finalScale = scale.domain(finalDomain).range(range);
-    
-    console.log(`[vis-graph] ✅ Échelle ${type} créée avec succès pour "${field}"`);
-    console.log(`[vis-graph] -> Domaine final:`, finalScale.domain());
-    console.log(`[vis-graph] -> Range:`, finalScale.range());
-    
-    return finalScale;
   }
 
   /**
@@ -3234,47 +3247,7 @@ export class VisGraph extends HTMLElement {
     return avgLength < 30 && longUriRatio < 0.5;
   }
 
-  /**
-   * Génère automatiquement une palette de couleurs adaptée au nombre de valeurs.
-   * @param {number} valueCount - Nombre de valeurs uniques
-   * @returns {Array} Palette de couleurs
-   */
-  generateColorPalette(valueCount) {
-    // Palettes prédéfinies optimisées pour la distinction visuelle
-    const palettes = {
-      2: ['#1f77b4', '#ff7f0e'], // Bleu, Orange
-      3: ['#1f77b4', '#ff7f0e', '#2ca02c'], // + Vert
-      4: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728'], // + Rouge
-      5: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd'], // + Violet
-      6: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b'], // + Marron
-      7: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2'], // + Rose
-      8: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f'], // + Gris
-      9: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22'], // + Olive
-      10: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'] // + Cyan
-    };
-    
-    if (valueCount <= 10 && palettes[valueCount]) {
-      return palettes[valueCount];
-    }
-    
-    // Pour plus de 10 valeurs, utiliser des schémas D3 étendus ou fallback
-    if (valueCount <= 12 && typeof d3.schemeSet3 !== 'undefined') {
-      return d3.schemeSet3.slice(0, valueCount); // 12 couleurs distinctes
-    } else if (valueCount <= 20 && typeof d3.schemeCategory20 !== 'undefined') {
-      return d3.schemeCategory20.slice(0, valueCount); // 20 couleurs (si disponible)
-    } else {
-      // Pour un grand nombre ou si les schémas D3 ne sont pas disponibles, générer une palette HSL
-      console.log(`[vis-graph] 🎨 Génération d'une palette HSL pour ${valueCount} valeurs`);
-      const colors = [];
-      for (let i = 0; i < valueCount; i++) {
-        const hue = (i * 360 / valueCount) % 360;
-        const saturation = 65 + (i % 4) * 5; // Variation entre 65-80%
-        const lightness = 45 + (i % 3) * 8;  // Variation entre 45-61%
-        colors.push(`hsl(${hue}, ${saturation}%, ${lightness}%)`);
-      }
-      return colors;
-    }
-  }
+
 }
 
 // Enregistrer le composant

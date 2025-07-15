@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // === GESTION DES ENCODINGS ===
     
-    // Fonction pour mettre à jour les aperçus d'encoding (SANS modifier la textarea)
+    // Fonction pour mettre à jour les aperçus d'encoding (SANS modifier la textarea)77
     function updateEncodingPreviews() {
         const currentEncoding = graph.getEncoding();
         
