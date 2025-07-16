@@ -251,6 +251,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const queryInput = document.getElementById('query-input');
     const executeButton = document.getElementById('execute-query');
     const clearButton = document.getElementById('clear-results');
+    const loadExampleDataButton = document.getElementById('load-example-data');
     const queryStatus = document.getElementById('query-status');
     const rawDataPreview = document.getElementById('raw-data');
     const transformedDataPreview = document.getElementById('transformed-data');
@@ -378,14 +379,22 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Effacer les résultats
     clearButton.addEventListener('click', function() {
-        // Réinitialiser les composants
+        console.log('[web-components] 🗑️ Effacement de tous les résultats...');
+        
+        // Réinitialiser complètement les composants
         graph.nodes = [];
         graph.links = [];
         table.setData([]);
         
-        // Effacer les données SPARQL pour forcer un retour à l'encoding par défaut
+        // Effacer TOUTES les données du composant (SPARQL et JSON)
         graph.sparqlData = null;
+        graph.sparqlResult = null; // Important: effacer aussi les données JSON
         graph.encoding = null;
+        
+        // Remettre les propriétés internes à null
+        graph.sparqlEndpoint = null;
+        graph.sparqlQuery = null;
+        graph.proxy = null;
         
         // RESET complet des encodings
         resetEncoding();
@@ -394,15 +403,126 @@ document.addEventListener('DOMContentLoaded', function() {
         rawDataPreview.textContent = '// Aucune donnée SPARQL. Exécutez une requête pour voir les résultats.';
         transformedDataPreview.textContent = '// Aucune donnée transformée. Exécutez une requête d\'abord.';
         
+        // Réinitialiser les champs de formulaire
+        document.getElementById('endpoint-url').value = '';
+        document.getElementById('query-input').value = 'PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\nSELECT ?metabolite ?target ?correlation ?value\nWHERE {\n  ?metabolite rdf:type <http://example.org/Metabolite> .\n  ?metabolite <http://example.org/correlatesWith> ?correlation .\n  ?correlation <http://example.org/target> ?target .\n  ?correlation <http://example.org/value> ?value .\n}';
+        document.getElementById('proxy-url').value = 'http://localhost:3001/sparql-proxy';
+        
+        // Réinitialiser les sélecteurs d'exemples
+        document.getElementById('example-source').value = '';
+        document.getElementById('example-query').value = '';
+        document.getElementById('example-description').textContent = '';
+        
         // Réinitialiser le statut
-        queryStatus.textContent = '';
-        queryStatus.className = 'status-message';
+        queryStatus.textContent = 'Tous les résultats ont été effacés.';
+        queryStatus.className = 'status-message status-success';
         
         // Relancer le rendu avec des données vides
-        graph.launch().catch(() => {
-            // Si launch() échoue avec des données vides, on fait un rendu direct
-            graph.render();
-        });
+        try {
+            graph.render(); // Rendu direct au lieu de launch() pour éviter les erreurs
+        } catch (error) {
+            console.warn('[web-components] ⚠️ Erreur lors du rendu après effacement:', error);
+        }
+        
+        console.log('[web-components] ✅ Effacement terminé - composant réinitialisé');
+        
+        // Effacer le message de statut après un délai
+        setTimeout(() => {
+            queryStatus.textContent = '';
+            queryStatus.className = 'status-message';
+        }, 2000);
+    });
+    
+    // Charger les données d'exemple depuis example-data.json
+    loadExampleDataButton.addEventListener('click', async () => {
+        try {
+            // Afficher l'état de chargement
+            queryStatus.textContent = 'Chargement des données d\'exemple...';
+            queryStatus.className = 'status-message status-loading';
+            
+            // RESET ENCODING à chaque nouveau chargement
+            console.log('[web-components] 🔄 Chargement des données d\'exemple - Reset de l\'encoding');
+            resetEncoding();
+            
+            // Charger le fichier example-data.json (chemin corrigé)
+            const response = await fetch('../example-data.json');
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const jsonData = await response.json();
+            
+            if (typeof graph.launch === 'function') {
+                // Remettre l'encoding à null pour forcer la régénération adaptative
+                graph.encoding = null;
+                
+                // Configurer avec les données JSON et lancer
+                graph.sparqlResult = jsonData;
+                const result = await graph.launch();
+                
+                console.log("Résultat du chargement de l'exemple:", result);
+                if (result && result.status === 'success') {
+                    console.log(`Données de l'exemple chargées: ${result.data.nodes.length} nœuds, ${result.data.links.length} liens.`);
+                    
+                    queryStatus.textContent = `Données d'exemple chargées: ${result.data.nodes.length} nœuds, ${result.data.links.length} liens`;
+                    queryStatus.className = 'status-message status-success';
+                    
+                    // SAUVEGARDER L'ENCODING DE BASE (généré automatiquement)
+                    saveBaseEncoding();
+                    
+                    // Récupérer et afficher l'encoding adaptatif généré
+                    try {
+                        const adaptiveEncoding = graph.getEncoding();
+                        visualMappingTextarea.value = JSON.stringify(adaptiveEncoding, null, 2);
+                        console.log("🎨 Encoding adaptatif appliqué pour l'exemple:", adaptiveEncoding);
+                        
+                        // Mettre à jour les aperçus d'encoding
+                        updateEncodingPreviews();
+                        
+                        // Mettre à jour les aperçus de données
+                        updateDataPreviews(jsonData, result.data);
+                        
+                        // Transformer les données SPARQL pour le tableau si elles sont au format SPARQL
+                        if (jsonData && jsonData.results && jsonData.results.bindings) {
+                            const tableData = jsonData.results.bindings.map(binding => {
+                                const row = {};
+                                Object.keys(binding).forEach(key => {
+                                    row[key] = binding[key].value;
+                                });
+                                return row;
+                            });
+                            // Mettre à jour le tableau avec les données transformées
+                            table.setData(tableData);
+                        }
+                        
+                        // Effacer les champs endpoint et query car on utilise des données pré-formatées
+                        document.getElementById('endpoint-url').value = '';
+                        document.getElementById('query-input').value = '';
+                        document.getElementById('proxy-url').value = '';
+                        
+                    } catch (encodingError) {
+                        console.warn("Impossible de récupérer l'encoding adaptatif pour l'exemple:", encodingError);
+                    }
+                } else if (result) {
+                    console.warn(`Problème lors du chargement de l'exemple : ${result.message}`);
+                    queryStatus.textContent = `Erreur lors du chargement des données d'exemple: ${result.message}`;
+                    queryStatus.className = 'status-message status-error';
+                } else {
+                    console.warn("Une réponse inattendue a été reçue pour l'exemple.");
+                    queryStatus.textContent = 'Réponse inattendue lors du chargement de l\'exemple';
+                    queryStatus.className = 'status-message status-error';
+                }
+            } else {
+                console.error("La méthode 'launch' n'est pas disponible.", graph);
+                queryStatus.textContent = 'Erreur: méthode launch non disponible';
+                queryStatus.className = 'status-message status-error';
+            }
+        } catch (e) {
+            console.error("Erreur lors du chargement du fichier d'exemple:", e);
+            queryStatus.textContent = `Erreur: ${e.message}`;
+            queryStatus.className = 'status-message status-error';
+        }
     });
     
     // Fonction pour mettre à jour les aperçus de données

@@ -1,0 +1,387 @@
+
+{
+    "head": { 
+    
+    "vars": [
+    "s", "p", "o", "date", "usage"]
+    },
+    "results": { "bindings": [
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/Aunsiels/Quasimodo"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2022-10-24T12:01:21+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/Aunsiels/Quasimodo/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/Aunsiels/Quasimodo"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "tabular"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2022-10-24T12:01:21+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/Aunsiels/Quasimodo/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/BAAI/DenseFusion-1M"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2024-06-04T02:58:10+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/BAAI/DenseFusion-1M/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/BAAI/DenseFusion-1M"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "image"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2024-06-04T02:58:10+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/BAAI/DenseFusion-1M/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/BAAI/IndustryInstruction"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2024-09-19T10:35:48+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/BAAI/IndustryInstruction/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/BAAI/IndustryInstruction"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "tabular"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2024-09-19T10:35:48+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/BAAI/IndustryInstruction/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/BAAI/IndustryInstruction"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "image"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2024-09-19T10:35:48+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/BAAI/IndustryInstruction/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/BCCard/BCAI-Finance-Kor"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2025-02-23T02:54:17+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/BCCard/BCAI-Finance-Kor/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/ChuGyouk/PubMedVision-EnKo"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2025-01-20T04:07:20+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/ChuGyouk/PubMedVision-EnKo/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/ChuGyouk/PubMedVision-EnKo"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "image"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2025-01-20T04:07:20+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/ChuGyouk/PubMedVision-EnKo/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/Egor-AI/CoT-XLang"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2024-12-31T14:21:09+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/Egor-AI/CoT-XLang/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/FreedomIntelligence/HuatuoGPT2-Pretraining-Instruction"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2024-06-24T08:49:22+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/FreedomIntelligence/HuatuoGPT2-Pretraining-Instruction/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/FreedomIntelligence/PubMedVision"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2024-06-25T12:35:42+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/FreedomIntelligence/PubMedVision/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/FreedomIntelligence/PubMedVision"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "image"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2024-06-25T12:35:42+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/FreedomIntelligence/PubMedVision/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/Heng666/Traditional_Chinese-aya_collection"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2024-02-19T12:47:07+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/Heng666/Traditional_Chinese-aya_collection/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/JosephusCheung/GuanacoDataset"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2023-03-16T06:30:22+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/JosephusCheung/GuanacoDataset/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/KaifengGGG/WenYanWen_English_Parallel"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2024-04-11T19:23:37+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/KaifengGGG/WenYanWen_English_Parallel/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/Lin-Chen/ShareGPT4V"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2023-11-20T09:29:12+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/Lin-Chen/ShareGPT4V/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/Malikeh1375/medical-question-answering-datasets"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2023-10-27T16:21:07+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/Malikeh1375/medical-question-answering-datasets/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/MedRAG/pubmed"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2024-02-20T17:59:26+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/MedRAG/pubmed/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/MedRAG/wikipedia"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2024-02-21T03:28:50+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/MedRAG/wikipedia/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/MicPie/unpredictable_full"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2022-07-02T20:22:21+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/MicPie/unpredictable_full/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/Michael22/javadoc"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2024-05-17T10:51:20+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/Michael22/javadoc/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/Midsummra/bilibilicomment"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2025-03-10T13:04:40+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/Midsummra/bilibilicomment/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/MongoDB/cosmopedia-wikihow-chunked"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2024-02-23T23:42:25+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/MongoDB/cosmopedia-wikihow-chunked/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/MongoDB/cosmopedia-wikihow-chunked"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "tabular"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2024-02-23T23:42:25+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/MongoDB/cosmopedia-wikihow-chunked/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/MongoDB/tech-news-embeddings"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2024-02-14T16:28:10+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/MongoDB/tech-news-embeddings/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/Nicolas-BZRD/DILA_OPENDATA_FR_2023"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2023-09-29T20:08:00+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/Nicolas-BZRD/DILA_OPENDATA_FR_2023/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/Open-Orca/OpenOrca"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2023-06-15T18:16:11+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/Open-Orca/OpenOrca/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/OpenGVLab/VideoChat2-IT"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2023-11-28T13:14:18+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/OpenGVLab/VideoChat2-IT/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/PedroCJardim/QASports"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2023-07-14T17:28:19+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/PedroCJardim/QASports/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/Quardo/wikipedia-turkish-qa-chattemplate"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2024-10-02T16:48:06+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/Quardo/wikipedia-turkish-qa-chattemplate/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/RUC-NLPIR/FlashRAG_datasets"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2024-07-16T03:47:37+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/RUC-NLPIR/FlashRAG_datasets/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/Stevross/mmlu"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2023-07-11T11:58:20+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/Stevross/mmlu/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/SweatGuard2/garuda-indonesian"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2024-12-21T09:07:34+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/SweatGuard2/garuda-indonesian/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/THUIR/Qilin"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2025-02-23T13:27:47+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/THUIR/Qilin/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/THUIR/Qilin"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "tabular"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2025-02-23T13:27:47+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/THUIR/Qilin/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/TIGER-Lab/VisualWebInstruct"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2025-02-28T02:42:48+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/TIGER-Lab/VisualWebInstruct/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/TIGER-Lab/VisualWebInstruct"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "tabular"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2025-02-28T02:42:48+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/TIGER-Lab/VisualWebInstruct/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/TIGER-Lab/VisualWebInstruct"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "image"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2025-02-28T02:42:48+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/TIGER-Lab/VisualWebInstruct/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/TIGER-Lab/WebInstructSub"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2024-05-15T14:32:00+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/TIGER-Lab/WebInstructSub/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/Tevatron/docmatix-ir"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2024-07-23T17:38:18+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/Tevatron/docmatix-ir/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/URSA-MATH/DualMath-1.1M"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2025-01-07T05:24:56+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/URSA-MATH/DualMath-1.1M/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/Yusuf5/OpenCaselist"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2023-03-06T22:32:56+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/Yusuf5/OpenCaselist/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/Yusuf5/OpenCaselist"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "tabular"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2023-03-06T22:32:56+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/Yusuf5/OpenCaselist/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/acruz/folktexts"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "text"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2024-11-27T13:58:26+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/acruz/folktexts/usage/"}
+    }
+    ,
+    {
+    "s": { "type": "uri", "value": "http://example.org/dataset/acruz/folktexts"},
+    "p": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "question-answering"},
+    "o": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#string", "value": "tabular"},
+    "date": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#dateTime", "value": "2024-11-27T13:58:26+00:00"},
+    "usage": { "type": "uri", "value": "http://example.org/acruz/folktexts/usage/"}
+    }
+  
+    ] }
+    }
+    
