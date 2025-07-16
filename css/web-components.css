@@ -113,16 +113,34 @@
     flex-direction: column;
     gap: 20px;
 }
+
+.sidebar {
+    /* Styles pour mobile - sidebar normale */
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+}
 @media (min-width: 1024px) {
     .layout-container {
         flex-direction: row;
     }
     .sidebar {
-        width: 40%;
-        max-width: 400px;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 400px;
+        height: 100vh;
+        overflow-y: auto;
+        background-color: #f8f9fa;
+        border-right: 1px solid #ddd;
+        border-radius: 0;
+        padding: 20px;
+        padding-top: 100px; /* Espace pour le header */
+        z-index: 100;
     }
     .main-content {
         flex: 1;
+        margin-left: 420px; /* Largeur de la sidebar + un peu d'espace */
     }
 }
 .info-message {

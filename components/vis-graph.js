@@ -852,7 +852,7 @@ export class VisGraph extends HTMLElement {
     }
     
     // CORRECTION: Nettoyer les données temporaires d'une transformation précédente
-    this.cooccurrenceData = null;
+    this.cooccurrenceBindings = null;
     
     const nodesMap = new Map();
     const linksMap = new Map();
@@ -986,55 +986,39 @@ export class VisGraph extends HTMLElement {
             linksMap.set(linkKey, link);
           }
         } else if (linkType === 'semantic' && !targetVar) {
-          // Mode cooccurrence : collecter les binding pour calculer les liens après
-          if (!this.cooccurrenceData) {
-            this.cooccurrenceData = new Map();
+          // Mode cooccurrence flexible : collecter les bindings complets pour analyse
+          if (!this.cooccurrenceBindings) {
+            this.cooccurrenceBindings = [];
           }
           
-          const semanticValue = (semanticVar && binding[semanticVar]) ? binding[semanticVar].value : 'relation';
-          
-          if (!this.cooccurrenceData.has(semanticValue)) {
-            this.cooccurrenceData.set(semanticValue, new Set());
-          }
-          
-          this.cooccurrenceData.get(semanticValue).add(sourceId);
+          // Stocker le binding complet avec l'ID du nœud source pour analyse flexible
+          this.cooccurrenceBindings.push({
+            sourceId: sourceId,
+            binding: binding,
+            vars: vars
+          });
         }
       }
     });
 
-    // Traitement de la cooccurrence après avoir collecté toutes les données
-    if (linkType === 'semantic' && !targetVar && this.cooccurrenceData) {
-      console.log('[vis-graph] 📊 Calcul des liens de cooccurrence...');
+    // Traitement de la cooccurrence flexible après avoir collecté toutes les données
+    if (linkType === 'semantic' && !targetVar && this.cooccurrenceBindings) {
+      console.log('[vis-graph] 📊 Calcul flexible des liens de cooccurrence...');
       
-      for (const [semanticValue, nodeSet] of this.cooccurrenceData.entries()) {
-        const nodes = Array.from(nodeSet);
-        
-        // Créer des liens entre tous les nœuds qui partagent la même valeur sémantique
-        for (let i = 0; i < nodes.length; i++) {
-          for (let j = i + 1; j < nodes.length; j++) {
-            const sourceNodeId = nodes[i];
-            const targetNodeId = nodes[j];
-            
-            const linkKey = `${sourceNodeId}-${targetNodeId}-cooccurrence`;
-            if (!linksMap.has(linkKey)) {
-              const link = {
-                source: sourceNodeId,
-                target: targetNodeId,
-                type: 'semantic',
-                semanticLabel: semanticValue,
-                tooltip: `Cooccurrence via ${semanticValue}`,
-                cooccurrence: true
-              };
-              linksMap.set(linkKey, link);
-            }
-          }
+      const cooccurrenceLinks = this.calculateFlexibleCooccurrence(this.cooccurrenceBindings, sourceVar, semanticVar);
+      
+      // Ajouter les liens de cooccurrence calculés
+      cooccurrenceLinks.forEach(link => {
+        const linkKey = `${link.source}-${link.target}-cooccurrence`;
+        if (!linksMap.has(linkKey)) {
+          linksMap.set(linkKey, link);
         }
-      }
+      });
       
-      console.log(`[vis-graph] ✅ ${linksMap.size} liens de cooccurrence créés`);
+      console.log(`[vis-graph] ✅ ${cooccurrenceLinks.length} liens de cooccurrence flexibles créés`);
       
       // Nettoyer les données temporaires
-      this.cooccurrenceData = null;
+      this.cooccurrenceBindings = null;
     }
 
     const finalNodes = Array.from(nodesMap.values());
@@ -1074,6 +1058,150 @@ export class VisGraph extends HTMLElement {
       nodes: finalNodes,
       links: finalLinks
     };
+  }
+
+    /**
+   * Calcule la co-occurrence basée sur les valeurs partagées de la variable de lien spécifiée.
+   * Crée des liens entre entités qui partagent les mêmes valeurs dans la variable de lien spécifiée.
+   * 
+   * @param {Array} bindings - Les bindings collectés avec sourceId, binding et vars
+   * @param {string} sourceVar - La variable principale utilisée pour les nœuds
+   * @param {string} linkVar - La variable spécifiée pour les liens (semanticVar)
+   * @returns {Array} Les liens de co-occurrence calculés
+   */
+  calculateFlexibleCooccurrence(bindings, sourceVar, linkVar) {
+    console.log('[vis-graph] 🔍 Calcul de co-occurrence basé sur la variable de lien spécifiée...');
+    console.log(`[vis-graph] 📊 ${bindings.length} bindings à analyser`);
+    
+    console.log(`[vis-graph] 🎯 Variable source: "${sourceVar}"`);
+    console.log(`[vis-graph] 🔗 Variable de lien spécifiée: "${linkVar}"`);
+    
+    if (!linkVar) {
+      console.warn(`[vis-graph] ⚠️ Aucune variable de lien spécifiée`);
+      return [];
+    }
+    
+    const cooccurrenceLinks = [];
+    const valueGroups = new Map(); // Groupes d'entités par valeur de la variable de lien
+    
+    // Grouper les entités par valeur de la variable de lien SPÉCIFIÉE UNIQUEMENT
+    bindings.forEach(({ sourceId, binding }) => {
+      if (binding[linkVar] && binding[linkVar].value) {
+        const linkValue = binding[linkVar].value;
+        
+        if (!valueGroups.has(linkValue)) {
+          valueGroups.set(linkValue, {
+            value: linkValue,
+            entities: new Set(),
+            variable: linkVar
+          });
+        }
+        
+        valueGroups.get(linkValue).entities.add(sourceId);
+      }
+    });
+    
+    console.log(`[vis-graph] 📊 ${valueGroups.size} valeurs distinctes trouvées pour "${linkVar}"`);
+    
+    // Créer des liens pour chaque groupe de valeurs partagées
+    for (const [linkValue, group] of valueGroups.entries()) {
+      const entities = Array.from(group.entities);
+      
+      // Ne créer des liens que si au moins 2 entités partagent cette valeur
+      if (entities.length >= 2) {
+        console.log(`[vis-graph] 🔗 Valeur "${linkValue}": ${entities.length} entités à connecter`);
+        
+        // Créer des liens entre toutes les paires d'entités dans ce groupe
+        for (let i = 0; i < entities.length; i++) {
+          for (let j = i + 1; j < entities.length; j++) {
+            const sourceEntity = entities[i];
+            const targetEntity = entities[j];
+            
+            if (sourceEntity !== targetEntity) {
+              const link = {
+                source: sourceEntity,
+                target: targetEntity,
+                type: 'semantic',
+                semanticLabel: linkValue,
+                relationshipType: linkVar,
+                tooltip: `Partagent ${linkVar}: ${linkValue}`,
+                cooccurrence: true,
+                weight: 1,
+                groupSize: entities.length,
+                linkVariable: linkVar
+              };
+              
+              cooccurrenceLinks.push(link);
+            }
+          }
+        }
+      } else {
+        console.log(`[vis-graph] ℹ️ Valeur "${linkValue}": ${entities.length} entité (pas de lien créé)`);
+      }
+    }
+    
+    // Optimisation - Fusionner les liens multiples entre les mêmes entités
+    const optimizedLinks = this.optimizeCooccurrenceLinks(cooccurrenceLinks);
+    
+    console.log(`[vis-graph] ✅ Co-occurrence terminée: ${cooccurrenceLinks.length} liens bruts → ${optimizedLinks.length} liens optimisés`);
+    
+    return optimizedLinks;
+  }
+
+
+
+  /**
+   * Optimise les liens de co-occurrence en fusionnant les liens multiples entre les mêmes entités.
+   * 
+   * @param {Array} links - Les liens de co-occurrence bruts
+   * @returns {Array} Les liens optimisés
+   */
+  optimizeCooccurrenceLinks(links) {
+    const linkMap = new Map();
+    
+    links.forEach(link => {
+      // Créer une clé unique pour cette paire d'entités (indépendamment de l'ordre)
+      const entityPair = [link.source, link.target].sort().join('-');
+      
+      if (!linkMap.has(entityPair)) {
+        // Premier lien pour cette paire
+        linkMap.set(entityPair, {
+          source: link.source,
+          target: link.target,
+          type: 'semantic',
+          cooccurrence: true,
+          sharedValues: [],
+          relationshipTypes: new Set(),
+          weight: 0
+        });
+      }
+      
+      const mergedLink = linkMap.get(entityPair);
+      
+      // Ajouter les informations de ce lien au lien fusionné
+      mergedLink.sharedValues.push({
+        value: link.semanticLabel,
+        type: link.relationshipType
+      });
+      mergedLink.relationshipTypes.add(link.relationshipType);
+      mergedLink.weight += link.weight;
+    });
+    
+    // Convertir en array et finaliser les propriétés
+    return Array.from(linkMap.values()).map(link => {
+      const relationshipTypes = Array.from(link.relationshipTypes);
+      const primaryValue = link.sharedValues[0]?.value || 'relation';
+      
+      return {
+        ...link,
+        semanticLabel: primaryValue,
+        relationshipType: relationshipTypes.join(', '),
+        tooltip: `Co-occurrence: ${link.sharedValues.length} valeur(s) partagée(s) (${relationshipTypes.join(', ')})`,
+        sharedValuesCount: link.sharedValues.length,
+        // Garder les détails pour le tooltip avancé
+        sharedValuesDetails: link.sharedValues
+      };
+    });
   }
 
   /**
