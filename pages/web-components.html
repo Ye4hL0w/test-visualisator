@@ -100,6 +100,7 @@ WHERE {
                             <button id="execute-query" class="primary-button">Exécuter la requête</button>
                             <button id="clear-results" class="secondary-button">Effacer les résultats</button>
                             <button id="load-example-data" class="secondary-button">📄 Charger données d'exemple</button>
+                            <button id="load-example-size" class="secondary-button">📊 Exemple taille par âge</button>
                         </div>
                         
                         <div id="query-status" class="status-message"></div>
@@ -116,12 +117,18 @@ WHERE {
                 
                 <!-- Encodings visuels -->
                 <div class="encoding-comparison-preview">
-                    <h3>Configuration et Encoding visuel</h3>
                     <div class="encoding-comparison" style="display: flex; gap: 20px; overflow: auto;">
                         <div class="encoding-column" style="flex: 1;">
                             <h4>Configuration du mapping visuel</h4>
                             <div class="control-group">
-                                <textarea id="visual-mapping-input" class="full-width" rows="12" placeholder="Collez votre configuration de mapping visuel ici..."></textarea>
+                                <label for="encoding-presets">Presets d'encoding:</label>
+                                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                                    <select id="encoding-presets" style="flex: 1;">
+                                        <option value="">-- Sélectionner un preset --</option>
+                                    </select>
+                                    <button id="refresh-presets-btn" class="secondary-button" style="padding: 5px 10px; font-size: 12px;" title="Actualiser la liste des presets">🔄</button>
+                                </div>
+                                <textarea id="visual-mapping-input" class="full-width" rows="20" placeholder="Collez votre configuration de mapping visuel ici..."></textarea>
                             </div>
                             <div class="control-row">
                                 <button id="apply-mapping-btn" class="secondary-button">Appliquer</button>
@@ -129,7 +136,7 @@ WHERE {
                             </div>
                         </div>
                         <div class="encoding-column" style="flex: 1;">
-                            <h4>Encoding actuel (avec modifications)</h4>
+                            <h4>Encoding actuel</h4>
                             <pre id="current-encoding" class="code-preview">
 // Encoding actuel non disponible. Exécutez une requête d'abord.
 </pre>

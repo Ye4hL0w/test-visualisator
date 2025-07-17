@@ -1,0 +1,60 @@
+{
+    "head": {
+      "vars": ["nom", "prenom", "age"]
+    },
+    "results": {
+      "bindings": [
+        {
+          "nom": { "type": "literal", "value": "Bach" },
+          "prenom": { "type": "literal", "value": "Johann Sebastian" },
+          "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "65" }
+        },
+        {
+          "nom": { "type": "literal", "value": "Mozart" },
+          "prenom": { "type": "literal", "value": "Wolfgang Amadeus" },
+          "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "35" }
+        },
+        {
+          "nom": { "type": "literal", "value": "Beethoven" },
+          "prenom": { "type": "literal", "value": "Ludwig van" },
+          "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "56" }
+        },
+        {
+          "nom": { "type": "literal", "value": "Chopin" },
+          "prenom": { "type": "literal", "value": "Frédéric" },
+          "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "39" }
+        },
+        {
+          "nom": { "type": "literal", "value": "Coltrane" },
+          "prenom": { "type": "literal", "value": "John" },
+          "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "40" }
+        },
+        {
+          "nom": { "type": "literal", "value": "Davis" },
+          "prenom": { "type": "literal", "value": "Miles" },
+          "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "65" }
+        },
+        {
+          "nom": { "type": "literal", "value": "Ellington" },
+          "prenom": { "type": "literal", "value": "Duke" },
+          "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "75" }
+        },
+        {
+          "nom": { "type": "literal", "value": "Piazzolla" },
+          "prenom": { "type": "literal", "value": "Astor" },
+          "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "71" }
+        },
+        {
+          "nom": { "type": "literal", "value": "Wonder" },
+          "prenom": { "type": "literal", "value": "Stevie" },
+          "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "74" }
+        },
+        {
+          "nom": { "type": "literal", "value": "Gainsbourg" },
+          "prenom": { "type": "literal", "value": "Serge" },
+          "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "62" }
+        }
+      ]
+    }
+  }
+  

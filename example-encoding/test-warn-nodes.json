@@ -1,0 +1,69 @@
+{
+  "description": "Encoding pour tester le warning si il n'y a pas de noeuds.",
+  "width": 800,
+  "height": 600,
+  "autosize": "none",
+  "nodes": {
+    "color": {
+      "field": "age",
+      "scale": {
+        "type": "quantitative",
+        "domain": [
+          "35",
+          "39",
+          "40",
+          "56",
+          "62",
+          "65",
+          "71",
+          "74",
+          "75"
+        ],
+        "range": [
+          "Blues"
+        ]
+      }
+    },
+    "size": {
+      "field": "age",
+      "scale": {
+        "type": "linear",
+        "domain": [
+          "35",
+          "39",
+          "40",
+          "56",
+          "62",
+          "65",
+          "71",
+          "74",
+          "75"
+        ],
+        "range": [
+          10,
+          20,
+          30,
+          40,
+          50,
+          60,
+          70,
+          80,
+          90
+        ]
+      }
+    }
+  },
+  "links": {
+    "field": {
+      "source": "age",
+      "target": "prenom"
+    },
+    "distance": 100,
+    "width": {
+      "value": 1.5
+    },
+    "color": {
+      "value": "#999"
+    }
+  }
+}

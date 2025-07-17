@@ -7,6 +7,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const graph = document.getElementById('metabolite-graph');
     const table = document.getElementById('metabolite-table');
     const visualMappingTextarea = document.getElementById('visual-mapping-input');
+    const encodingPresetsSelect = document.getElementById('encoding-presets');
+    const refreshPresetsBtn = document.getElementById('refresh-presets-btn');
     const applyMappingBtn = document.getElementById('apply-mapping-btn');
     const removeMappingBtn = document.getElementById('remove-mapping-btn');
     
@@ -15,9 +17,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const currentEncodingPreview = document.getElementById('current-encoding');
     const resetToBaseEncodingBtn = document.getElementById('reset-to-base-encoding');
     const copyCurrentEncodingBtn = document.getElementById('copy-current-encoding');
+    const queryStatus = document.getElementById('query-status');
     
     // Variable pour stocker l'encoding de base
     let baseEncoding = null;
+    
+    // Presets d'encoding chargés dynamiquement depuis les fichiers
+    let encodingPresets = {};
     
     // Initialiser les valeurs d'affichage
     document.getElementById('component-width-value').textContent = 
@@ -29,6 +35,285 @@ document.addEventListener('DOMContentLoaded', function() {
     if (visualMappingTextarea) {
         visualMappingTextarea.value = JSON.stringify(graph.getEncoding(), null, 2);
     }
+    
+    // Liste des fichiers d'encoding détectés automatiquement
+    // 📁 DÉTECTION AUTOMATIQUE COMPLÈTE:
+    // 1. Créez n'importe quel fichier .json ou .txt dans example-encoding/
+    // 2. Le système teste automatiquement des centaines de patterns courants
+    // 3. Cliquez sur 🔄 pour actualiser si vous ajoutez un fichier
+    // 
+    // 📝 PATTERNS AUTOMATIQUEMENT TESTÉS:
+    // - test-* (test-size.json, test-cooccurence.json, etc.)
+    // - encoding-* (encoding-basic.json, encoding-demo.json, etc.)
+    // - Patterns numériques: preset1.json, config2.json, etc.
+    // - Patterns alphabétiques: a.json, b.json, etc.
+    // - Patterns thématiques: bio-genes.json, social-network.json, etc.
+    let encodingFiles = [];
+    
+    // 🔧 Pour ajouter vos propres patterns de recherche, modifiez cette liste:
+    const customPatterns = [
+        // Ajoutez ici vos patterns personnalisés (sans extension)
+        // Exemple: 'mon-preset', 'config-special', 'encoding-perso'
+    ];
+    
+    // Fonction pour recharger les presets (utile après ajout de nouveaux fichiers)
+    async function refreshEncodingPresets() {
+        console.log('[web-components] 🔄 Actualisation des presets d\'encoding...');
+        
+        // Vider les presets existants
+        encodingPresets = {};
+        
+        // Recharger depuis les fichiers
+        await initializeEncodingPresets();
+        
+        // Notifier l'utilisateur
+        if (queryStatus) {
+            queryStatus.textContent = `Presets actualisés: ${Object.keys(encodingPresets).length} fichier(s) trouvé(s)`;
+            queryStatus.className = 'status-message status-success';
+            
+            setTimeout(() => {
+                queryStatus.textContent = '';
+                queryStatus.className = 'status-message';
+            }, 3000);
+        }
+    }
+    
+    // Fonction pour découvrir automatiquement TOUS les fichiers d'encoding du dossier
+    async function discoverEncodingFiles() {
+        console.log('[web-components] 🔍 Découverte automatique COMPLÈTE des fichiers d\'encoding...');
+        
+        const discoveredFiles = [];
+        
+        // STRATÉGIE 1: Patterns de noms communs pour encoding
+        const commonPatterns = [
+            // Patterns test-*
+            'test-size', 'test-couleur', 'test-cooccurence', 'test-warn-nodes', 'test-semantic', 'test-directional',
+            // Patterns encoding-*
+            'encoding-basic', 'encoding-advanced', 'encoding-custom', 'encoding-demo',
+            // Patterns par types de visualisation
+            'graph-basic', 'graph-advanced', 'nodes-color', 'nodes-size', 'links-semantic', 'links-directional',
+            // Patterns par domaines
+            'bio-genes', 'bio-proteins', 'bio-metabolites', 'social-network', 'knowledge-graph',
+            // Patterns génériques
+            'example', 'demo', 'sample', 'preset1', 'preset2', 'preset3', 'config', 'mapping',
+            // Patterns personnalisés de l'utilisateur
+            ...customPatterns
+        ];
+        
+        // Extensions à tester
+        const extensions = ['.json', '.txt'];
+        
+        // OPTIMISATION: Créer toutes les combinaisons à tester d'un coup
+        const allTestFiles = [];
+        
+        // Ajouter patterns communs
+        for (const pattern of commonPatterns) {
+            for (const ext of extensions) {
+                allTestFiles.push(pattern + ext);
+            }
+        }
+        
+        // Ajouter patterns numériques
+        const numericPatterns = ['preset', 'encoding', 'config', 'test'];
+        for (const base of numericPatterns) {
+            for (let i = 1; i <= 10; i++) {
+                for (const ext of extensions) {
+                    allTestFiles.push(`${base}${i}${ext}`);
+                }
+            }
+        }
+        
+        // Ajouter patterns alphabétiques
+        for (let charCode = 97; charCode <= 122; charCode++) { // a-z
+            const letter = String.fromCharCode(charCode);
+            for (const ext of extensions) {
+                allTestFiles.push(letter + ext);
+            }
+        }
+        
+        console.log(`[web-components] 🔍 Test en parallèle de ${allTestFiles.length} fichiers potentiels...`);
+        
+        // EXÉCUTION EN PARALLÈLE de tous les tests (beaucoup plus rapide)
+        const testPromises = allTestFiles.map(async (filename) => {
+            try {
+                const response = await fetch(`../example-encoding/${filename}`, { 
+                    method: 'HEAD' // Plus efficace pour juste tester l'existence
+                });
+                if (response.ok) {
+                    console.log(`[web-components] ✅ Fichier découvert: ${filename}`);
+                    return filename;
+                }
+            } catch (error) {
+                // Fichier n'existe pas, c'est normal
+            }
+            return null;
+        });
+        
+        // Attendre tous les tests en parallèle
+        const testResults = await Promise.all(testPromises);
+        
+        // Garder seulement les fichiers qui existent
+        discoveredFiles.push(...testResults.filter(filename => filename !== null));
+        
+        // Supprimer les doublons et trier par nom
+        const uniqueFiles = [...new Set(discoveredFiles)].sort();
+        
+        encodingFiles = uniqueFiles;
+        
+        console.log(`[web-components] 🎉 DÉCOUVERTE TERMINÉE !`);
+        console.log(`[web-components] 📋 ${uniqueFiles.length} fichiers d'encoding trouvés sur ${allTestFiles.length} testés:`);
+        uniqueFiles.forEach((file, index) => {
+            console.log(`[web-components]   ${index + 1}. ${file}`);
+        });
+        
+        if (uniqueFiles.length === 0) {
+            console.log(`[web-components] 💡 Aucun fichier trouvé. Créez des fichiers .json ou .txt dans example-encoding/`);
+        }
+        
+        return uniqueFiles;
+    }
+
+    // Fonction pour charger dynamiquement les presets depuis les fichiers découverts
+    async function loadEncodingPresets() {
+        console.log('[web-components] 🔄 Chargement des presets d\'encoding depuis les fichiers...');
+        
+        // D'abord découvrir les fichiers disponibles
+        await discoverEncodingFiles();
+        
+        for (const filename of encodingFiles) {
+            try {
+                const response = await fetch(`../example-encoding/${filename}`);
+                if (response.ok) {
+                    const content = await response.text();
+                    
+                    // Parser le JSON du fichier
+                    let encoding;
+                    try {
+                        encoding = JSON.parse(content);
+                    } catch (parseError) {
+                        console.warn(`[web-components] ⚠️ Erreur de parsing JSON pour ${filename}:`, parseError);
+                        continue;
+                    }
+                    
+                    // Créer l'identifiant du preset à partir du nom de fichier (sans extension)
+                    const presetKey = filename.replace(/\.(txt|json)$/, '');
+                    
+                    // Générer un nom lisible
+                    const presetName = presetKey
+                        .replace(/-/g, ' ')
+                        .replace(/\b\w/g, l => l.toUpperCase());
+                    
+                    // Stocker le preset
+                    encodingPresets[presetKey] = {
+                        name: presetName,
+                        filename: filename,
+                        encoding: encoding,
+                        description: encoding.description || `Preset ${presetName}`
+                    };
+                    
+                    console.log(`[web-components] ✅ Preset "${presetName}" chargé depuis ${filename}`);
+                } else {
+                    console.warn(`[web-components] ⚠️ Impossible de charger ${filename}: ${response.status}`);
+                }
+            } catch (error) {
+                console.warn(`[web-components] ⚠️ Erreur lors du chargement de ${filename}:`, error);
+            }
+        }
+        
+        console.log(`[web-components] 📋 ${Object.keys(encodingPresets).length} presets chargés:`, Object.keys(encodingPresets));
+    }
+    
+    // Initialiser le sélecteur de presets d'encoding
+    async function initializeEncodingPresets() {
+        if (!encodingPresetsSelect) return;
+        
+        // Charger les presets depuis les fichiers
+        await loadEncodingPresets();
+        
+        // Vider les options existantes (sauf la première)
+        encodingPresetsSelect.innerHTML = '<option value="">-- Sélectionner un preset --</option>';
+        
+        // Ajouter les options des presets chargés
+        Object.keys(encodingPresets).forEach(presetKey => {
+            const preset = encodingPresets[presetKey];
+            const option = document.createElement('option');
+            option.value = presetKey;
+            option.textContent = preset.name;
+            option.title = preset.description; // Tooltip avec description
+            encodingPresetsSelect.appendChild(option);
+        });
+        
+        console.log(`[web-components] 🎨 Sélecteur d'encoding initialisé avec ${Object.keys(encodingPresets).length} presets`);
+    }
+    
+    // Gestionnaire pour le changement de preset d'encoding
+    if (encodingPresetsSelect) {
+        encodingPresetsSelect.addEventListener('change', function() {
+            const selectedPresetKey = this.value;
+            
+            if (!selectedPresetKey) {
+                return; // Aucun preset sélectionné
+            }
+            
+            const selectedPreset = encodingPresets[selectedPresetKey];
+            if (selectedPreset && visualMappingTextarea) {
+                // Charger l'encoding du preset dans la textarea
+                visualMappingTextarea.value = JSON.stringify(selectedPreset.encoding, null, 2);
+                
+                // Notification visuelle que la textarea a été mise à jour
+                visualMappingTextarea.style.borderColor = '#007cba';
+                setTimeout(() => {
+                    visualMappingTextarea.style.borderColor = '';
+                }, 1000);
+                
+                // Mettre à jour le statut
+                if (queryStatus) {
+                    queryStatus.textContent = `Preset "${selectedPreset.name}" chargé dans la configuration.`;
+                    queryStatus.className = 'status-message status-success';
+                    
+                    // Effacer le message après un délai
+                    setTimeout(() => {
+                        queryStatus.textContent = '';
+                        queryStatus.className = 'status-message';
+                    }, 3000);
+                }
+                
+                console.log(`[web-components] 🎨 Preset "${selectedPreset.name}" chargé dans la textarea`);
+            }
+        });
+    }
+    
+    // Gestionnaire pour le bouton d'actualisation des presets
+    if (refreshPresetsBtn) {
+        refreshPresetsBtn.addEventListener('click', async function() {
+            console.log('[web-components] 🔄 Actualisation manuelle des presets demandée');
+            
+            // Animation du bouton
+            this.style.transform = 'rotate(180deg)';
+            this.disabled = true;
+            
+            try {
+                await refreshEncodingPresets();
+            } catch (error) {
+                console.error('[web-components] ❌ Erreur lors de l\'actualisation:', error);
+                if (queryStatus) {
+                    queryStatus.textContent = `Erreur lors de l'actualisation: ${error.message}`;
+                    queryStatus.className = 'status-message status-error';
+                }
+            } finally {
+                // Remettre le bouton en état normal
+                setTimeout(() => {
+                    this.style.transform = '';
+                    this.disabled = false;
+                }, 500);
+            }
+        });
+    }
+    
+    // Initialiser les presets (asynchrone)
+    initializeEncodingPresets().catch(error => {
+        console.error('[web-components] ❌ Erreur lors de l\'initialisation des presets:', error);
+    });
     
     // === GESTION DES ENCODINGS ===
     
@@ -252,7 +537,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const executeButton = document.getElementById('execute-query');
     const clearButton = document.getElementById('clear-results');
     const loadExampleDataButton = document.getElementById('load-example-data');
-    const queryStatus = document.getElementById('query-status');
+    const loadExampleSizeButton = document.getElementById('load-example-size');
     const rawDataPreview = document.getElementById('raw-data');
     const transformedDataPreview = document.getElementById('transformed-data');
     
@@ -445,7 +730,7 @@ document.addEventListener('DOMContentLoaded', function() {
             resetEncoding();
             
             // Charger le fichier example-data.json (chemin corrigé)
-            const response = await fetch('../example-data.json');
+            const response = await fetch('../example-json/example-data.json');
             
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -520,6 +805,98 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } catch (e) {
             console.error("Erreur lors du chargement du fichier d'exemple:", e);
+            queryStatus.textContent = `Erreur: ${e.message}`;
+            queryStatus.className = 'status-message status-error';
+        }
+    });
+    
+    // Charger les données d'exemple depuis example-size.json
+    loadExampleSizeButton.addEventListener('click', async () => {
+        try {
+            // Afficher l'état de chargement
+            queryStatus.textContent = 'Chargement des données d\'exemple (taille par âge)...';
+            queryStatus.className = 'status-message status-loading';
+            
+            // RESET ENCODING à chaque nouveau chargement
+            console.log('[web-components] 🔄 Chargement des données d\'exemple size - Reset de l\'encoding');
+            resetEncoding();
+            
+            // Charger le fichier example-size.json
+            const response = await fetch('../example-json/example-size.json');
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const jsonData = await response.json();
+            
+            if (typeof graph.launch === 'function') {
+                // Remettre l'encoding à null pour forcer la régénération adaptative
+                graph.encoding = null;
+                
+                // Configurer avec les données JSON et lancer
+                graph.sparqlResult = jsonData;
+                const result = await graph.launch();
+                
+                console.log("Résultat du chargement de l'exemple size:", result);
+                if (result && result.status === 'success') {
+                    console.log(`Données de l'exemple size chargées: ${result.data.nodes.length} nœuds, ${result.data.links.length} liens.`);
+                    
+                    queryStatus.textContent = `Données d'exemple (taille par âge) chargées: ${result.data.nodes.length} nœuds, ${result.data.links.length} liens`;
+                    queryStatus.className = 'status-message status-success';
+                    
+                    // SAUVEGARDER L'ENCODING DE BASE (généré automatiquement)
+                    saveBaseEncoding();
+                    
+                    // Récupérer et afficher l'encoding adaptatif généré
+                    try {
+                        const adaptiveEncoding = graph.getEncoding();
+                        visualMappingTextarea.value = JSON.stringify(adaptiveEncoding, null, 2);
+                        console.log("🎨 Encoding adaptatif appliqué pour l'exemple size:", adaptiveEncoding);
+                        
+                        // Mettre à jour les aperçus d'encoding
+                        updateEncodingPreviews();
+                        
+                        // Mettre à jour les aperçus de données
+                        updateDataPreviews(jsonData, result.data);
+                        
+                        // Transformer les données SPARQL pour le tableau si elles sont au format SPARQL
+                        if (jsonData && jsonData.results && jsonData.results.bindings) {
+                            const tableData = jsonData.results.bindings.map(binding => {
+                                const row = {};
+                                Object.keys(binding).forEach(key => {
+                                    row[key] = binding[key].value;
+                                });
+                                return row;
+                            });
+                            // Mettre à jour le tableau avec les données transformées
+                            table.setData(tableData);
+                        }
+                        
+                        // Effacer les champs endpoint et query car on utilise des données pré-formatées
+                        document.getElementById('endpoint-url').value = '';
+                        document.getElementById('query-input').value = '';
+                        document.getElementById('proxy-url').value = '';
+                        
+                    } catch (encodingError) {
+                        console.warn("Impossible de récupérer l'encoding adaptatif pour l'exemple size:", encodingError);
+                    }
+                } else if (result) {
+                    console.warn(`Problème lors du chargement de l'exemple size : ${result.message}`);
+                    queryStatus.textContent = `Erreur lors du chargement des données d'exemple size: ${result.message}`;
+                    queryStatus.className = 'status-message status-error';
+                } else {
+                    console.warn("Une réponse inattendue a été reçue pour l'exemple size.");
+                    queryStatus.textContent = 'Réponse inattendue lors du chargement de l\'exemple size';
+                    queryStatus.className = 'status-message status-error';
+                }
+            } else {
+                console.error("La méthode 'launch' n'est pas disponible.", graph);
+                queryStatus.textContent = 'Erreur: méthode launch non disponible';
+                queryStatus.className = 'status-message status-error';
+            }
+        } catch (e) {
+            console.error("Erreur lors du chargement du fichier d'exemple size:", e);
             queryStatus.textContent = `Erreur: ${e.message}`;
             queryStatus.className = 'status-message status-error';
         }

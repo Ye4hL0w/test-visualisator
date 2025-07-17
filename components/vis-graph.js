@@ -59,7 +59,7 @@ export class VisGraph extends HTMLElement {
           }
         },
         "size": {
-          "field": "connections", // Tailler les nœuds par nombre de connexions
+          "field": "links", // Tailler les nœuds par nombre de liens
           "scale": {
             "type": "linear",
             "domain": [0, 10],
@@ -203,6 +203,22 @@ export class VisGraph extends HTMLElement {
         console.log('[vis-graph] 🔄 Reset to default encoding (no SPARQL data)');
       }
     } else {
+      // CORRECTION: Validation précoce des champs obligatoires même sans données SPARQL
+      if (!encoding.nodes?.field) {
+        const errorMessage = 'Le champ "nodes.field" est obligatoire dans un encoding personnalisé. Il doit être un array avec au moins une variable SPARQL.';
+        console.error('[vis-graph] ❌ Encoding invalide:', errorMessage);
+        this.showNotification(errorMessage, 'error');
+        console.warn('[vis-graph] ⚠️ L\'encoding sera ignoré et l\'encoding adaptatif sera utilisé à la place');
+        
+        // Utiliser l'encoding adaptatif comme fallback
+        if (this.sparqlData && this.sparqlData.head && this.sparqlData.head.vars) {
+          this.visualEncoding = this.createAdaptiveEncoding(this.sparqlData.head.vars);
+        } else {
+          this.visualEncoding = this.getDefaultEncoding();
+        }
+        return;
+      }
+      
       // Valider l'encoding par rapport aux données SPARQL disponibles
       if (this.sparqlData && this.sparqlData.head && this.sparqlData.head.vars) {
         const validationResult = this.validateEncoding(encoding, this.sparqlData.head.vars);
@@ -259,8 +275,13 @@ export class VisGraph extends HTMLElement {
     const warnings = [];
     let isValid = true;
 
-    // Valider le field des nœuds (doit être un array avec minimum 1 valeur)
-    if (encoding.nodes?.field) {
+    // CORRECTION: Vérifier d'abord que nodes.field est présent (obligatoire)
+    if (!encoding.nodes?.field) {
+      console.error('[vis-graph] ❌ Le champ "nodes.field" est obligatoire dans un encoding personnalisé');
+      warnings.push('Le champ "nodes.field" est obligatoire dans un encoding personnalisé. Il doit être un array avec au moins une variable SPARQL.');
+      isValid = false;
+    } else {
+      // Valider le field des nœuds (doit être un array avec minimum 1 valeur)
       const nodeField = encoding.nodes.field;
       if (!Array.isArray(nodeField) || nodeField.length === 0) {
         console.error('[vis-graph] ❌ Le field des nœuds doit être un array avec au moins une valeur');
@@ -269,7 +290,7 @@ export class VisGraph extends HTMLElement {
       } else {
         // Valider chaque champ du tableau
         nodeField.forEach((field, index) => {
-          if (field !== "connections" && field !== "type" && !sparqlVars.includes(field)) {
+          if (field !== "links" && field !== "connections" && field !== "type" && !sparqlVars.includes(field)) {
             warnings.push(`Field nœud #${index+1} "${field}" n'existe pas dans les données. Variables disponibles: ${sparqlVars.join(', ')}`);
             isValid = false;
           }
@@ -337,14 +358,14 @@ export class VisGraph extends HTMLElement {
     // Valider les fields dans les configurations de couleur et taille
     if (encoding.nodes?.color?.field) {
       const colorField = encoding.nodes.color.field;
-      if (colorField !== "type" && colorField !== "connections" && !sparqlVars.includes(colorField)) {
+      if (colorField !== "type" && colorField !== "links" && colorField !== "connections" && !sparqlVars.includes(colorField)) {
         warnings.push(`Field couleur "${colorField}" n'existe pas dans les données. Variables disponibles: ${sparqlVars.join(', ')}`);
       }
     }
 
     if (encoding.nodes?.size?.field) {
       const sizeField = encoding.nodes.size.field;
-      if (sizeField !== "connections" && !sparqlVars.includes(sizeField)) {
+      if (sizeField !== "links" && sizeField !== "connections" && !sparqlVars.includes(sizeField)) {
         warnings.push(`Field taille "${sizeField}" n'existe pas dans les données. Variables disponibles: ${sparqlVars.join(', ')}`);
       }
     }
@@ -1024,14 +1045,14 @@ export class VisGraph extends HTMLElement {
     const finalNodes = Array.from(nodesMap.values());
     const finalLinks = Array.from(linksMap.values());
 
-    // Add connection counts to nodes, as this is a common encoding field
-    const connectionCount = new Map();
-    finalNodes.forEach(n => connectionCount.set(n.id, 0));
+    // Add link counts to nodes, as this is a common encoding field
+    const linkCount = new Map();
+    finalNodes.forEach(n => linkCount.set(n.id, 0));
     finalLinks.forEach(l => {
-      connectionCount.set(l.source, (connectionCount.get(l.source) || 0) + 1);
-      connectionCount.set(l.target, (connectionCount.get(l.target) || 0) + 1);
+      linkCount.set(l.source, (linkCount.get(l.source) || 0) + 1);
+      linkCount.set(l.target, (linkCount.get(l.target) || 0) + 1);
     });
-    finalNodes.forEach(n => n.connections = connectionCount.get(n.id));
+    finalNodes.forEach(n => n.links = linkCount.get(n.id));
 
     console.log(`[vis-graph] ✅ Transformation terminée: ${finalNodes.length} nœuds, ${finalLinks.length} liens`);
     
