@@ -10,6 +10,32 @@ export class ColorScaleCalculator {
   constructor() {
     // Cache pour les échelles générées
     this.scaleCache = new Map();
+    
+    // Logging configuration - set to false to show only warnings and errors
+    this.enableDebugLogs = false;
+  }
+
+  /**
+   * Centralized logging methods for consistent output
+   */
+  _logDebug(message, ...args) {
+    if (this.enableDebugLogs) {
+      console.log(`%c[ColorScaleCalculator] ${message}`, 'color: #9C27B0', ...args);
+    }
+  }
+
+  _logInfo(message, ...args) {
+    if (this.enableDebugLogs) {
+      console.info(`%c[ColorScaleCalculator] ${message}`, 'color: #2196F3', ...args);
+    }
+  }
+
+  _logWarn(message, ...args) {
+    console.warn(`%c[ColorScaleCalculator] WARNING: ${message}`, 'color: #FF9800; font-weight: bold', ...args);
+  }
+
+  _logError(message, ...args) {
+    console.error(`%c[ColorScaleCalculator] ERROR: ${message}`, 'color: #F44336; font-weight: bold', ...args);
   }
 
   /**
@@ -82,17 +108,17 @@ export class ColorScaleCalculator {
       rawName.toLowerCase()
     ];
 
-    console.log(`[ColorScaleCalculator] Tentative parsing: "${input}" (type: ${scaleType})`);
-    console.log(`[ColorScaleCalculator] Variations testées: ${variations.join(', ')}`);
+    this._logDebug(`Attempting to parse: "${input}" (type: ${scaleType})`);
+    this._logDebug(`Tested variations: ${variations.join(', ')}`);
 
     for (const normalizedName of variations) {
       if (scaleType === 'quantitative' || scaleType === 'sequential') {
         // Pour quantitative : utiliser interpolate
         const fullInterpolate = `interpolate${normalizedName}`;
-        console.log(`[ColorScaleCalculator] Test interpolate: ${fullInterpolate}`);
+        this._logDebug(`Testing interpolate: ${fullInterpolate}`);
         
         if (fullInterpolate in d3 && typeof d3[fullInterpolate] === "function") {
-          console.log(`[ColorScaleCalculator] ✅ Trouvé: ${fullInterpolate}`);
+          this._logDebug(`Found: ${fullInterpolate}`);
           return {
             type: "interpolate",
             value: d3[fullInterpolate],
@@ -102,11 +128,11 @@ export class ColorScaleCalculator {
       } else {
         // Pour ordinal : utiliser scheme
         const fullScheme = `scheme${normalizedName}`;
-        console.log(`[ColorScaleCalculator] Test scheme: ${fullScheme}`);
+        this._logDebug(`Testing scheme: ${fullScheme}`);
         
         if (fullScheme in d3) {
           const scheme = d3[fullScheme];
-          console.log(`[ColorScaleCalculator] ✅ Trouvé: ${fullScheme}`);
+          this._logDebug(`Found: ${fullScheme}`);
           
           // Si un index est spécifié (ex: Blues[5])
           if (index !== null && Array.isArray(scheme) && scheme[index]) {
@@ -131,8 +157,8 @@ export class ColorScaleCalculator {
       }
     }
 
-    console.warn(`[ColorScaleCalculator] ❌ Schéma D3 non trouvé: ${input} pour type ${scaleType}`);
-    console.warn(`[ColorScaleCalculator] Schémas D3 disponibles:`, Object.keys(d3).filter(k => k.startsWith('scheme') || k.startsWith('interpolate')));
+    this._logWarn(`D3 schema not found: ${input} for type ${scaleType}`);
+    this._logWarn(`Available D3 schemas:`, Object.keys(d3).filter(k => k.startsWith('scheme') || k.startsWith('interpolate')));
     return null;
   }
 
@@ -178,7 +204,7 @@ export class ColorScaleCalculator {
     if (isDomainArray) {
       const duplicates = domain.filter((item, index) => domain.indexOf(item) !== index);
       if (duplicates.length > 0) {
-        console.warn(`[${label} Warning] Duplicate domain values: ${[...new Set(duplicates)].join(', ')}`);
+        this._logWarn(`Duplicate domain values (${label}): ${[...new Set(duplicates)].join(', ')}`);
       }
     }
 
@@ -190,22 +216,22 @@ export class ColorScaleCalculator {
       const missingDomain = dataKeys.filter(d => !validDomain.includes(d));
       
       if (extraDomain.length > 0) {
-        console.warn(`[${label} Warning] Extra domain values not in data: ${extraDomain.join(', ')}`);
+        this._logWarn(`Extra domain values not in data (${label}): ${extraDomain.join(', ')}`);
       }
       if (missingDomain.length > 0) {
-        console.warn(`[${label} Warning] Missing domain values from data: ${missingDomain.join(', ')}`);
+        this._logWarn(`Missing domain values from data (${label}): ${missingDomain.join(', ')}`);
       }
       
       missingDomain.sort((a, b) => a.localeCompare(b));
       finalDomain = [...validDomain, ...missingDomain];
     } else {
-      console.warn(`[${label} Warning] Invalid or empty domain. Using dataset values.`);
+      this._logWarn(`Invalid or empty domain (${label}). Using dataset values.`);
       finalDomain = [...dataKeys].sort((a, b) => a.localeCompare(b));
     }
 
     // Obtenir le meilleur fallback si pas spécifié
     const smartFallback = fallbackInterpolator || this.getBestFallback(scaleType, finalDomain.length);
-    console.log(`[${label}] 🎨 Fallback intelligent choisi:`, typeof smartFallback === 'function' ? smartFallback.name : smartFallback);
+    this._logDebug(`Smart fallback chosen (${label}):`, typeof smartFallback === 'function' ? smartFallback.name : smartFallback);
 
     // Traitement du range avec la nouvelle logique de parsing
     let finalRange = range;
@@ -216,7 +242,7 @@ export class ColorScaleCalculator {
       } else if (Array.isArray(smartFallback)) {
         finalRange = smartFallback;
       }
-      console.log(`[${label}] 🎯 Range auto-généré (fallback intelligent):`, finalRange);
+      this._logDebug(`Auto-generated range (${label} - smart fallback):`, finalRange);
     } else if (typeof range === 'string') {
       const parsed = this.parseD3ColorScheme(range, scaleType);
       if (parsed?.type === "interpolate") {
@@ -238,7 +264,7 @@ export class ColorScaleCalculator {
 
     // Validation du range final
     if (!Array.isArray(finalRange) || finalRange.length === 0) {
-      console.warn(`[${label} Warning] Invalid color range. Using smart fallback.`);
+      this._logWarn(`Invalid color range (${label}). Using smart fallback.`);
       if (typeof smartFallback === 'function') {
         // Si c'est un interpolateur, quantize
         finalRange = d3.quantize(smartFallback, finalDomain.length);
@@ -252,9 +278,9 @@ export class ColorScaleCalculator {
     }
 
     if (finalRange.length < finalDomain.length) {
-      console.warn(`[${label} Warning] Color range (${finalRange.length}) < domain (${finalDomain.length}). Colors will repeat.`);
+      this._logWarn(`Color range shorter than domain (${label}): ${finalRange.length} < ${finalDomain.length}. Colors will repeat.`);
     } else if (finalRange.length > finalDomain.length) {
-      console.warn(`[${label} Warning] Color range (${finalRange.length}) > domain (${finalDomain.length}). Extra colors ignored.`);
+      this._logWarn(`Color range longer than domain (${label}): ${finalRange.length} > ${finalDomain.length}. Extra colors ignored.`);
     }
 
     // Mapping final des couleurs
@@ -366,7 +392,7 @@ export class ColorScaleCalculator {
    */
   clearCache() {
     this.scaleCache.clear();
-    console.log('[ColorScaleCalculator] Cache vidé');
+    this._logDebug('Cache cleared');
   }
 }
 

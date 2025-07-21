@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Fonction pour recharger les presets (utile après ajout de nouveaux fichiers)
     async function refreshEncodingPresets() {
-        console.log('[web-components] 🔄 Actualisation des presets d\'encoding...');
+        // console.log('[web-components] 🔄 Actualisation des presets d\'encoding...');
         
         // Vider les presets existants
         encodingPresets = {};
@@ -80,14 +80,14 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Fonction pour découvrir automatiquement TOUS les fichiers d'encoding du dossier
     async function discoverEncodingFiles() {
-        console.log('[web-components] 🔍 Découverte automatique COMPLÈTE des fichiers d\'encoding...');
+        // console.log('[web-components] 🔍 Découverte automatique COMPLÈTE des fichiers d\'encoding...');
         
         const discoveredFiles = [];
         
         // STRATÉGIE 1: Patterns de noms communs pour encoding
         const commonPatterns = [
             // Patterns test-*
-            'test-size', 'test-couleur', 'test-cooccurence', 'test-warn-nodes', 'test-semantic', 'test-directional',
+            'test-size', 'test-cooccurence', 'test-warn-nodes', 'test-no-colors',
             // Patterns encoding-*
             'encoding-basic', 'encoding-advanced', 'encoding-custom', 'encoding-demo',
             // Patterns par types de visualisation
@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         
-        console.log(`[web-components] 🔍 Test en parallèle de ${allTestFiles.length} fichiers potentiels...`);
+        // console.log(`[web-components] 🔍 Test en parallèle de ${allTestFiles.length} fichiers potentiels...`);
         
         // EXÉCUTION EN PARALLÈLE de tous les tests (beaucoup plus rapide)
         const testPromises = allTestFiles.map(async (filename) => {
@@ -140,7 +140,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     method: 'HEAD' // Plus efficace pour juste tester l'existence
                 });
                 if (response.ok) {
-                    console.log(`[web-components] ✅ Fichier découvert: ${filename}`);
+                    // console.log(`[web-components] ✅ Fichier découvert: ${filename}`);
                     return filename;
                 }
             } catch (error) {
@@ -160,22 +160,22 @@ document.addEventListener('DOMContentLoaded', function() {
         
         encodingFiles = uniqueFiles;
         
-        console.log(`[web-components] 🎉 DÉCOUVERTE TERMINÉE !`);
-        console.log(`[web-components] 📋 ${uniqueFiles.length} fichiers d'encoding trouvés sur ${allTestFiles.length} testés:`);
-        uniqueFiles.forEach((file, index) => {
-            console.log(`[web-components]   ${index + 1}. ${file}`);
-        });
+        // console.log(`[web-components] 🎉 DÉCOUVERTE TERMINÉE !`);
+        // console.log(`[web-components] 📋 ${uniqueFiles.length} fichiers d'encoding trouvés sur ${allTestFiles.length} testés:`);
+        // uniqueFiles.forEach((file, index) => {
+        //     console.log(`[web-components]   ${index + 1}. ${file}`);
+        // });
         
-        if (uniqueFiles.length === 0) {
-            console.log(`[web-components] 💡 Aucun fichier trouvé. Créez des fichiers .json ou .txt dans example-encoding/`);
-        }
+        // if (uniqueFiles.length === 0) {
+        //     console.log(`[web-components] 💡 Aucun fichier trouvé. Créez des fichiers .json ou .txt dans example-encoding/`);
+        // }
         
         return uniqueFiles;
     }
 
     // Fonction pour charger dynamiquement les presets depuis les fichiers découverts
     async function loadEncodingPresets() {
-        console.log('[web-components] 🔄 Chargement des presets d\'encoding depuis les fichiers...');
+        // console.log('[web-components] 🔄 Chargement des presets d\'encoding depuis les fichiers...');
         
         // D'abord découvrir les fichiers disponibles
         await discoverEncodingFiles();
@@ -211,7 +211,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         description: encoding.description || `Preset ${presetName}`
                     };
                     
-                    console.log(`[web-components] ✅ Preset "${presetName}" chargé depuis ${filename}`);
+                    // console.log(`[web-components] ✅ Preset "${presetName}" chargé depuis ${filename}`);
                 } else {
                     console.warn(`[web-components] ⚠️ Impossible de charger ${filename}: ${response.status}`);
                 }
@@ -220,7 +220,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         
-        console.log(`[web-components] 📋 ${Object.keys(encodingPresets).length} presets chargés:`, Object.keys(encodingPresets));
+        // console.log(`[web-components] 📋 ${Object.keys(encodingPresets).length} presets chargés:`, Object.keys(encodingPresets));
     }
     
     // Initialiser le sélecteur de presets d'encoding
@@ -243,7 +243,7 @@ document.addEventListener('DOMContentLoaded', function() {
             encodingPresetsSelect.appendChild(option);
         });
         
-        console.log(`[web-components] 🎨 Sélecteur d'encoding initialisé avec ${Object.keys(encodingPresets).length} presets`);
+        // console.log(`[web-components] 🎨 Sélecteur d'encoding initialisé avec ${Object.keys(encodingPresets).length} presets`);
     }
     
     // Gestionnaire pour le changement de preset d'encoding
@@ -278,7 +278,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }, 3000);
                 }
                 
-                console.log(`[web-components] 🎨 Preset "${selectedPreset.name}" chargé dans la textarea`);
+                // console.log(`[web-components] 🎨 Preset "${selectedPreset.name}" chargé dans la textarea`);
             }
         });
     }
@@ -286,7 +286,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Gestionnaire pour le bouton d'actualisation des presets
     if (refreshPresetsBtn) {
         refreshPresetsBtn.addEventListener('click', async function() {
-            console.log('[web-components] 🔄 Actualisation manuelle des presets demandée');
+            // console.log('[web-components] 🔄 Actualisation manuelle des presets demandée');
             
             // Animation du bouton
             this.style.transform = 'rotate(180deg)';
@@ -337,7 +337,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Fonction pour sauvegarder l'encoding de base
     function saveBaseEncoding() {
         baseEncoding = JSON.parse(JSON.stringify(graph.getEncoding())); // Copie profonde
-        console.log('[web-components] 📋 Encoding de base sauvegardé:', baseEncoding);
+        // console.log('[web-components] 📋 Encoding de base sauvegardé:', baseEncoding);
         
         if (baseEncodingPreview) {
             baseEncodingPreview.textContent = JSON.stringify(baseEncoding, null, 2);
@@ -346,7 +346,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Fonction pour réinitialiser l'encoding
     function resetEncoding() {
-        console.log('[web-components] 🔄 Reset de l\'encoding...');
+        // console.log('[web-components] 🔄 Reset de l\'encoding...');
         
         // Remettre à null pour forcer la régénération automatique
         graph.encoding = null;
@@ -382,7 +382,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 queryStatus.textContent = 'Encoding de base restauré.';
                 queryStatus.className = 'status-message status-success';
-                console.log('[web-components] 🔄 Encoding de base restauré');
+                // console.log('[web-components] 🔄 Encoding de base restauré');
             } else {
                 queryStatus.textContent = 'Aucun encoding de base disponible. Exécutez une requête d\'abord.';
                 queryStatus.className = 'status-message status-error';
@@ -398,7 +398,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 await navigator.clipboard.writeText(encodingText);
                 queryStatus.textContent = 'Encoding actuel copié dans le presse-papiers.';
                 queryStatus.className = 'status-message status-success';
-                console.log('[web-components] 📋 Encoding copié');
+                // console.log('[web-components] 📋 Encoding copié');
             } catch (error) {
                 console.error('Erreur lors de la copie:', error);
                 queryStatus.textContent = 'Erreur lors de la copie dans le presse-papiers.';
@@ -409,7 +409,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Écouteur pour la mise à jour automatique de la textarea après calcul des domaines
     graph.addEventListener('domainsCalculated', function(event) {
-        console.log('[web-components] 🎯 Domaines recalculés automatiquement, mise à jour de la textarea ET des aperçus');
+        // console.log('[web-components] 🎯 Domaines recalculés automatiquement, mise à jour de la textarea ET des aperçus');
         
         // COMPORTEMENT ORIGINAL: Mettre à jour la textarea avec l'encoding réel
         if (visualMappingTextarea) {
@@ -475,7 +475,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Gestion des changements de source d'exemples
     exampleSourceSelect.addEventListener('change', async function() {
         const source = this.value;
-        console.log(`Source sélectionnée: ${source}`);
+        // console.log(`Source sélectionnée: ${source}`);
         
         if (!source) {
             // Réinitialiser le sélecteur d'exemples
@@ -485,9 +485,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Charger tous les exemples pour cette source
-        console.log(`Chargement des exemples pour la source: ${source}`);
+        // console.log(`Chargement des exemples pour la source: ${source}`);
         const examples = await exampleLoader.loadAllExamplesForSource(source);
-        console.log(`Exemples chargés: ${examples.length}`);
+        // console.log(`Exemples chargés: ${examples.length}`);
         
         // Mettre à jour le sélecteur d'exemples
         updateExampleQuerySelect(examples);
@@ -520,7 +520,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Le proxy reste celui configuré par l'utilisateur dans le champ
             
             // RESET ENCODING lors du changement d'exemple (préparation pour nouveau chargement)
-            console.log('[web-components] 🔄 Nouvel exemple sélectionné - Préparation du reset encoding');
+            // console.log('[web-components] 🔄 Nouvel exemple sélectionné - Préparation du reset encoding');
             // Note : le reset complet sera fait lors du clic sur "Exécuter"
             
             // Mettre en évidence le bouton d'exécution
@@ -552,7 +552,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             queryStatus.textContent = 'Nouvel encoding visuel appliqué.';
             queryStatus.className = 'status-message status-success';
-            console.log("🎨 Custom visual encoding applied from textarea.");
+            // console.log("🎨 Custom visual encoding applied from textarea.");
         } catch (error) {
             queryStatus.textContent = `Erreur dans le JSON de l'encoding: ${error.message}`;
             queryStatus.className = 'status-message status-error';
@@ -577,7 +577,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 queryStatus.textContent = 'Encoding visuel adaptatif restauré.';
                 queryStatus.className = 'status-message status-success';
-                console.log("🎨 Adaptive visual encoding restored.");
+                // console.log("🎨 Adaptive visual encoding restored.");
             });
         } else {
             // Si pas de données, utiliser l'encoding par défaut
@@ -607,7 +607,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // RESET ENCODING à chaque nouvelle requête
-        console.log('[web-components] 🔄 Nouveau chargement détecté - Reset de l\'encoding');
+        // console.log('[web-components] 🔄 Nouveau chargement détecté - Reset de l\'encoding');
         resetEncoding();
         
         // Afficher l'état de chargement
@@ -664,7 +664,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Effacer les résultats
     clearButton.addEventListener('click', function() {
-        console.log('[web-components] 🗑️ Effacement de tous les résultats...');
+        // console.log('[web-components] 🗑️ Effacement de tous les résultats...');
         
         // Réinitialiser complètement les composants
         graph.nodes = [];
@@ -709,7 +709,7 @@ document.addEventListener('DOMContentLoaded', function() {
             console.warn('[web-components] ⚠️ Erreur lors du rendu après effacement:', error);
         }
         
-        console.log('[web-components] ✅ Effacement terminé - composant réinitialisé');
+        // console.log('[web-components] ✅ Effacement terminé - composant réinitialisé');
         
         // Effacer le message de statut après un délai
         setTimeout(() => {
@@ -726,7 +726,7 @@ document.addEventListener('DOMContentLoaded', function() {
             queryStatus.className = 'status-message status-loading';
             
             // RESET ENCODING à chaque nouveau chargement
-            console.log('[web-components] 🔄 Chargement des données d\'exemple - Reset de l\'encoding');
+            // console.log('[web-components] 🔄 Chargement des données d\'exemple - Reset de l\'encoding');
             resetEncoding();
             
             // Charger le fichier example-data.json (chemin corrigé)
@@ -746,9 +746,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 graph.sparqlResult = jsonData;
                 const result = await graph.launch();
                 
-                console.log("Résultat du chargement de l'exemple:", result);
+                // console.log("Résultat du chargement de l'exemple:", result);
                 if (result && result.status === 'success') {
-                    console.log(`Données de l'exemple chargées: ${result.data.nodes.length} nœuds, ${result.data.links.length} liens.`);
+                    // console.log(`Données de l'exemple chargées: ${result.data.nodes.length} nœuds, ${result.data.links.length} liens.`);
                     
                     queryStatus.textContent = `Données d'exemple chargées: ${result.data.nodes.length} nœuds, ${result.data.links.length} liens`;
                     queryStatus.className = 'status-message status-success';
@@ -760,7 +760,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     try {
                         const adaptiveEncoding = graph.getEncoding();
                         visualMappingTextarea.value = JSON.stringify(adaptiveEncoding, null, 2);
-                        console.log("🎨 Encoding adaptatif appliqué pour l'exemple:", adaptiveEncoding);
+                        // console.log("🎨 Encoding adaptatif appliqué pour l'exemple:", adaptiveEncoding);
                         
                         // Mettre à jour les aperçus d'encoding
                         updateEncodingPreviews();
@@ -818,7 +818,7 @@ document.addEventListener('DOMContentLoaded', function() {
             queryStatus.className = 'status-message status-loading';
             
             // RESET ENCODING à chaque nouveau chargement
-            console.log('[web-components] 🔄 Chargement des données d\'exemple size - Reset de l\'encoding');
+            // console.log('[web-components] 🔄 Chargement des données d\'exemple size - Reset de l\'encoding');
             resetEncoding();
             
             // Charger le fichier example-size.json
@@ -838,9 +838,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 graph.sparqlResult = jsonData;
                 const result = await graph.launch();
                 
-                console.log("Résultat du chargement de l'exemple size:", result);
+                // console.log("Résultat du chargement de l'exemple size:", result);
                 if (result && result.status === 'success') {
-                    console.log(`Données de l'exemple size chargées: ${result.data.nodes.length} nœuds, ${result.data.links.length} liens.`);
+                    // console.log(`Données de l'exemple size chargées: ${result.data.nodes.length} nœuds, ${result.data.links.length} liens.`);
                     
                     queryStatus.textContent = `Données d'exemple (taille par âge) chargées: ${result.data.nodes.length} nœuds, ${result.data.links.length} liens`;
                     queryStatus.className = 'status-message status-success';
@@ -852,7 +852,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     try {
                         const adaptiveEncoding = graph.getEncoding();
                         visualMappingTextarea.value = JSON.stringify(adaptiveEncoding, null, 2);
-                        console.log("🎨 Encoding adaptatif appliqué pour l'exemple size:", adaptiveEncoding);
+                        // console.log("🎨 Encoding adaptatif appliqué pour l'exemple size:", adaptiveEncoding);
                         
                         // Mettre à jour les aperçus d'encoding
                         updateEncodingPreviews();
@@ -918,32 +918,32 @@ document.addEventListener('DOMContentLoaded', function() {
     // Fonction pour initialiser le sélecteur d'exemples
     async function initializeExampleSelector() {
         try {
-            console.log("Initialisation du sélecteur d'exemples...");
+            // console.log("Initialisation du sélecteur d'exemples...");
             // Charger la liste des exemples
             const result = await exampleLoader.loadExamplesList();
-            console.log("Résultat du chargement des exemples:", result);
+            // console.log("Résultat du chargement des exemples:", result);
             
             // Remplir le sélecteur de sources
             const sources = Object.keys(exampleLoader.examplesBySource);
             sources.sort();
-            console.log("Sources disponibles:", sources);
+            // console.log("Sources disponibles:", sources);
             
             let sourceOptions = '<option value="">-- Sélectionner une source --</option>';
             sources.forEach(source => {
                 const examplesCount = exampleLoader.examplesBySource[source]?.examples?.length || 0;
-                console.log(`Source ${source}: ${examplesCount} exemples`);
+                // console.log(`Source ${source}: ${examplesCount} exemples`);
                 if (examplesCount > 0) {
                     sourceOptions += `<option value="${source}">${source} (${examplesCount})</option>`;
                 }
             });
             
             exampleSourceSelect.innerHTML = sourceOptions;
-            console.log("Sélecteur de sources mis à jour");
+            // console.log("Sélecteur de sources mis à jour");
             
             // Si Bgee est disponible, le sélectionner par défaut
             if (exampleLoader.examplesBySource['Bgee'] && 
                 exampleLoader.examplesBySource['Bgee'].examples.length > 0) {
-                console.log("Sélection de Bgee par défaut");
+                // console.log("Sélection de Bgee par défaut");
                 exampleSourceSelect.value = 'Bgee';
                 exampleSourceSelect.dispatchEvent(new Event('change'));
             }

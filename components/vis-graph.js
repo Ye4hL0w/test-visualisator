@@ -34,8 +34,34 @@ export class VisGraph extends HTMLElement {
     this.internalData = new WeakMap();
     this.internalData.set(this, {}); // Initialisation du stockage interne
 
+    // Logging configuration - set to false to show only warnings and errors
+    this.enableDebugLogs = false;
+
     // Encoding visuel VEGA - configuration par défaut
     this.visualEncoding = this.getDefaultEncoding();
+  }
+
+  /**
+   * Centralized logging methods for consistent output
+   */
+  _logDebug(message, ...args) {
+    if (this.enableDebugLogs) {
+      console.log(`%c[VisGraph] ${message}`, 'color: #8BC34A', ...args);
+    }
+  }
+
+  _logInfo(message, ...args) {
+    if (this.enableDebugLogs) {
+      console.info(`%c[VisGraph] ${message}`, 'color: #2196F3', ...args);
+    }
+  }
+
+  _logWarn(message, ...args) {
+    console.warn(`%c[VisGraph] WARNING: ${message}`, 'color: #FF9800; font-weight: bold', ...args);
+  }
+
+  _logError(message, ...args) {
+    console.error(`%c[VisGraph] ERROR: ${message}`, 'color: #F44336; font-weight: bold', ...args);
   }
 
   /**
@@ -103,9 +129,9 @@ export class VisGraph extends HTMLElement {
       defaultEncoding.links.field = sparqlVars[0];
     }
     
-    console.log(`[vis-graph] 🎯 Encoding adaptatif créé avec les variables SPARQL:`, sparqlVars);
-    console.log(`[vis-graph] -> Nœuds basés sur:`, defaultEncoding.nodes.field);
-    console.log(`[vis-graph] -> Liens basés sur:`, defaultEncoding.links.field);
+    this._logDebug(`Adaptive encoding created with SPARQL variables:`, sparqlVars);
+    this._logDebug(`-> Nodes based on:`, defaultEncoding.nodes.field);
+    this._logDebug(`-> Links based on:`, defaultEncoding.links.field);
     
     return defaultEncoding;
   }
@@ -119,17 +145,17 @@ export class VisGraph extends HTMLElement {
   enhanceAdaptiveEncodingWithClassification(sparqlVars, nodeData = null) {
     const nodes = nodeData || this.nodes;
     if (!nodes || nodes.length === 0 || !sparqlVars) {
-      console.log('[vis-graph] ⚠️ Pas de données pour améliorer l\'encoding adaptatif');
+      this._logDebug('No data available to enhance adaptive encoding');
       return;
     }
 
-    console.log('[vis-graph] 🔍 Amélioration de l\'encoding adaptatif avec détection automatique...');
+    this._logDebug('Enhancing adaptive encoding with automatic detection...');
 
     // Détecter le meilleur champ de classification pour les couleurs des nœuds
     const bestClassificationField = this.detectClassificationField(nodes, sparqlVars);
     
     if (bestClassificationField.field !== 'type') {
-      console.log(`[vis-graph] 🎨 Remplacement du champ couleur "type" par "${bestClassificationField.field}"`);
+      this._logDebug(`Replacing color field "type" with "${bestClassificationField.field}"`);
       
       // Mettre à jour l'encoding avec le meilleur champ détecté
       this.visualEncoding.nodes.color.field = bestClassificationField.field;
@@ -146,10 +172,10 @@ export class VisGraph extends HTMLElement {
         range: colorPalette
       };
       
-      console.log(`[vis-graph] ✅ Encoding couleur mis à jour:`);
-      console.log(`[vis-graph] -> Champ: "${bestClassificationField.field}"`);
-      console.log(`[vis-graph] -> Domaine (${sortedDomain.length} valeurs):`, sortedDomain);
-      console.log(`[vis-graph] -> Palette:`, colorPalette);
+      this._logDebug(`Color encoding updated:`);
+      this._logDebug(`-> Field: "${bestClassificationField.field}"`);
+      this._logDebug(`-> Domain (${sortedDomain.length} values):`, sortedDomain);
+      this._logDebug(`-> Palette:`, colorPalette);
       
       // Émettre un événement pour notifier le changement
       this.dispatchEvent(new CustomEvent('encodingEnhanced', {
@@ -163,7 +189,7 @@ export class VisGraph extends HTMLElement {
         bubbles: true
       }));
     } else {
-      console.log('[vis-graph] 📝 Conservation du champ couleur "type" (aucun meilleur champ trouvé)');
+      this._logDebug('Keeping color field "type" (no better field found)');
     }
   }
 
@@ -175,19 +201,19 @@ export class VisGraph extends HTMLElement {
    * @param {object} encoding - La configuration d'encoding au format JSON.
    */
   setEncoding(encoding) {
-    console.log('[vis-graph] 🎨 New encoding received.');
+    this._logDebug('New encoding received.');
     
     // Vérifier les problèmes potentiels d'encoding
     if (encoding?.links?.field) {
-      console.log('[vis-graph] 🔍 Validation de l\'encoding des liens...');
+      this._logDebug('Validating link encoding...');
       
       // Avertissement sur les clés dupliquées
-      console.warn('[vis-graph] ⚠️ IMPORTANT: Si vous avez défini "field" plusieurs fois dans links (ex: field: "goLabel" puis field: {source: "x", target: "y"}), JavaScript ne garde que la dernière définition !');
+      // this._logWarn('IMPORTANT: If you have defined "field" multiple times in links (ex: field: "goLabel" then field: {source: "x", target: "y"}), JavaScript only keeps the last definition!');
       
       if (typeof encoding.links.field === 'string') {
-        console.log('[vis-graph] 📝 Lien sémantique détecté avec field:', encoding.links.field);
+        this._logDebug('Semantic link detected with field:', encoding.links.field);
       } else if (typeof encoding.links.field === 'object') {
-        console.log('[vis-graph] 📝 Lien directionnel détecté avec field:', encoding.links.field);
+        this._logDebug('Directional link detected with field:', encoding.links.field);
       }
     }
     
@@ -196,19 +222,19 @@ export class VisGraph extends HTMLElement {
       if (this.sparqlData && this.sparqlData.head && this.sparqlData.head.vars) {
         // Créer un encoding adaptatif basé sur les données SPARQL existantes
         this.visualEncoding = this.createAdaptiveEncoding(this.sparqlData.head.vars);
-        console.log('[vis-graph] 🔄 Reset to adaptive encoding based on existing SPARQL data');
+        this._logDebug('Reset to adaptive encoding based on existing SPARQL data');
       } else {
         // Pas de données SPARQL, utiliser l'encoding par défaut
         this.visualEncoding = this.getDefaultEncoding();
-        console.log('[vis-graph] 🔄 Reset to default encoding (no SPARQL data)');
+        this._logDebug('Reset to default encoding (no SPARQL data)');
       }
     } else {
       // CORRECTION: Validation précoce des champs obligatoires même sans données SPARQL
       if (!encoding.nodes?.field) {
         const errorMessage = 'Le champ "nodes.field" est obligatoire dans un encoding personnalisé. Il doit être un array avec au moins une variable SPARQL.';
-        console.error('[vis-graph] ❌ Encoding invalide:', errorMessage);
+        this._logError('Invalid encoding:', errorMessage);
         this.showNotification(errorMessage, 'error');
-        console.warn('[vis-graph] ⚠️ L\'encoding sera ignoré et l\'encoding adaptatif sera utilisé à la place');
+        this._logWarn('Encoding will be ignored and adaptive encoding will be used instead');
         
         // Utiliser l'encoding adaptatif comme fallback
         if (this.sparqlData && this.sparqlData.head && this.sparqlData.head.vars) {
@@ -223,7 +249,7 @@ export class VisGraph extends HTMLElement {
       if (this.sparqlData && this.sparqlData.head && this.sparqlData.head.vars) {
         const validationResult = this.validateEncoding(encoding, this.sparqlData.head.vars);
         if (!validationResult.isValid) {
-          console.error('[vis-graph] ❌ Validation échouée:', validationResult.warnings);
+          this._logError('Validation failed:', validationResult.warnings);
           // Afficher les erreurs à l'utilisateur
           validationResult.warnings.forEach(warning => {
             this.showNotification(warning, 'error');
@@ -237,7 +263,7 @@ export class VisGraph extends HTMLElement {
     }
 
     if (this.sparqlData) {
-        console.log('[vis-graph] 🔄 Re-transforming and re-rendering with new encoding.');
+        this._logDebug('Re-transforming and re-rendering with new encoding.');
         try {
           const transformedData = this.transformSparqlResults(this.sparqlData);
           this.nodes = transformedData.nodes;
@@ -248,20 +274,20 @@ export class VisGraph extends HTMLElement {
           
           this.render();
         } catch (error) {
-          console.error('[vis-graph] ❌ Erreur lors de la transformation des données:', error.message);
+          this._logError('Error during data transformation:', error.message);
           this.showNotification(error.message, 'error');
           return;
         }
     } else if (this.nodes && this.nodes.length > 0) {
         // Cas où on a déjà des données mais pas de sparqlData (données manuelles)
-        console.log('[vis-graph] 🔄 Mise à jour de l\'encoding avec données existantes');
+        this._logDebug('Updating encoding with existing data');
         
         // Mettre à jour l'encoding avec les domaines calculés
         this.updateEncodingWithCalculatedDomains();
         
         this.render();
     } else {
-        console.log('[vis-graph] ⚠️ Aucune donnée disponible pour appliquer le nouvel encoding');
+        this._logDebug('No data available to apply new encoding');
     }
   }
 
@@ -277,14 +303,14 @@ export class VisGraph extends HTMLElement {
 
     // CORRECTION: Vérifier d'abord que nodes.field est présent (obligatoire)
     if (!encoding.nodes?.field) {
-      console.error('[vis-graph] ❌ Le champ "nodes.field" est obligatoire dans un encoding personnalisé');
+      this._logError('Field "nodes.field" is required in custom encoding');
       warnings.push('Le champ "nodes.field" est obligatoire dans un encoding personnalisé. Il doit être un array avec au moins une variable SPARQL.');
       isValid = false;
     } else {
       // Valider le field des nœuds (doit être un array avec minimum 1 valeur)
       const nodeField = encoding.nodes.field;
       if (!Array.isArray(nodeField) || nodeField.length === 0) {
-        console.error('[vis-graph] ❌ Le field des nœuds doit être un array avec au moins une valeur');
+        this._logError('Nodes field must be an array with at least one value');
         warnings.push('Le field des nœuds doit être un array avec au moins une valeur');
         isValid = false;
       } else {
@@ -296,13 +322,6 @@ export class VisGraph extends HTMLElement {
           }
         });
       }
-    }
-
-    // Note importante : JavaScript écrase automatiquement les clés dupliquées
-    // Si l'utilisateur définit field deux fois, seule la dernière sera conservée
-    // On ajoute un avertissement préventif
-    if (encoding.links?.field) {
-      console.warn('[vis-graph] ⚠️ Attention: si vous avez défini "field" plusieurs fois dans links, JavaScript ne garde que la dernière définition');
     }
 
     // Valider le field des liens
@@ -319,15 +338,15 @@ export class VisGraph extends HTMLElement {
         // Vérifier qu'on a au moins 1 nœud pour les liens sémantiques
         if (encoding.nodes?.field && Array.isArray(encoding.nodes.field)) {
           if (encoding.nodes.field.length < 1) {
-            console.error('[vis-graph] ❌ Pour les liens sémantiques, il faut au moins 1 variable dans le field des nœuds');
+            this._logError('For semantic links, at least 1 variable is required in nodes field');
             warnings.push('Pour les liens sémantiques, il faut au moins 1 variable dans le field des nœuds');
             isValid = false;
           } else if (encoding.nodes.field.length === 1) {
-            console.log('[vis-graph] 📊 Liens sémantiques avec 1 seule variable - utilisation de la cooccurrence automatique');
+            this._logDebug('Semantic links with single variable - using automatic co-occurrence');
             // Dans ce cas, on calculera automatiquement la cooccurrence dans transformSparqlResults
           }
         } else {
-          console.error('[vis-graph] ❌ Pour les liens sémantiques, le field des nœuds doit être un array avec au moins 1 variable');
+          this._logError('For semantic links, nodes field must be an array with at least 1 variable');
           warnings.push('Pour les liens sémantiques, le field des nœuds doit être un array avec au moins 1 variable');
           isValid = false;
         }
@@ -335,7 +354,7 @@ export class VisGraph extends HTMLElement {
       // Cas 2: Lien directionnel (objet {source, target})
       else if (typeof linkField === 'object' && linkField !== null) {
         if (!linkField.source || !linkField.target) {
-          console.error('[vis-graph] ❌ Le field directionnel des liens doit avoir les propriétés "source" et "target"');
+          this._logError('Directional links field must have "source" and "target" properties');
           warnings.push('Le field directionnel des liens doit avoir les propriétés "source" et "target"');
           isValid = false;
         } else {
@@ -349,7 +368,7 @@ export class VisGraph extends HTMLElement {
           }
         }
       } else {
-        console.error('[vis-graph] ❌ Le field des liens doit être soit une string (lien sémantique) soit un objet {source, target} (lien directionnel)');
+        this._logError('Links field must be either a string (semantic link) or an object {source, target} (directional link)');
         warnings.push('Le field des liens doit être soit une string soit un objet {source, target}');
         isValid = false;
       }
@@ -379,74 +398,157 @@ export class VisGraph extends HTMLElement {
    */
   updateEncodingWithCalculatedDomains() {
     if (!this.nodes || this.nodes.length === 0) {
-      console.warn('[vis-graph] ⚠️ Aucune donnée disponible pour calculer les domaines');
+      this._logWarn('No data available to calculate domains');
       return;
     }
 
-    console.log('[vis-graph] 🔄 Mise à jour des domaines dans l\'encoding interne...');
-    console.log('[vis-graph] 🔍 Debug - encoding actuel:', this.visualEncoding);
+    this._logDebug('Updating domains in internal encoding...');
+    this._logDebug('Debug - current encoding:', this.visualEncoding);
 
     // --- DOMAINES DES NŒUDS ---
     
     // Domaine pour la couleur des nœuds
-    console.log('[vis-graph] 🔍 Debug couleur - Conditions:');
-    console.log('  -> nodes.color.field:', this.visualEncoding.nodes?.color?.field);
-    console.log('  -> nodes.color.scale:', this.visualEncoding.nodes?.color?.scale);
+    this._logDebug('Debug color - Conditions:');
+    this._logDebug('  -> nodes.color.field:', this.visualEncoding.nodes?.color?.field);
+    this._logDebug('  -> nodes.color.scale:', this.visualEncoding.nodes?.color?.scale);
     
-    if (this.visualEncoding.nodes?.color?.field && this.visualEncoding.nodes?.color?.scale) {
+    if (this.visualEncoding.nodes?.color?.field) {
       const colorField = this.visualEncoding.nodes.color.field;
-      const userDomain = this.visualEncoding.nodes.color.scale.domain;
-      const scaleType = this.visualEncoding.nodes.color.scale.type || 'ordinal';
       
-      console.log(`[vis-graph] 🎨 Calcul du domaine couleur pour le champ "${colorField}" avec domaine utilisateur:`, userDomain);
-      
-      this.visualEncoding.nodes.color.scale.domain = this.domainCalculator.getDomain(
-        this.nodes, 
-        colorField, 
-        userDomain, 
-        scaleType
-      );
-      
-      console.log(`[vis-graph] 🎨 Domaine couleur nœuds mis à jour:`, this.visualEncoding.nodes.color.scale.domain);
+      // Si pas de scale défini, en créer un automatiquement
+      if (!this.visualEncoding.nodes.color.scale) {
+        this._logDebug(`No scale defined for color field "${colorField}", generating automatically`);
+        
+        // Calculer le domaine automatiquement
+        const calculatedDomain = this.domainCalculator.getDomain(this.nodes, colorField, null, 'ordinal');
+        
+        if (calculatedDomain && calculatedDomain.length > 0) {
+          // Générer une palette de couleurs par défaut
+          const defaultPalette = this.colorScaleCalculator.getColorPalette('Set1', calculatedDomain.length, 'ordinal');
+          
+          // Créer la configuration d'échelle automatiquement
+          this.visualEncoding.nodes.color.scale = {
+            type: 'ordinal',
+            domain: calculatedDomain,
+            range: defaultPalette
+          };
+          
+          this._logWarn(`Scale automatically generated for color field "${colorField}" (${calculatedDomain.length} unique values): [${calculatedDomain.join(', ')}]. Colors: ${defaultPalette.length} from 'Set1' palette.`);
+          this._logDebug(`Generated color scale:`, this.visualEncoding.nodes.color.scale);
+        } else {
+          this._logWarn(`Could not generate scale for color field "${colorField}" - no valid values found`);
+        }
+      } else {
+        // Scale existe déjà, juste calculer le domaine
+        const userDomain = this.visualEncoding.nodes.color.scale.domain;
+        const scaleType = this.visualEncoding.nodes.color.scale.type || 'ordinal';
+        
+        this._logDebug(`Calculating color domain for field "${colorField}" with user domain:`, userDomain);
+        
+        this.visualEncoding.nodes.color.scale.domain = this.domainCalculator.getDomain(
+          this.nodes, 
+          colorField, 
+          userDomain, 
+          scaleType
+        );
+        
+        this._logDebug(`Nodes color domain updated:`, this.visualEncoding.nodes.color.scale.domain);
+      }
     } else {
-      console.log('[vis-graph] ⚠️ Pas de configuration couleur nœuds valide - conditions non remplies');
+      this._logDebug('No color field specified');
     }
     
     // Domaine pour la taille des nœuds
-    if (this.visualEncoding.nodes?.size?.field && this.visualEncoding.nodes?.size?.scale) {
+    if (this.visualEncoding.nodes?.size?.field) {
       const sizeField = this.visualEncoding.nodes.size.field;
-      const userDomain = this.visualEncoding.nodes.size.scale.domain;
-      const scaleType = this.visualEncoding.nodes.size.scale.type || 'linear';
       
-      this.visualEncoding.nodes.size.scale.domain = this.domainCalculator.getDomain(
-        this.nodes, 
-        sizeField, 
-        userDomain, 
-        scaleType
-      );
-      
-      console.log(`[vis-graph] 📏 Domaine taille nœuds mis à jour:`, this.visualEncoding.nodes.size.scale.domain);
+      // Si pas de scale défini, en créer un automatiquement
+      if (!this.visualEncoding.nodes.size.scale) {
+        this._logDebug(`No scale defined for size field "${sizeField}", generating automatically`);
+        
+        // Calculer le domaine automatiquement (pour la taille, utiliser linear par défaut)
+        const calculatedDomain = this.domainCalculator.getDomain(this.nodes, sizeField, null, 'linear');
+        
+        if (calculatedDomain && calculatedDomain.length > 0) {
+          // Générer une range de tailles par défaut
+          const minSize = 5;
+          const maxSize = 20;
+          const defaultRange = calculatedDomain.length === 1 ? [minSize] : [minSize, maxSize];
+          
+          // Créer la configuration d'échelle automatiquement
+          this.visualEncoding.nodes.size.scale = {
+            type: 'linear',
+            domain: calculatedDomain,
+            range: defaultRange
+          };
+          
+          this._logWarn(`Scale automatically generated for size field "${sizeField}" (${calculatedDomain.length} unique values): [${calculatedDomain.join(', ')}]. Size range: [${defaultRange.join(', ')}].`);
+          this._logDebug(`Generated size scale:`, this.visualEncoding.nodes.size.scale);
+        } else {
+          this._logWarn(`Could not generate scale for size field "${sizeField}" - no valid values found`);
+        }
+      } else {
+        // Scale existe déjà, juste calculer le domaine
+        const userDomain = this.visualEncoding.nodes.size.scale.domain;
+        const scaleType = this.visualEncoding.nodes.size.scale.type || 'linear';
+        
+        this.visualEncoding.nodes.size.scale.domain = this.domainCalculator.getDomain(
+          this.nodes, 
+          sizeField, 
+          userDomain, 
+          scaleType
+        );
+        
+        this._logDebug(`Nodes size domain updated:`, this.visualEncoding.nodes.size.scale.domain);
+      }
     }
 
     // --- DOMAINES DES LIENS ---
     
     // Domaine pour la couleur des liens
-    if (this.visualEncoding.links?.color?.field && this.visualEncoding.links?.color?.scale && this.links) {
+    if (this.visualEncoding.links?.color?.field && this.links) {
       const colorField = this.visualEncoding.links.color.field;
-      const userDomain = this.visualEncoding.links.color.scale.domain;
-      const scaleType = this.visualEncoding.links.color.scale.type || 'ordinal';
       
-      this.visualEncoding.links.color.scale.domain = this.domainCalculator.getDomain(
-        this.links, 
-        colorField, 
-        userDomain, 
-        scaleType
-      );
-      
-      console.log(`[vis-graph] 🌈 Domaine couleur liens mis à jour:`, this.visualEncoding.links.color.scale.domain);
+      // Si pas de scale défini, en créer un automatiquement
+      if (!this.visualEncoding.links.color.scale) {
+        this._logDebug(`No scale defined for link color field "${colorField}", generating automatically`);
+        
+        // Calculer le domaine automatiquement
+        const calculatedDomain = this.domainCalculator.getDomain(this.links, colorField, null, 'ordinal');
+        
+        if (calculatedDomain && calculatedDomain.length > 0) {
+          // Générer une palette de couleurs par défaut
+          const defaultPalette = this.colorScaleCalculator.getColorPalette('Set2', calculatedDomain.length, 'ordinal');
+          
+          // Créer la configuration d'échelle automatiquement
+          this.visualEncoding.links.color.scale = {
+            type: 'ordinal',
+            domain: calculatedDomain,
+            range: defaultPalette
+          };
+          
+          this._logWarn(`Scale automatically generated for link color field "${colorField}" (${calculatedDomain.length} unique values): [${calculatedDomain.join(', ')}]. Colors: ${defaultPalette.length} from 'Set2' palette.`);
+          this._logDebug(`Generated link color scale:`, this.visualEncoding.links.color.scale);
+        } else {
+          this._logWarn(`Could not generate scale for link color field "${colorField}" - no valid values found`);
+        }
+      } else {
+        // Scale existe déjà, juste calculer le domaine
+        const userDomain = this.visualEncoding.links.color.scale.domain;
+        const scaleType = this.visualEncoding.links.color.scale.type || 'ordinal';
+        
+        this.visualEncoding.links.color.scale.domain = this.domainCalculator.getDomain(
+          this.links, 
+          colorField, 
+          userDomain, 
+          scaleType
+        );
+        
+        this._logDebug(`Links color domain updated:`, this.visualEncoding.links.color.scale.domain);
+      }
     }
 
-    console.log('[vis-graph] ✅ Encoding interne mis à jour avec domaines calculés');
+    this._logDebug('Internal encoding updated with calculated domains');
     
     // Émettre un événement personnalisé pour notifier que les domaines ont été mis à jour
     this.dispatchEvent(new CustomEvent('domainsCalculated', {
@@ -477,8 +579,8 @@ export class VisGraph extends HTMLElement {
       }
     };
 
-    console.log('[vis-graph] 📋 Encoding avec domaines à jour retourné');
-    console.log('[vis-graph] 📊 Métadonnées:', metadata);
+    this._logDebug('Encoding with updated domains returned');
+    this._logDebug('Metadata:', metadata);
     
     return encodingCopy; // Sans les métadonnées
   }
@@ -539,41 +641,41 @@ export class VisGraph extends HTMLElement {
    * Cette méthode est le point d'entrée principal et fonctionne sans paramètres.
    */
   async launch() {
-    console.log('[vis-graph] 🚀 Lancement du processus de visualisation...');
+    this._logDebug('Starting visualization process...');
 
     try {
       // 1. Appliquer l'encoding visuel personnalisé si défini
       if (this.encoding && this.encoding !== this.getDefaultEncoding()) {
-        console.log('[vis-graph] -> Application de l\'encoding visuel personnalisé');
+        this._logDebug('-> Applying custom visual encoding');
         this.setEncoding(this.encoding);
       }
 
       // 2. Priorité 1: Utiliser sparqlResult (données JSON pré-formatées)
       if (this.sparqlResult) {
-        console.log('[vis-graph] -> Priorité 1: Traitement des données JSON (sparqlResult)');
+        this._logDebug('-> Priority 1: Processing JSON data (sparqlResult)');
         return await this.setSparqlResult(this.sparqlResult);
       }
 
       // 3. Priorité 2: Exécuter une requête SPARQL
       if (this.sparqlEndpoint && this.sparqlQuery) {
-        console.log('[vis-graph] -> Priorité 2: Exécution de la requête SPARQL');
+        this._logDebug('-> Priority 2: Executing SPARQL query');
         return await this.executeSparqlQuery();
       }
 
       // 4. Priorité 3: Utiliser les données manuelles si elles existent
       if (this.nodes && this.nodes.length > 0) {
-        console.log('[vis-graph] -> Priorité 3: Rendu des données manuelles existantes');
+        this._logDebug('-> Priority 3: Rendering existing manual data');
         this.render();
-        return { status: 'success', message: 'Données manuelles rendues.' };
+        return { status: 'success', message: 'Manual data rendered.' };
       }
 
       // Si aucune source de données n'est configurée
-      const errorMessage = 'Aucune source de données configurée. Définissez `sparqlResult`, `sparqlEndpoint`/`sparqlQuery`, ou `nodes`/`links` avant d\'appeler launch().';
-      console.warn(`[vis-graph] ${errorMessage}`);
+      const errorMessage = 'No data source configured. Define `sparqlResult`, `sparqlEndpoint`/`sparqlQuery`, or `nodes`/`links` before calling launch().';
+      this._logWarn(`${errorMessage}`);
       throw new Error(errorMessage);
 
     } catch (error) {
-      console.error('[vis-graph] ❌ Erreur lors du lancement:', error);
+      this._logError('Error during launch:', error);
       return { status: 'error', message: error.message };
     }
   }
@@ -627,7 +729,7 @@ export class VisGraph extends HTMLElement {
    * Définit manuellement les données (priorité absolue)
    */
   setData(nodes, links) {
-    console.log('[vis-graph] 📋 Définition manuelle des données');
+    this._logDebug('Manual data definition');
     this.nodes = nodes;
     this.links = links;
     
@@ -651,7 +753,7 @@ export class VisGraph extends HTMLElement {
    * Charge des données JSON pré-formatées
    */
   setSparqlResult(jsonData) {
-    console.log('[vis-graph] 📄 Chargement de données JSON pré-formatées');
+    this._logDebug('Loading pre-formatted JSON data');
     return this.loadFromSparqlEndpoint(null, null, jsonData);
   }
 
@@ -732,7 +834,7 @@ export class VisGraph extends HTMLElement {
               data: transformedData
             };
           } catch (error) {
-            console.error('[vis-graph] ❌ Erreur lors de la transformation (JSON):', error.message);
+            this._logError('Error during transformation (JSON):', error.message);
             this.showNotification(error.message, 'error');
             return {
               status: 'error',
@@ -758,7 +860,7 @@ export class VisGraph extends HTMLElement {
               data: transformedData
             };
           } catch (error) {
-            console.error('[vis-graph] ❌ Erreur lors de la transformation (SPARQL):', error.message);
+            this._logError('Error during transformation (SPARQL):', error.message);
             this.showNotification(error.message, 'error');
             return {
               status: 'error',
@@ -771,7 +873,7 @@ export class VisGraph extends HTMLElement {
       
       return result;
     } catch (error) {
-      console.error('[vis-graph] ❌ Erreur lors du chargement des données:', error.message);
+      this._logError('Error while loading data:', error.message);
       return {
         status: 'error',
         message: `Erreur: ${error.message}`,
@@ -868,7 +970,7 @@ export class VisGraph extends HTMLElement {
    */
   transformSparqlResults(results) {
     if (!results.results || !results.results.bindings || results.results.bindings.length === 0) {
-      console.warn("SPARQL results are empty or invalid");
+      this._logWarn("SPARQL results are empty or invalid");
       return { nodes: [], links: [] };
     }
     
@@ -879,7 +981,7 @@ export class VisGraph extends HTMLElement {
     const linksMap = new Map();
     
     const vars = results.head.vars;
-    console.log("Available SPARQL variables:", vars);
+    this._logDebug("Available SPARQL variables:", vars);
     
     // Si aucun encoding personnalisé n'a été défini, utiliser l'encoding adaptatif
     let mapping = this.visualEncoding;
@@ -892,9 +994,9 @@ export class VisGraph extends HTMLElement {
       mapping = this.createAdaptiveEncoding(vars);
       this.visualEncoding = mapping; // Mettre à jour l'encoding courant
       usingAdaptiveEncoding = true;
-      console.log("[vis-graph] 🔄 Utilisation de l'encoding adaptatif");
+      this._logDebug("Using adaptive encoding");
     } else {
-      console.log("[vis-graph] 🎨 Utilisation de l'encoding personnalisé");
+      this._logDebug("Using custom encoding");
     }
 
     // --- FIELD MAPPING ---
@@ -908,9 +1010,9 @@ export class VisGraph extends HTMLElement {
     // Pour les liens sémantiques, récupérer la variable sémantique
     const semanticVar = (linkType === 'semantic' && typeof mapping.links.field === 'string') ? mapping.links.field : null;
     
-    console.log(`[vis-graph] 🎯 Mapping final - Source: '${sourceVar}', Target: '${targetVar}', Type: '${linkType}'`);
+    this._logDebug(`Final mapping - Source: '${sourceVar}', Target: '${targetVar}', Type: '${linkType}'`);
     if (semanticVar) {
-      console.log(`[vis-graph] 🎯 Variable sémantique: '${semanticVar}'`);
+      this._logDebug(`Semantic variable: '${semanticVar}'`);
     }
 
     results.results.bindings.forEach(binding => {
@@ -1024,7 +1126,7 @@ export class VisGraph extends HTMLElement {
 
     // Traitement de la cooccurrence flexible après avoir collecté toutes les données
     if (linkType === 'semantic' && !targetVar && this.cooccurrenceBindings) {
-      console.log('[vis-graph] 📊 Calcul flexible des liens de cooccurrence...');
+              this._logDebug('Calculating flexible co-occurrence links...');
       
       const cooccurrenceLinks = this.calculateFlexibleCooccurrence(this.cooccurrenceBindings, sourceVar, semanticVar);
       
@@ -1036,7 +1138,7 @@ export class VisGraph extends HTMLElement {
         }
       });
       
-      console.log(`[vis-graph] ✅ ${cooccurrenceLinks.length} liens de cooccurrence flexibles créés`);
+              this._logDebug(`${cooccurrenceLinks.length} flexible co-occurrence links created`);
       
       // Nettoyer les données temporaires
       this.cooccurrenceBindings = null;
@@ -1054,7 +1156,7 @@ export class VisGraph extends HTMLElement {
     });
     finalNodes.forEach(n => n.links = linkCount.get(n.id));
 
-    console.log(`[vis-graph] ✅ Transformation terminée: ${finalNodes.length} nœuds, ${finalLinks.length} liens`);
+    this._logDebug(`Transformation completed: ${finalNodes.length} nodes, ${finalLinks.length} links`);
     
     // Vider le cache du calculateur de domaines car de nouvelles données ont été transformées
     if (this.domainCalculator) {
@@ -1071,7 +1173,7 @@ export class VisGraph extends HTMLElement {
       try {
         this.enhanceAdaptiveEncodingWithClassification(vars, finalNodes);
       } catch (error) {
-        console.warn('[vis-graph] ⚠️ Erreur lors de l\'amélioration de l\'encoding adaptatif:', error.message);
+        this._logWarn('Error while enhancing adaptive encoding:', error.message);
       }
     }
     
@@ -1091,14 +1193,14 @@ export class VisGraph extends HTMLElement {
    * @returns {Array} Les liens de co-occurrence calculés
    */
   calculateFlexibleCooccurrence(bindings, sourceVar, linkVar) {
-    console.log('[vis-graph] 🔍 Calcul de co-occurrence basé sur la variable de lien spécifiée...');
-    console.log(`[vis-graph] 📊 ${bindings.length} bindings à analyser`);
+    this._logDebug('Calculating co-occurrence based on specified link variable...');
+    this._logDebug(`${bindings.length} bindings to analyze`);
     
-    console.log(`[vis-graph] 🎯 Variable source: "${sourceVar}"`);
-    console.log(`[vis-graph] 🔗 Variable de lien spécifiée: "${linkVar}"`);
+    this._logDebug(`Source variable: "${sourceVar}"`);
+    this._logDebug(`Specified link variable: "${linkVar}"`);
     
     if (!linkVar) {
-      console.warn(`[vis-graph] ⚠️ Aucune variable de lien spécifiée`);
+      this._logWarn(`No link variable specified`);
       return [];
     }
     
@@ -1122,7 +1224,7 @@ export class VisGraph extends HTMLElement {
       }
     });
     
-    console.log(`[vis-graph] 📊 ${valueGroups.size} valeurs distinctes trouvées pour "${linkVar}"`);
+    this._logDebug(`${valueGroups.size} distinct values found for "${linkVar}"`);
     
     // Créer des liens pour chaque groupe de valeurs partagées
     for (const [linkValue, group] of valueGroups.entries()) {
@@ -1130,7 +1232,7 @@ export class VisGraph extends HTMLElement {
       
       // Ne créer des liens que si au moins 2 entités partagent cette valeur
       if (entities.length >= 2) {
-        console.log(`[vis-graph] 🔗 Valeur "${linkValue}": ${entities.length} entités à connecter`);
+                  this._logDebug(`Value "${linkValue}": ${entities.length} entities to connect`);
         
         // Créer des liens entre toutes les paires d'entités dans ce groupe
         for (let i = 0; i < entities.length; i++) {
@@ -1156,15 +1258,15 @@ export class VisGraph extends HTMLElement {
             }
           }
         }
-      } else {
-        console.log(`[vis-graph] ℹ️ Valeur "${linkValue}": ${entities.length} entité (pas de lien créé)`);
-      }
+              } else {
+          this._logDebug(`Value "${linkValue}": ${entities.length} entity (no link created)`);
+        }
     }
     
     // Optimisation - Fusionner les liens multiples entre les mêmes entités
     const optimizedLinks = this.optimizeCooccurrenceLinks(cooccurrenceLinks);
     
-    console.log(`[vis-graph] ✅ Co-occurrence terminée: ${cooccurrenceLinks.length} liens bruts → ${optimizedLinks.length} liens optimisés`);
+    this._logDebug(`Co-occurrence completed: ${cooccurrenceLinks.length} raw links → ${optimizedLinks.length} optimized links`);
     
     return optimizedLinks;
   }
@@ -1256,13 +1358,13 @@ export class VisGraph extends HTMLElement {
             // Cas spécial : une seule variable de nœud, on calculera la cooccurrence
             sourceVar = mapping.nodes.field[0];
             targetVar = null; // Sera calculé automatiquement par cooccurrence
-            console.log(`[vis-graph] 📊 Mode cooccurrence activé pour la variable "${sourceVar}"`);
+            this._logDebug(`Co-occurrence mode activated for variable "${sourceVar}"`);
           } else {
-            console.error(`[vis-graph] ❌ Pour les liens sémantiques, il faut au moins 1 variable dans nodes.field`);
+            this._logError(`For semantic links, at least 1 variable is required in nodes.field`);
             throw new Error('Pour les liens sémantiques, il faut au moins 1 variable dans nodes.field');
           }
         } else {
-          console.warn(`[vis-graph] ⚠️ Variable de lien sémantique "${linkField}" non trouvée. Variables disponibles:`, vars);
+          this._logWarn(`Semantic link variable "${linkField}" not found. Available variables:`, vars);
         }
       } else if (typeof linkField === 'object' && linkField !== null) {
         // Lien directionnel : objet {source, target}
@@ -1272,7 +1374,7 @@ export class VisGraph extends HTMLElement {
             targetVar = linkField.target;
             linkType = 'directional';
           } else {
-            console.warn(`[vis-graph] ⚠️ Variables de lien directionnel non trouvées. Source: "${linkField.source}", Target: "${linkField.target}". Variables disponibles:`, vars);
+            this._logWarn(`Directional link variables not found. Source: "${linkField.source}", Target: "${linkField.target}". Available variables:`, vars);
           }
         }
       }
@@ -1332,13 +1434,13 @@ export class VisGraph extends HTMLElement {
    */
   async executeNodeQuery(node) {
     if (!node || !node.uri) {
-      console.error("[vis-graph] ❌ Aucun URI disponible pour ce nœud");
+      this._logError("No URI available for this node");
       this.showNotification("Ce nœud n'a pas d'URI associé", 'error');
       return;
     }
     
     try {
-      console.log(`[vis-graph] 🔍 Récupération des détails pour ${node.label}...`);
+      this._logDebug(`Retrieving details for ${node.label}...`);
       this.showNotification(`Récupération des détails pour ${node.label}...`);
       
       const endpoint = this.currentEndpoint || this.getAttribute('endpoint') || 'https://dbpedia.org/sparql';
@@ -1351,14 +1453,14 @@ export class VisGraph extends HTMLElement {
         relationships: null
       };
       
-      console.log(`[vis-graph] Requêtes pour les détails du nœud ${node.label} (URI: ${node.uri}) sur l'endpoint: ${endpoint}`);
+      this._logDebug(`Queries for node details ${node.label} (URI: ${node.uri}) on endpoint: ${endpoint}`);
       if (proxyUrl) {
-        console.log(`[vis-graph] URL du proxy configurée: ${proxyUrl}`);
+        this._logDebug(`Configured proxy URL: ${proxyUrl}`);
       }
 
       for (const [queryType, queryContent] of Object.entries(queries)) {
-        console.log(`[vis-graph] Exécution de la requête de type "${queryType}"`);
-        console.log(`[vis-graph] Contenu de la requête ${queryType}:\n${queryContent}`);
+                  this._logDebug(`Executing query type "${queryType}"`);
+          this._logDebug(`Query content ${queryType}:\n${queryContent}`);
         try {
           // Utiliser le sparqlFetcher avec hiérarchie endpoint > proxy
           const data = await this.sparqlFetcher.executeSparqlQueryWithFallback(
@@ -1369,9 +1471,9 @@ export class VisGraph extends HTMLElement {
             (message, type) => this.showNotification(message, type)
           );
           allData[queryType] = data;
-          console.log(`[vis-graph] ✅ Succès pour la requête ${queryType}`);
-        } catch (error) {
-          console.warn(`[vis-graph] ⚠️ Erreur pour la requête ${queryType}:`, error.message);
+                      this._logDebug(`Success for query ${queryType}`);
+          } catch (error) {
+            this._logWarn(`Error for query ${queryType}:`, error.message);
           this.showNotification(`Erreur lors de la récupération des données de type ${queryType}.`, 'error');
         }
       }
@@ -1380,7 +1482,7 @@ export class VisGraph extends HTMLElement {
       return { status: 'success', data: allData };
 
     } catch (error) {
-      console.error('[vis-graph] ❌ Erreur majeure lors de la récupération des détails du nœud:', error.message);
+      this._logError('Major error while retrieving node details:', error.message);
       this.showNotification(`Erreur: ${error.message}`, 'error');
       this.displayBasicNodeDetails(node); // Fallback
       return { status: 'error', message: error.message };
@@ -1762,7 +1864,7 @@ export class VisGraph extends HTMLElement {
     });
     const deduplicatedBindings = Array.from(uniqueRelations.values());
     
-    console.log(`[vis-graph] Déduplication des relations: ${bindings.length} → ${deduplicatedBindings.length}`);
+    this._logDebug(`Relations deduplication: ${bindings.length} → ${deduplicatedBindings.length}`);
     
     const section = document.createElement('div');
     section.className = 'info-section';
@@ -2913,12 +3015,12 @@ export class VisGraph extends HTMLElement {
     );
 
     if (validNodes.length !== this.nodes.length) {
-      console.warn(`[vis-graph] ⚠️ ${this.nodes.length - validNodes.length} nœuds invalides supprimés`);
+      this._logWarn(`${this.nodes.length - validNodes.length} invalid nodes removed`);
       this.nodes = validNodes;
     }
 
     if (validLinks.length !== this.links.length) {
-      console.warn(`[vis-graph] ⚠️ ${this.links.length - validLinks.length} liens invalides supprimés`);
+      this._logWarn(`${this.links.length - validLinks.length} invalid links removed`);
       this.links = validLinks;
     }
 
@@ -2955,7 +3057,7 @@ export class VisGraph extends HTMLElement {
         // Fallback 2: Utiliser un gris neutre pour les cas non définis
         return nodeColorConfig.value || '#cccccc';
       } catch (error) {
-        console.warn('[vis-graph] ⚠️ Erreur dans getNodeColor:', error.message);
+        this._logWarn('Error in getNodeColor:', error.message);
         return '#cccccc'; // Couleur de sécurité
       }
     };
@@ -2976,7 +3078,7 @@ export class VisGraph extends HTMLElement {
         const fallbackRadius = nodeSizeConfig.value || 10;
         return typeof fallbackRadius === 'number' && !isNaN(fallbackRadius) && fallbackRadius > 0 ? fallbackRadius : 10;
       } catch (error) {
-        console.warn('[vis-graph] ⚠️ Erreur dans getNodeRadius:', error.message);
+        this._logWarn('Error in getNodeRadius:', error.message);
         return 10; // Rayon de sécurité
       }
     };
@@ -3139,10 +3241,10 @@ export class VisGraph extends HTMLElement {
    * @returns {d3.Scale} L'échelle D3 configurée avec domaine calculé.
    */
   createD3Scale(scaleConfig, data = null, field = null, defaultScale = null) {
-    console.log(`[vis-graph] 🎨 Création d'échelle D3 pour le champ "${field}"`);
+    this._logDebug(`Creating D3 scale for field "${field}"`);
     
     if (!scaleConfig) {
-      console.warn(`[vis-graph] ⚠️ Configuration d'échelle invalide`);
+      this._logWarn(`Invalid scale configuration`);
       return defaultScale;
     }
 
@@ -3157,22 +3259,22 @@ export class VisGraph extends HTMLElement {
       try {
         finalDomain = this.domainCalculator.getDomain(data, field, userDomain, type);
       } catch (error) {
-        console.warn(`[vis-graph] ⚠️ Erreur lors du calcul du domaine pour "${field}":`, error.message);
+        this._logWarn(`Error while calculating domain for "${field}":`, error.message);
         return defaultScale;
       }
       
-      console.log(`[vis-graph] 🎯 Domaine calculé automatiquement:`, finalDomain);
+      this._logDebug(`Domain calculated automatically:`, finalDomain);
       
       if (!finalDomain || finalDomain.length === 0) {
-        console.warn(`[vis-graph] ⚠️ Aucune valeur trouvée pour le champ "${field}"`);
+        this._logWarn(`No values found for field "${field}"`);
         return defaultScale;
       }
     } else if (scaleConfig.domain && Array.isArray(scaleConfig.domain) && scaleConfig.domain.length > 0) {
       // Utiliser le domaine fourni tel quel (avec validation)
       finalDomain = scaleConfig.domain;
-      console.log(`[vis-graph] 📝 Utilisation du domaine fourni:`, finalDomain);
+      this._logDebug(`Using provided domain:`, finalDomain);
     } else {
-      console.warn(`[vis-graph] ⚠️ Aucun domaine valide disponible pour créer l'échelle`);
+      this._logWarn(`No valid domain available to create scale`);
       return defaultScale;
     }
     
@@ -3194,17 +3296,17 @@ export class VisGraph extends HTMLElement {
       });
       
       if (colorScaleResult && colorScaleResult.scale) {
-        console.log(`[vis-graph] ✅ Échelle ${scaleType} créée avec ColorScaleCalculator pour "${field}"`);
-        console.log(`[vis-graph] -> Domaine final:`, colorScaleResult.domain);
-        console.log(`[vis-graph] -> Range:`, colorScaleResult.range);
+        this._logDebug(`${scaleType} scale created with ColorScaleCalculator for "${field}"`);
+        this._logDebug(`-> Final domain:`, colorScaleResult.domain);
+        this._logDebug(`-> Range:`, colorScaleResult.range);
         
         return colorScaleResult.scale;
       } else {
-        console.warn(`[vis-graph] ⚠️ ColorScaleCalculator a échoué, utilisation du fallback`);
+        this._logWarn(`ColorScaleCalculator failed, using fallback`);
         return defaultScale;
       }
     } catch (error) {
-      console.error(`[vis-graph] ❌ Erreur lors de la création de l'échelle avec ColorScaleCalculator:`, error.message);
+              this._logError(`Error while creating scale with ColorScaleCalculator:`, error.message);
       return defaultScale;
     }
   }
@@ -3235,7 +3337,7 @@ export class VisGraph extends HTMLElement {
     const candidateFields = [];
 
     // Analyser chaque variable SPARQL pour trouver des champs de classification
-    console.log(`[vis-graph] 🔍 Analyse des variables SPARQL pour détection de classification:`, sparqlVars);
+    this._logDebug(`Analyzing SPARQL variables for classification detection:`, sparqlVars);
     
     sparqlVars.forEach(varName => {
       const lowerVarName = varName.toLowerCase();
@@ -3244,12 +3346,12 @@ export class VisGraph extends HTMLElement {
       classificationKeywords.forEach(({ keywords, priority, description }) => {
         keywords.forEach(keyword => {
           if (lowerVarName.includes(keyword)) {
-            console.log(`[vis-graph] 🎯 Variable "${varName}" correspond au mot-clé "${keyword}"`);
+            this._logDebug(`Variable "${varName}" matches keyword "${keyword}"`);
             
             // Analyser les valeurs de ce champ dans les données
             const fieldStats = this.analyzeFieldForClassification(data, varName);
             
-            console.log(`[vis-graph] 📊 Stats pour "${varName}":`, {
+            this._logDebug(`Stats for "${varName}":`, {
               uniqueCount: fieldStats.uniqueCount,
               coverage: Math.round(fieldStats.coverage * 100) + '%',
               isGood: fieldStats.isGoodForClassification,
@@ -3274,7 +3376,7 @@ export class VisGraph extends HTMLElement {
 
     // Si aucun champ candidat trouvé, analyser tous les champs pour trouver de bonnes classifications
     if (candidateFields.length === 0) {
-      console.log('[vis-graph] 🔍 Aucun champ de classification évident, analyse de tous les champs...');
+      this._logDebug('No obvious classification field, analyzing all fields...');
       
       sparqlVars.forEach(varName => {
         const fieldStats = this.analyzeFieldForClassification(data, varName);
@@ -3295,9 +3397,9 @@ export class VisGraph extends HTMLElement {
 
     // Afficher tous les candidats trouvés
     if (candidateFields.length > 0) {
-      console.log(`[vis-graph] 📋 ${candidateFields.length} champ(s) candidat(s) trouvé(s):`);
+      this._logDebug(`${candidateFields.length} candidate field(s) found:`);
       candidateFields.forEach((candidate, index) => {
-        console.log(`[vis-graph]   ${index + 1}. "${candidate.field}" (priorité: ${candidate.priority}, ${candidate.uniqueCount} valeurs, ${Math.round(candidate.coverage * 100)}%)`);
+        this._logDebug(`  ${index + 1}. "${candidate.field}" (priority: ${candidate.priority}, ${candidate.uniqueCount} values, ${Math.round(candidate.coverage * 100)}%)`);
       });
     }
 
@@ -3319,16 +3421,16 @@ export class VisGraph extends HTMLElement {
 
     if (candidateFields.length > 0) {
       const bestField = candidateFields[0];
-      console.log(`[vis-graph] 🎯 Meilleur champ de classification détecté: "${bestField.field}"`);
-      console.log(`[vis-graph] -> Raison: ${bestField.reason}`);
-      console.log(`[vis-graph] -> Valeurs uniques: ${bestField.uniqueCount}, Couverture: ${Math.round(bestField.coverage * 100)}%`);
-      console.log(`[vis-graph] -> Échantillon de valeurs:`, bestField.sampleValues);
+              this._logDebug(`Best classification field detected: "${bestField.field}"`);
+        this._logDebug(`-> Reason: ${bestField.reason}`);
+        this._logDebug(`-> Unique values: ${bestField.uniqueCount}, Coverage: ${Math.round(bestField.coverage * 100)}%`);
+        this._logDebug(`-> Sample values:`, bestField.sampleValues);
       
       return bestField;
     }
 
     // Fallback vers le champ "type" calculé
-    console.log('[vis-graph] ⚠️ Aucun champ de classification adapté trouvé, utilisation du fallback "type"');
+    this._logDebug('No suitable classification field found, using fallback "type"');
     return { 
       field: 'type', 
       reason: 'Fallback - aucun champ de classification adapté détecté',

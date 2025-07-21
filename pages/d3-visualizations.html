@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualisateur - D3.js</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="../js/sample-data.js"></script>
+    <script type="module" src="../components/VisTable.js"></script>
+    <script type="module" src="../components/vis-graph.js"></script>
+</head>
+<body>
+    <header>
+        <h1>Visualisateur de Données Métabolomiques</h1>
+        <nav class="main-nav">
+            <a href="../index.html">Accueil - Web Components</a>
+            <a href="d3-visualizations.html" class="active">D3 Visualisations</a>
+        </nav>
+    </header>
+
+    <div id="d3-container" class="view-container active">
+        <nav class="sub-nav">
+            <button id="view-scatter" class="active">Graphique à dispersion</button>
+            <button id="view-heatmap">Carte de chaleur</button>
+            <button id="view-network">Réseau d'interactions</button>
+            <button id="view-barplot">Diagramme à barres</button>
+            <button id="view-table">Tableau de données</button>
+        </nav>
+
+        <main>
+            <section id="data-info">
+                <h2>Informations sur les données</h2>
+                <div id="data-summary"></div>
+            </section>
+
+            <section id="visualization-container">
+                <div id="loading">Chargement des données...</div>
+                <div id="visualization"></div>
+                <div id="table-container" style="display: none;">
+                    <vis-table id="data-table" width="800" height="500" show-json="true"></vis-table>
+                </div>
+            </section>
+
+            <section id="controls">
+                <h2>Paramètres de visualisation</h2>
+                <div id="help-message" class="info">
+                    Sélectionnez les dimensions à visualiser puis cliquez sur un type de graphique ci-dessus.
+                </div>
+                <div id="visualization-controls">
+                    <div class="control-group">
+                        <label for="x-axis-select">Axe X:</label>
+                        <select id="x-axis-select"></select>
+                    </div>
+                    <div class="control-group">
+                        <label for="y-axis-select">Axe Y:</label>
+                        <select id="y-axis-select"></select>
+                    </div>
+                    <div class="control-group">
+                        <label for="color-by-select">Colorer par:</label>
+                        <select id="color-by-select"></select>
+                    </div>
+                    <div class="control-group">
+                        <label for="filter-select">Filtrer:</label>
+                        <select id="filter-select"></select>
+                        <input type="text" id="filter-value" placeholder="Valeur">
+                        <button id="apply-filter">Appliquer</button>
+                    </div>
+                </div>
+                <div id="table-controls" style="display: none;">
+                    <div class="control-group">
+                        <label for="show-json-checkbox">Afficher JSON:</label>
+                        <input type="checkbox" id="show-json-checkbox" checked>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="data-management">
+                <h2>Gestion des données</h2>
+                <div class="button-container">
+                    <button id="load-sample-data">Charger données d'exemple</button>
+                    <button id="clear-data">Effacer données</button>
+                </div>
+                <div id="data-status" class="info"></div>
+            </section>
+        </main>
+    </div>
+
+    <footer>
+        <p>Visualisateur intégré pour le chatbot gen²kgbot</p>
+    </footer>
+    
+    <script type="module" src="../js/d3-visualizer.js"></script>
+    <script type="module" src="../js/index.js"></script>
+</body>
+</html> 

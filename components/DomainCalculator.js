@@ -9,6 +9,32 @@ export class DomainCalculator {
     this.domainCache = new Map();
     // Cache pour les statistiques des champs
     this.fieldStatsCache = new Map();
+    
+    // Logging configuration - set to false to show only warnings and errors
+    this.enableDebugLogs = false;
+  }
+
+  /**
+   * Centralized logging methods for consistent output
+   */
+  _logDebug(message, ...args) {
+    if (this.enableDebugLogs) {
+      console.log(`%c[DomainCalculator] ${message}`, 'color:rgb(34, 255, 214)', ...args);
+    }
+  }
+
+  _logInfo(message, ...args) {
+    if (this.enableDebugLogs) {
+      console.info(`%c[DomainCalculator] ${message}`, 'color: #2196F3', ...args);
+    }
+  }
+
+  _logWarn(message, ...args) {
+    console.warn(`%c[DomainCalculator] WARNING: ${message}`, 'color: #FF9800; font-weight: bold', ...args);
+  }
+
+  _logError(message, ...args) {
+    console.error(`%c[DomainCalculator] ERROR: ${message}`, 'color: #F44336; font-weight: bold', ...args);
   }
 
   /**
@@ -23,7 +49,7 @@ export class DomainCalculator {
    */
   getDomain(data, field, userDomain = null, scaleType = 'ordinal') {
     if (!data || data.length === 0) {
-      console.warn(`[DomainCalculator] ⚠️ Aucune donnée disponible pour le champ "${field}"`);
+      this._logWarn(`No data available for field "${field}"`);
       return [];
     }
 
@@ -31,56 +57,61 @@ export class DomainCalculator {
     const extractedValues = this.getVal(data, field);
     
     if (extractedValues.length === 0) {
-      console.warn(`[DomainCalculator] ⚠️ Aucune valeur trouvée dans les données pour le champ "${field}"`);
+      this._logWarn(`No values found in data for field "${field}"`);
       return [];
     }
 
-    console.log(`[DomainCalculator] 🔍 Analyse du champ "${field}": ${extractedValues.length} valeurs uniques trouvées`);
-    console.log(`[DomainCalculator] 📋 Valeurs extraites des données:`, extractedValues);
-    console.log(`[DomainCalculator] 👤 Domaine utilisateur fourni:`, userDomain);
+    this._logDebug(`Field analysis "${field}": ${extractedValues.length} unique values found`);
+    this._logDebug(`Values extracted from data:`, extractedValues);
+    this._logDebug(`User domain provided:`, userDomain);
 
     // Cas 1: Pas de domaine utilisateur -> utiliser les valeurs extraites
     if (!userDomain || userDomain.length === 0) {
-      const reason = !userDomain ? "domaine utilisateur non défini (null/undefined)" : "domaine utilisateur vide (array vide)";
-      console.log(`[DomainCalculator] 📊 Cas 1: Génération automatique du domaine - Raison: ${reason}`);
-      console.log(`[DomainCalculator] ➡️ Génération automatique basée sur les ${extractedValues.length} valeurs des données`);
+      const reason = !userDomain ? "user domain not defined (null/undefined)" : "user domain empty (empty array)";
+      this._logDebug(`Case 1: Automatic domain generation - Reason: ${reason}`);
+      this._logDebug(`Automatic generation based on ${extractedValues.length} data values`);
+      
       const sortedDomain = this.sortDomainValues(extractedValues, scaleType);
-      console.log(`[DomainCalculator] ✅ Domaine généré (${scaleType}):`, sortedDomain);
+      
+      // Informational warning for user awareness
+      this._logWarn(`No domain provided by user for field "${field}". Domain automatically generated (${extractedValues.length} unique values): [${sortedDomain.join(', ')}]. To customize the domain, provide a "domain" array in your scale configuration.`);
+      
+      this._logDebug(`Domain generated (${scaleType}):`, sortedDomain);
       return sortedDomain;
     }
 
     // Cas 2: Domaine utilisateur erroné -> le corriger
     const invalidityReport = this.analyzeDomainInvalidity(userDomain, extractedValues);
     if (invalidityReport.isInvalid) {
-      console.warn(`[DomainCalculator] 🔧 Cas 2: Correction du domaine erroné`);
-      console.warn(`[DomainCalculator] ❌ Problème détecté: ${invalidityReport.reason}`);
-      console.warn(`[DomainCalculator] 📊 Domaine utilisateur:`, userDomain);
-      console.warn(`[DomainCalculator] 🔄 Valeurs invalides:`, invalidityReport.invalidValues);
-      console.warn(`[DomainCalculator] ✅ Valeurs valides trouvées:`, invalidityReport.validValues);
-      
       const fixedDomain = this.fixDomain(userDomain, extractedValues, scaleType);
-      console.log(`[DomainCalculator] 🔧 Domaine corrigé:`, fixedDomain);
+      
+      this._logWarn(`Invalid domain provided by user for field "${field}". Problem: ${invalidityReport.reason}. Domain corrected automatically: [${fixedDomain.join(', ')}]`);
+      this._logWarn(`User domain:`, userDomain);
+      this._logWarn(`Invalid values:`, invalidityReport.invalidValues);
+      this._logWarn(`Valid values found:`, invalidityReport.validValues);
+      
+      this._logDebug(`Domain corrected:`, fixedDomain);
       return fixedDomain;
     }
 
     // Cas 3: Domaine utilisateur incomplet -> le compléter
     const incompletenessReport = this.analyzeDomainIncompleteness(userDomain, extractedValues);
     if (incompletenessReport.isIncomplete) {
-      console.warn(`[DomainCalculator] ➕ Cas 3: Complétion du domaine incomplet`);
-      console.warn(`[DomainCalculator] 📊 Domaine utilisateur:`, userDomain);
-      console.warn(`[DomainCalculator] ❌ Valeurs manquantes (${incompletenessReport.missingValues.length}):`, incompletenessReport.missingValues);
-      console.warn(`[DomainCalculator] ✅ Valeurs déjà présentes (${incompletenessReport.existingValues.length}):`, incompletenessReport.existingValues);
-      console.warn(`[DomainCalculator] 📈 Couverture actuelle: ${Math.round(incompletenessReport.coverage * 100)}%`);
-      
       const completedDomain = this.completeDomain(userDomain, extractedValues, scaleType);
-      console.log(`[DomainCalculator] ➕ Domaine complété (${userDomain.length} → ${completedDomain.length} valeurs):`, completedDomain);
+      
+      this._logWarn(`Incomplete domain provided by user for field "${field}". Missing ${incompletenessReport.missingValues.length} values (coverage: ${Math.round(incompletenessReport.coverage * 100)}%). Domain completed automatically: [${completedDomain.join(', ')}]`);
+      this._logWarn(`User domain:`, userDomain);
+      this._logWarn(`Missing values:`, incompletenessReport.missingValues);
+      this._logWarn(`Already present values:`, incompletenessReport.existingValues);
+      
+      this._logDebug(`Domain completed (${userDomain.length} → ${completedDomain.length} values):`, completedDomain);
       return completedDomain;
     }
 
     // Cas 4: Domaine utilisateur valide -> le conserver tel quel
-    console.log(`[DomainCalculator] ✅ Domaine utilisateur valide, conservation à l'identique`);
-    console.log(`[DomainCalculator] 🎯 Toutes les valeurs du domaine utilisateur correspondent aux données`);
-    console.log(`[DomainCalculator] 📊 Domaine conservé:`, userDomain);
+    this._logDebug(`Valid user domain, keeping as is`);
+    this._logDebug(`All user domain values match the data`);
+    this._logDebug(`Domain preserved:`, userDomain);
     return [...userDomain]; // Copie pour éviter les modifications externes
   }
 
@@ -157,7 +188,7 @@ export class DomainCalculator {
     if (!Array.isArray(userDomain)) {
       return {
         isInvalid: true,
-        reason: "Le domaine utilisateur n'est pas un array",
+        reason: "User domain is not an array",
         invalidValues: [userDomain],
         validValues: [],
         totalUserValues: userDomain ? 1 : 0
@@ -181,9 +212,9 @@ export class DomainCalculator {
     let reason = "";
     if (isInvalid) {
       if (invalidValues.length === userDomain.length) {
-        reason = "Aucune valeur du domaine utilisateur ne correspond aux données";
+        reason = "No values in user domain match the data";
       } else {
-        reason = `${invalidValues.length}/${userDomain.length} valeurs du domaine utilisateur ne correspondent pas aux données`;
+        reason = `${invalidValues.length}/${userDomain.length} values in user domain do not match the data`;
       }
     }
 
@@ -272,16 +303,16 @@ export class DomainCalculator {
    * @returns {Array} Le domaine corrigé
    */
   fixDomain(invalidDomain, extractedValues, scaleType) {
-    console.log(`[DomainCalculator] 🔧 Correction d'un domaine invalide...`);
-    console.log(`[DomainCalculator] ❌ Domaine invalide:`, invalidDomain);
-    console.log(`[DomainCalculator] 📊 Données disponibles:`, extractedValues);
-    console.log(`[DomainCalculator] 🔄 Remplacement complet par les valeurs des données`);
+    this._logDebug(`Correcting invalid domain...`);
+    this._logDebug(`Invalid domain:`, invalidDomain);
+    this._logDebug(`Available data:`, extractedValues);
+    this._logDebug(`Complete replacement with data values`);
     
     // Pour un domaine complètement invalide, utiliser toutes les valeurs des données
     const sortedDomain = this.sortDomainValues(extractedValues, scaleType);
     
-    console.log(`[DomainCalculator] ✅ Domaine corrigé (tri ${scaleType}):`, sortedDomain);
-    console.log(`[DomainCalculator] 📈 Changement: ${invalidDomain.length} → ${sortedDomain.length} valeurs`);
+    this._logDebug(`Domain corrected (sorting ${scaleType}):`, sortedDomain);
+    this._logDebug(`Change: ${invalidDomain.length} → ${sortedDomain.length} values`);
     
     return sortedDomain;
   }
@@ -295,8 +326,8 @@ export class DomainCalculator {
    * @returns {Array} Le domaine complété
    */
   completeDomain(incompleteDomain, extractedValues, scaleType) {
-    console.log(`[DomainCalculator] ➕ Complétion d'un domaine incomplet...`);
-    console.log(`[DomainCalculator] 📊 Domaine utilisateur:`, incompleteDomain);
+    this._logDebug(`Completing incomplete domain...`);
+    this._logDebug(`User domain:`, incompleteDomain);
     
     // Garder l'ordre de l'utilisateur pour les valeurs qu'il a spécifiées
     const completedDomain = [...incompleteDomain];
@@ -306,20 +337,20 @@ export class DomainCalculator {
       !incompleteDomain.some(domainValue => this.valuesAreEqual(domainValue, dataValue))
     );
     
-    console.log(`[DomainCalculator] ❌ Valeurs manquantes détectées:`, missingValues);
+    this._logDebug(`Missing values detected:`, missingValues);
     
     // Trier les valeurs manquantes selon le type d'échelle
     const sortedMissingValues = this.sortDomainValues(missingValues, scaleType);
     
-    console.log(`[DomainCalculator] 🔄 Valeurs manquantes triées (${scaleType}):`, sortedMissingValues);
-    console.log(`[DomainCalculator] ➕ Ajout des valeurs manquantes à la fin du domaine utilisateur`);
+    this._logDebug(`Missing values sorted (${scaleType}):`, sortedMissingValues);
+    this._logDebug(`Adding missing values to end of user domain`);
     
     // Les ajouter à la fin du domaine utilisateur
     completedDomain.push(...sortedMissingValues);
     
-    console.log(`[DomainCalculator] ✅ Domaine complété:`, completedDomain);
-    console.log(`[DomainCalculator] 📈 Changement: ${incompleteDomain.length} → ${completedDomain.length} valeurs`);
-    console.log(`[DomainCalculator] 🎯 Préservation: ordre utilisateur maintenu pour les ${incompleteDomain.length} premières valeurs`);
+    this._logDebug(`Domain completed:`, completedDomain);
+    this._logDebug(`Change: ${incompleteDomain.length} → ${completedDomain.length} values`);
+    this._logDebug(`Preservation: user order maintained for first ${incompleteDomain.length} values`);
     
     return completedDomain;
   }
