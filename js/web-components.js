@@ -88,16 +88,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const commonPatterns = [
             // Patterns test-*
             'test-size', 'test-cooccurence', 'test-warn-nodes', 'test-no-colors',
-            // Patterns encoding-*
-            'encoding-basic', 'encoding-advanced', 'encoding-custom', 'encoding-demo',
-            // Patterns par types de visualisation
-            'graph-basic', 'graph-advanced', 'nodes-color', 'nodes-size', 'links-semantic', 'links-directional',
-            // Patterns par domaines
-            'bio-genes', 'bio-proteins', 'bio-metabolites', 'social-network', 'knowledge-graph',
-            // Patterns génériques
-            'example', 'demo', 'sample', 'preset1', 'preset2', 'preset3', 'config', 'mapping',
-            // Patterns personnalisés de l'utilisateur
-            ...customPatterns
+            'test-palette-in-array'
         ];
         
         // Extensions à tester

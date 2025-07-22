@@ -66,6 +66,8 @@ You don't need to worry about the details, just provide the configuration and th
 - **[vis-graph Component Guide](./docs/VisGraph.md)** - Internal operation and component architecture
 - **[SparqlDataFetcher Guide](./docs/dataFetcher-setup.md)** - Simple usage of the data retrieval module
 - **[SPARQL Proxy Configuration](./docs/proxy-setup.md)** - Resolving CORS issues
+- **[Domain Calculator Guide](./docs//DomainCalculator.md)** - Automatic domain calculation for visual encodings
+- **[Color Scale Calculator Guide](./docs/ColorScaleCalculator.md)** - Smart color palette generation
 
 ## 📄 License
 

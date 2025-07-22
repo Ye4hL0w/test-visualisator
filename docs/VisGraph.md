@@ -66,6 +66,29 @@ The `<vis-graph>` component follows a simple **"configure → launch"** pattern.
 </script>
 ```
 
+### Custom Visual Encoding
+
+For advanced visual customization, configure the encoding before launch:
+
+```javascript
+// Configure custom visual encoding
+graph.encoding = {
+  nodes: {
+    field: ["gene", "protein"],
+    color: { 
+      field: "geneCategory",
+      scale: { type: "ordinal", range: "Set1" }
+    }
+  },
+  links: {
+    field: {source: "gene", target: "protein"}
+  }
+};
+graph.launch();
+```
+
+> **📖 For complete encoding documentation**, see [Visual Encoding System](./Encoding.md)
+
 ### Alternative Data Sources
 
 You can also use pre-formatted SPARQL JSON data or manual node/link arrays:
@@ -93,216 +116,38 @@ The component follows this priority order:
 2. **SPARQL JSON**: `sparqlResult` object  
 3. **SPARQL Query**: `sparqlEndpoint` + `sparqlQuery`
 
-## 🎨 Visual Mapping System
+## Visual Encoding System
 
-The component's appearance is controlled by a JSON configuration object, inspired by VEGA. This system allows you to define how data is transformed and how it is rendered.
+The component uses a sophisticated visual encoding system inspired by VEGA to transform SPARQL data into interactive knowledge graphs. The encoding defines:
 
-### How it Works (Two-Level Mapping)
+1. **Field Mapping**: Which SPARQL variables to use for nodes and links
+2. **Visual Properties**: How to color, size, and style elements
 
-The mapping works in two main stages:
-
-1.  **Field Mapping (`field`)**: This happens during data transformation (`transformSparqlResults`). It tells the component **which variables** from the SPARQL results to use for creating the graph structure.
-    *   `nodes.field`: **Array format (required)** - List of SPARQL variables for nodes. Minimum 1 value. Example: `["gene", "protein"]`
-    *   `links.field`: Two formats supported:
-        - **Directional links**: `{source: "gene", target: "protein"}` (object format) - Creates directed links with arrows
-        - **Semantic links**: `"goLabel"` (string format) - Creates semantic relationships. Requires at least 2 variables in `nodes.field`
-
-2.  **Encoding (`color`, `size`, `width`, `distance`)**: This happens during D3 rendering (`createForceGraph`). It defines the **visual properties** of the SVG elements. For each property, the system follows a priority order:
-    1.  **Dynamic Scale**: If a `field` and a `scale` are provided, the component uses a D3 scale to map data values (e.g., detected classification field) to visual values (e.g., color). Domains are auto-calculated from data. If a value is not in the scale's domain, the fallback is used.
-    2.  **Fixed Value**: If a `value` is provided, it's applied to all elements.
-    3.  **Component Default**: If no configuration is provided, a hardcoded fallback value is used to ensure the graph renders.
-
-### Default Mapping Structure
-
-Here is the default configuration, which you can retrieve via `getDefaultEncoding()`. Use this as a template for your own encodings.
-
-```json
-{
-  "description": "Default visual mapping configuration",
-  "width": 800,
-  "height": 600,
-  "autosize": "none",
-  "nodes": {
-    "field": ["anatomicalEntity"],
-    "color": {
-      "field": "goLabel", // Automatically detected best classification field
-      "scale": {
-        "type": "ordinal",
-        "domain": ["extracellular space", "hormone activity", "response to glucose"], // Auto-calculated from data
-        "range": ["#1f77b4", "#ff7f0e", "#2ca02c"]
-      }
-    },
-    "size": {
-      "field": "connections",
-      "scale": {
-        "type": "linear",
-        "domain": [0, 10, 1, 2, 3, 9],
-        "range": [8, 25]
-      }
-    }
-  },
-  "links": {
-    "field": {source: "anatomicalEntity", target: "goClass"},
-    "distance": 100,
-    "width": {
-      "value": 1.5
-    },
-    "color": {
-      "value": "#999"
-    }
-  }
-}
-```
-
-### Applying a Custom Mapping
-
-To apply your custom configuration, set the `encoding` property before calling `launch()`.
-
-#### Example 1: Directional Links
+### Basic Encoding Structure
 
 ```javascript
-const graph = document.getElementById('myGraph');
-
-// Configure visual encoding for directional links
 graph.encoding = {
   nodes: {
-    field: ["gene", "protein"], // Array format - required
-    color: {
-      field: "geneCategory", // Automatically detected classification field
-      scale: {
-        type: "ordinal",
-        domain: ["oncogene", "tumor_suppressor", "metabolic_enzyme"], // Auto-calculated from data
-        range: ["#d62728", "#2ca02c", "#1f77b4"] // Colors for 3 categories
-      }
-    },
-    size: {
-      value: 15 // Set a fixed size for all nodes
-    }
+    field: ["gene", "protein"],          // Required: Array of SPARQL variables
+    color: { field: "type", scale: {...} },  // Optional: Color mapping
+    size: { field: "connections" }           // Optional: Size mapping
   },
   links: {
-    field: {source: "gene", target: "protein"}, // Object format for directional links
-    distance: 200, // Increase distance between nodes
-    color: {
-      value: "black"
-    }
+    field: {source: "gene", target: "protein"},  // Directional links
+    // OR
+    field: "relationshipType"                     // Semantic links
   }
 };
-
-// Configure your data source
-graph.sparqlEndpoint = 'https://example.com/sparql';
-graph.sparqlQuery = 'SELECT ?gene ?protein WHERE { ... }';
-
-// Launch with custom encoding applied
-graph.launch();
 ```
 
-#### Example 2: Semantic Links
+### Key Features
 
-```javascript
-const graph = document.getElementById('myGraph');
+- **Automatic domain calculation** from your data via [DomainCalculator](./DomainCalculator.md)
+- **Intelligent color palette management** via [ColorScaleCalculator](./ColorScaleCalculator.md)
+- **Strict validation** prevents rendering errors
+- **Flexible link types**: directional or semantic relationships
 
-// Configure visual encoding for semantic links
-graph.encoding = {
-  nodes: {
-    field: ["anatomicalEntity", "goClass"], // At least 2 variables required for semantic links
-    color: {
-      field: "entityType", // Automatically detected classification field
-      scale: {
-        type: "ordinal",
-        domain: ["organ", "tissue", "cell_type", "molecular_function"], // Auto-calculated from data
-        range: ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]
-      }
-    }
-  },
-  links: {
-    field: "goLabel", // String format for semantic links
-    distance: 150,
-    color: {
-      value: "#666"
-    }
-  }
-};
-
-graph.sparqlEndpoint = 'https://example.com/sparql';
-graph.sparqlQuery = 'SELECT ?anatomicalEntity ?goClass ?goLabel WHERE { ... }';
-graph.launch();
-```
-
-### Complete Configuration Example
-
-```javascript
-const graph = document.getElementById('myGraph');
-
-// Configure all properties at once
-graph.sparqlEndpoint = 'https://query.wikidata.org/sparql';
-graph.sparqlQuery = 'SELECT ?person ?personLabel ?birthPlace ?occupation WHERE { ... }';
-graph.proxy = 'http://localhost:3001/sparql-proxy';
-graph.encoding = {
-  nodes: {
-    field: ["person", "birthPlace"], // Array format with 2 variables
-    color: { 
-      field: "occupation", // Automatically detected classification field
-      scale: { 
-        type: "ordinal", 
-        domain: ["scientist", "artist", "politician", "writer"], // Auto-calculated from data
-        range: ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"] 
-      }
-    },
-    size: { 
-      field: "connections", 
-      scale: { 
-        type: "linear", 
-        domain: [1, 15, 2, 3, 8, 12], // Auto-calculated from actual connections
-        range: [10, 30] 
-      }
-    }
-  },
-  links: {
-    field: {source: "person", target: "birthPlace"}, // Directional links object format
-    distance: 150,
-    color: { value: "#333" }
-  }
-};
-
-// Launch everything at once
-graph.launch().then(result => {
-  console.log('Visualization ready:', result.status);
-});
-```
-
-## Field Validation & Error Handling
-
-The component now enforces **strict validation** on field configurations. Invalid configurations will prevent graph rendering entirely (no fallback).
-
-### Validation Rules
-
-| Rule | Description | Example |
-|------|-------------|---------|
-| **Nodes field format** | Must be an array with at least 1 value | ✅ `["gene"]` ❌ `"gene"` |
-| **Semantic links requirement** | String field requires ≥2 variables in nodes.field | ✅ `nodes: ["gene", "protein"], links: "goLabel"` |
-| **Directional links format** | Object must have both `source` and `target` | ✅ `{source: "gene", target: "protein"}` |
-| **Variable existence** | All field variables must exist in SPARQL results | Component validates against actual data |
-
-### Error Examples
-
-```javascript
-// ❌ ERROR: Node field not an array
-graph.encoding = {
-  nodes: { field: "gene" }, // Should be ["gene"]
-  links: { field: "goLabel" }
-};
-
-// ❌ ERROR: Incomplete directional field
-graph.encoding = {
-  nodes: { field: ["gene"] },
-  links: { field: {source: "gene"} } // Missing target property
-};
-```
-
-When validation fails, the component will:
-- Log detailed error messages to console
-- Display error notifications in the UI
-- **Stop execution completely** (no graph will be rendered)
+> **📖 Complete Documentation**: For detailed encoding specifications, validation rules, examples, and best practices, see [Visual Encoding System](./Encoding.md)
 
 ## General Operation
 

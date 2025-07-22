@@ -39,6 +39,29 @@ export class ColorScaleCalculator {
   }
 
   /**
+   * Valide si une couleur est reconnue (hex, noms CSS standard)
+   * @param {string} color - Couleur à valider
+   * @returns {boolean} True si la couleur est valide
+   */
+  isValidColor(color) {
+    if (typeof color !== 'string') return false;
+    
+    // Valider couleurs hex (#rgb, #rrggbb)
+    const hexPattern = /^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/;
+    if (hexPattern.test(color)) return true;
+    
+    // Valider couleurs CSS nommées courantes
+    const cssColors = [
+      'red', 'green', 'blue', 'yellow', 'orange', 'purple', 'pink', 'brown',
+      'black', 'white', 'gray', 'grey', 'cyan', 'magenta', 'lime', 'navy',
+      'maroon', 'olive', 'teal', 'silver', 'aqua', 'fuchsia', 'indigo',
+      'violet', 'gold', 'coral', 'salmon', 'khaki', 'crimson', 'chocolate'
+    ];
+    
+    return cssColors.includes(color.toLowerCase());
+  }
+
+  /**
    * Convertit un composant RGB en hexadécimal
    * @param {number} c - Composant RGB (0-255)
    * @returns {string} Hexadécimal à 2 caractères
@@ -249,17 +272,53 @@ export class ColorScaleCalculator {
         finalRange = d3.quantize(parsed.value, finalDomain.length);
       } else if (parsed?.type === "scheme") {
         finalRange = parsed.value;
+      } else {
+        // Palette non trouvée - utiliser fallback et warning
+        this._logWarn(`Palette "${range}" not found. Using default palette instead.`);
+        if (typeof smartFallback === 'function') {
+          finalRange = d3.quantize(smartFallback, finalDomain.length);
+        } else if (Array.isArray(smartFallback)) {
+          finalRange = smartFallback;
+        }
       }
     } else if (Array.isArray(range) && range.length === 1 && typeof range[0] === 'string') {
-      // Cas spécial : tableau avec un seul élément qui est un nom de schéma D3
-      const schemeName = range[0];
-      const parsed = this.parseD3ColorScheme(schemeName, scaleType);
-      if (parsed?.type === "interpolate") {
-        finalRange = d3.quantize(parsed.value, finalDomain.length);
-      } else if (parsed?.type === "scheme") {
-        finalRange = parsed.value;
+      // Vérifier si c'est un nom de palette D3 dans un array (erreur)
+      const potentialSchemeName = range[0];
+      const parsed = this.parseD3ColorScheme(potentialSchemeName, scaleType);
+      
+      if (parsed !== null) {
+        // C'est un nom de palette valide dans un array - lever une erreur explicite
+        const errorMessage = `Unsupported range format: ["${potentialSchemeName}"]. ` +
+          `To use a pre-existing palette, use the string directly: "${potentialSchemeName}". ` +
+          `Arrays are reserved for explicit hexadecimal colors like ["#1f77b4", "#ff7f0e"].`;
+        this._logError(errorMessage);
+        throw new Error(errorMessage);
       }
-      // Si ce n'est pas un schéma D3 reconnu, garder le tableau original
+      // Si ce n'est pas un nom de palette reconnu, continuer le traitement normal
+    }
+
+    // Validation des couleurs dans les arrays
+    if (Array.isArray(finalRange) && finalRange.length > 0) {
+      const validColors = [];
+      const invalidColors = [];
+      
+      finalRange.forEach(color => {
+        if (this.isValidColor(color)) {
+          validColors.push(color);
+        } else {
+          invalidColors.push(color);
+        }
+      });
+      
+      if (invalidColors.length > 0) {
+        this._logWarn(`Invalid colors detected and removed: [${invalidColors.join(', ')}]. Valid colors kept: [${validColors.join(', ')}]`);
+        if (validColors.length > 0) {
+          finalRange = validColors;
+        } else {
+          this._logWarn(`No valid colors found in range. Using default palette.`);
+          finalRange = null; // Sera traité par la validation finale
+        }
+      }
     }
 
     // Validation du range final

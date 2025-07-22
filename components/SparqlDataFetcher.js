@@ -16,7 +16,7 @@ export class SparqlDataFetcher {
    */
   _logDebug(message, ...args) {
     if (this.enableDebugLogs) {
-      console.log(`%c[SparqlDataFetcher] ${message}`, 'color: #4CAF50', ...args);
+      console.log(`%c[SparqlDataFetcher] ${message}`, 'color:rgb(172, 175, 76)', ...args);
     }
   }
 
