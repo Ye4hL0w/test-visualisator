@@ -144,6 +144,10 @@ export class VisGraph extends HTMLElement {
             "type": "ordinal",
             "domain": ["uri", "literal"],
             "range": ["#69b3a2", "#ff7f0e"]
+          },
+          "legend": {
+            "display": true,
+            "title": "Node Types"
           }
         },
         "size": {
@@ -152,6 +156,10 @@ export class VisGraph extends HTMLElement {
             "type": "linear",
             "domain": [0, 10],
             "range": [8, 25] // Rayon en pixels
+          },
+          "legend": {
+            "display": false,
+            "title": "Node Size"
           }
         }
       },
@@ -190,6 +198,23 @@ export class VisGraph extends HTMLElement {
       // Si une seule variable, créer un lien sémantique
       defaultEncoding.links.field = sparqlVars[0];
     }
+    
+    // S'assurer que les propriétés legend existent pour l'encoding adaptatif
+    if (!defaultEncoding.nodes.color.legend) {
+      defaultEncoding.nodes.color.legend = {
+        display: true,
+        title: "Node Types"
+      };
+    }
+    
+    if (!defaultEncoding.nodes.size.legend) {
+      defaultEncoding.nodes.size.legend = {
+        display: false,
+        title: "Node Size"
+      };
+    }
+    
+
     
     this._logDebug(`Adaptive encoding created with SPARQL variables:`, sparqlVars);
     this._logDebug(`-> Nodes based on:`, defaultEncoding.nodes.field);
@@ -233,6 +258,14 @@ export class VisGraph extends HTMLElement {
         domain: sortedDomain,
         range: colorPalette
       };
+      
+      // Ajouter les propriétés de légende si elles n'existent pas
+      if (!this.visualEncoding.nodes.color.legend) {
+        this.visualEncoding.nodes.color.legend = {
+          display: true,
+          title: `${bestClassificationField.field.charAt(0).toUpperCase() + bestClassificationField.field.slice(1)}`
+        };
+      }
       
       this._logDebug(`Color encoding updated:`);
       this._logDebug(`-> Field: "${bestClassificationField.field}"`);
@@ -293,7 +326,7 @@ export class VisGraph extends HTMLElement {
     } else {
       // CORRECTION: Validation précoce des champs obligatoires même sans données SPARQL
       if (!encoding.nodes?.field) {
-        const errorMessage = 'Le champ "nodes.field" est obligatoire dans un encoding personnalisé. Il doit être un array avec au moins une variable SPARQL.';
+        const errorMessage = 'The "nodes.field" field is required in custom encoding. It must be an array with at least one SPARQL variable.';
         this._logError('Invalid encoding:', errorMessage);
         this.showNotification(errorMessage, 'error');
         this._logWarn('Encoding will be ignored and adaptive encoding will be used instead');
@@ -366,20 +399,20 @@ export class VisGraph extends HTMLElement {
     // CORRECTION: Vérifier d'abord que nodes.field est présent (obligatoire)
     if (!encoding.nodes?.field) {
       this._logError('Field "nodes.field" is required in custom encoding');
-      warnings.push('Le champ "nodes.field" est obligatoire dans un encoding personnalisé. Il doit être un array avec au moins une variable SPARQL.');
+      warnings.push('The "nodes.field" field is required in custom encoding. It must be an array with at least one SPARQL variable.');
       isValid = false;
     } else {
       // Valider le field des nœuds (doit être un array avec minimum 1 valeur)
       const nodeField = encoding.nodes.field;
       if (!Array.isArray(nodeField) || nodeField.length === 0) {
         this._logError('Nodes field must be an array with at least one value');
-        warnings.push('Le field des nœuds doit être un array avec au moins une valeur');
+        warnings.push('Nodes field must be an array with at least one value');
         isValid = false;
       } else {
         // Valider chaque champ du tableau
         nodeField.forEach((field, index) => {
           if (field !== "links" && field !== "connections" && field !== "type" && !sparqlVars.includes(field)) {
-            warnings.push(`Field nœud #${index+1} "${field}" n'existe pas dans les données. Variables disponibles: ${sparqlVars.join(', ')}`);
+            warnings.push(`Node field #${index+1} "${field}" does not exist in the data. Available variables: ${sparqlVars.join(', ')}`);
             isValid = false;
           }
         });
@@ -393,7 +426,7 @@ export class VisGraph extends HTMLElement {
       // Cas 1: Lien sémantique (string)
       if (typeof linkField === 'string') {
         if (!sparqlVars.includes(linkField)) {
-          warnings.push(`Field lien sémantique "${linkField}" n'existe pas dans les données. Variables disponibles: ${sparqlVars.join(', ')}`);
+          warnings.push(`Semantic link field "${linkField}" does not exist in the data. Available variables: ${sparqlVars.join(', ')}`);
           isValid = false;
         }
         
@@ -401,7 +434,7 @@ export class VisGraph extends HTMLElement {
         if (encoding.nodes?.field && Array.isArray(encoding.nodes.field)) {
           if (encoding.nodes.field.length < 1) {
             this._logError('For semantic links, at least 1 variable is required in nodes field');
-            warnings.push('Pour les liens sémantiques, il faut au moins 1 variable dans le field des nœuds');
+            warnings.push('For semantic links, at least 1 variable is required in nodes field');
             isValid = false;
           } else if (encoding.nodes.field.length === 1) {
             this._logDebug('Semantic links with single variable - using automatic co-occurrence');
@@ -409,7 +442,7 @@ export class VisGraph extends HTMLElement {
           }
         } else {
           this._logError('For semantic links, nodes field must be an array with at least 1 variable');
-          warnings.push('Pour les liens sémantiques, le field des nœuds doit être un array avec au moins 1 variable');
+                      warnings.push('For semantic links, nodes field must be an array with at least 1 variable');
           isValid = false;
         }
       }
@@ -417,21 +450,21 @@ export class VisGraph extends HTMLElement {
       else if (typeof linkField === 'object' && linkField !== null) {
         if (!linkField.source || !linkField.target) {
           this._logError('Directional links field must have "source" and "target" properties');
-          warnings.push('Le field directionnel des liens doit avoir les propriétés "source" et "target"');
+          warnings.push('Directional links field must have "source" and "target" properties');
           isValid = false;
         } else {
           if (!sparqlVars.includes(linkField.source)) {
-            warnings.push(`Variable source "${linkField.source}" n'existe pas dans les données. Variables disponibles: ${sparqlVars.join(', ')}`);
+            warnings.push(`Source variable "${linkField.source}" does not exist in the data. Available variables: ${sparqlVars.join(', ')}`);
             isValid = false;
           }
           if (!sparqlVars.includes(linkField.target)) {
-            warnings.push(`Variable target "${linkField.target}" n'existe pas dans les données. Variables disponibles: ${sparqlVars.join(', ')}`);
+            warnings.push(`Target variable "${linkField.target}" does not exist in the data. Available variables: ${sparqlVars.join(', ')}`);
             isValid = false;
           }
         }
       } else {
         this._logError('Links field must be either a string (semantic link) or an object {source, target} (directional link)');
-        warnings.push('Le field des liens doit être soit une string soit un objet {source, target}');
+        warnings.push('Links field must be either a string or an object {source, target}');
         isValid = false;
       }
     }
@@ -440,14 +473,14 @@ export class VisGraph extends HTMLElement {
     if (encoding.nodes?.color?.field) {
       const colorField = encoding.nodes.color.field;
       if (colorField !== "type" && colorField !== "links" && colorField !== "connections" && !sparqlVars.includes(colorField)) {
-        warnings.push(`Field couleur "${colorField}" n'existe pas dans les données. Variables disponibles: ${sparqlVars.join(', ')}`);
+        warnings.push(`Color field "${colorField}" does not exist in the data. Available variables: ${sparqlVars.join(', ')}`);
       }
     }
 
     if (encoding.nodes?.size?.field) {
       const sizeField = encoding.nodes.size.field;
       if (sizeField !== "links" && sizeField !== "connections" && !sparqlVars.includes(sizeField)) {
-        warnings.push(`Field taille "${sizeField}" n'existe pas dans les données. Variables disponibles: ${sparqlVars.join(', ')}`);
+        warnings.push(`Size field "${sizeField}" does not exist in the data. Available variables: ${sparqlVars.join(', ')}`);
       }
     }
 
@@ -494,6 +527,14 @@ export class VisGraph extends HTMLElement {
             domain: calculatedDomain,
             range: defaultPalette
           };
+          
+          // Ajouter les propriétés de légende par défaut si elles n'existent pas
+          if (!this.visualEncoding.nodes.color.legend) {
+            this.visualEncoding.nodes.color.legend = {
+              display: true,
+              title: colorField.charAt(0).toUpperCase() + colorField.slice(1)
+            };
+          }
           
           this._logWarn(`Scale automatically generated for color field "${colorField}" (${calculatedDomain.length} unique values): [${calculatedDomain.join(', ')}]. Colors: ${defaultPalette.length} from 'Set1' palette.`);
           this._logDebug(`Generated color scale:`, this.visualEncoding.nodes.color.scale);
@@ -544,6 +585,14 @@ export class VisGraph extends HTMLElement {
             range: defaultRange
           };
           
+          // Ajouter les propriétés de légende par défaut si elles n'existent pas
+          if (!this.visualEncoding.nodes.size.legend) {
+            this.visualEncoding.nodes.size.legend = {
+              display: false,  // Par défaut, ne pas afficher la légende de taille
+              title: sizeField.charAt(0).toUpperCase() + sizeField.slice(1)
+            };
+          }
+          
           this._logWarn(`Scale automatically generated for size field "${sizeField}" (${calculatedDomain.length} unique values): [${calculatedDomain.join(', ')}]. Size range: [${defaultRange.join(', ')}].`);
           this._logDebug(`Generated size scale:`, this.visualEncoding.nodes.size.scale);
         } else {
@@ -565,50 +614,7 @@ export class VisGraph extends HTMLElement {
       }
     }
 
-    // --- DOMAINES DES LIENS ---
-    
-    // Domaine pour la couleur des liens
-    if (this.visualEncoding.links?.color?.field && this.links) {
-      const colorField = this.visualEncoding.links.color.field;
-      
-      // Si pas de scale défini, en créer un automatiquement
-      if (!this.visualEncoding.links.color.scale) {
-        this._logDebug(`No scale defined for link color field "${colorField}", generating automatically`);
-        
-        // Calculer le domaine automatiquement
-        const calculatedDomain = this.domainCalculator.getDomain(this.links, colorField, null, 'ordinal');
-        
-        if (calculatedDomain && calculatedDomain.length > 0) {
-          // Générer une palette de couleurs par défaut
-          const defaultPalette = this.colorScaleCalculator.getColorPalette('Set2', calculatedDomain.length, 'ordinal');
-          
-          // Créer la configuration d'échelle automatiquement
-          this.visualEncoding.links.color.scale = {
-            type: 'ordinal',
-            domain: calculatedDomain,
-            range: defaultPalette
-          };
-          
-          this._logWarn(`Scale automatically generated for link color field "${colorField}" (${calculatedDomain.length} unique values): [${calculatedDomain.join(', ')}]. Colors: ${defaultPalette.length} from 'Set2' palette.`);
-          this._logDebug(`Generated link color scale:`, this.visualEncoding.links.color.scale);
-        } else {
-          this._logWarn(`Could not generate scale for link color field "${colorField}" - no valid values found`);
-        }
-      } else {
-        // Scale existe déjà, juste calculer le domaine
-        const userDomain = this.visualEncoding.links.color.scale.domain;
-        const scaleType = this.visualEncoding.links.color.scale.type || 'ordinal';
-        
-        this.visualEncoding.links.color.scale.domain = this.domainCalculator.getDomain(
-          this.links, 
-          colorField, 
-          userDomain, 
-          scaleType
-        );
-        
-        this._logDebug(`Links color domain updated:`, this.visualEncoding.links.color.scale.domain);
-      }
-    }
+
 
     this._logDebug('Internal encoding updated with calculated domains');
     
@@ -1429,7 +1435,7 @@ export class VisGraph extends HTMLElement {
             this._logDebug(`Co-occurrence mode activated for variable "${sourceVar}"`);
           } else {
             this._logError(`For semantic links, at least 1 variable is required in nodes.field`);
-            throw new Error('Pour les liens sémantiques, il faut au moins 1 variable dans nodes.field');
+            throw new Error('For semantic links, at least 1 variable is required in nodes.field');
           }
         } else {
           this._logWarn(`Semantic link variable "${linkField}" not found. Available variables:`, vars);
@@ -2999,14 +3005,107 @@ export class VisGraph extends HTMLElement {
         .notification.fade-out {
           opacity: 0;
         }
+        .encoding-title {
+          position: absolute;
+          top: 10px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: rgba(255, 255, 255, 0.9);
+          padding: 8px 15px;
+          border-radius: 4px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          font-size: 14px;
+          font-weight: bold;
+          color: #333;
+          z-index: 5;
+          max-width: 80%;
+          text-align: center;
+        }
+        .legend-container {
+          position: absolute;
+          bottom: 15px;
+          left: 15px;
+          background: rgba(255, 255, 255, 0.95);
+          border: 1px solid #ddd;
+          border-radius: 6px;
+          padding: 12px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+          z-index: 5;
+          min-width: 180px;
+          max-width: 300px;
+          max-height: 400px;
+          overflow-y: auto;
+        }
+        .legend-container::-webkit-scrollbar {
+          width: 6px;
+        }
+        .legend-container::-webkit-scrollbar-track {
+          background: rgba(0,0,0,0.1);
+          border-radius: 3px;
+        }
+        .legend-container::-webkit-scrollbar-thumb {
+          background: rgba(0,0,0,0.3);
+          border-radius: 3px;
+        }
+        .legend-container::-webkit-scrollbar-thumb:hover {
+          background: rgba(0,0,0,0.5);
+        }
+        .legend-section {
+          margin-bottom: 15px;
+        }
+        .legend-section:last-child {
+          margin-bottom: 0;
+        }
+        .legend-title {
+          font-size: 13px;
+          font-weight: bold;
+          color: #333;
+          margin-bottom: 8px;
+          border-bottom: 1px solid #eee;
+          padding-bottom: 4px;
+        }
+        .legend-item {
+          display: flex;
+          align-items: center;
+          margin-bottom: 6px;
+          font-size: 12px;
+        }
+        .legend-item:last-child {
+          margin-bottom: 0;
+        }
+        .legend-color {
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          margin-right: 8px;
+          border: 1px solid #ccc;
+          flex-shrink: 0;
+        }
+        .legend-line {
+          width: 20px;
+          height: 2px;
+          margin-right: 8px;
+          flex-shrink: 0;
+        }
+        .legend-size {
+          border-radius: 50%;
+          margin-right: 8px;
+          border: 1px solid #ccc;
+          flex-shrink: 0;
+        }
+        .legend-label {
+          color: #555;
+          word-break: break-word;
+        }
       </style>
       <div class="graph-container">
         <svg></svg>
       </div>
     `;
 
-    this.createForceGraph();
-    this.initGlobalEventHandlers();
+          this.createForceGraph();
+      this.createLegends();
+      this.initGlobalEventHandlers();
   }
   
   /**
@@ -3069,7 +3168,7 @@ export class VisGraph extends HTMLElement {
         .attr("y", height / 2 + 20)
         .attr("text-anchor", "middle")
         .style("font-size", "14px")
-        .text("Veuillez saisir un endpoint SPARQL et une requête, puis cliquez sur \"Exécuter\".");
+        .text("Please enter a SPARQL endpoint and query.");
         
       return;
     }
@@ -3457,6 +3556,322 @@ export class VisGraph extends HTMLElement {
       }
       return defaultScale;
     }
+  }
+
+  /**
+   * Crée les légendes pour les nœuds et les liens selon l'encoding visuel
+   */
+  createLegends() {
+    // Supprimer les anciens éléments de légende et titre
+    const oldTitle = this.shadowRoot.querySelector('.encoding-title');
+    if (oldTitle) oldTitle.remove();
+    
+    const oldLegend = this.shadowRoot.querySelector('.legend-container');
+    if (oldLegend) oldLegend.remove();
+    
+    const container = this.shadowRoot.querySelector('.graph-container');
+    
+    // Ajouter le titre de l'encoding en haut
+    if (this.visualEncoding && this.visualEncoding.description) {
+      const titleElement = document.createElement('div');
+      titleElement.className = 'encoding-title';
+      titleElement.textContent = this.visualEncoding.description;
+      container.appendChild(titleElement);
+    }
+    
+    // Créer le conteneur des légendes
+    const legendContainer = document.createElement('div');
+    legendContainer.className = 'legend-container';
+    
+    let hasLegends = false;
+    
+    // Légende pour les couleurs des nœuds
+    if (this.visualEncoding?.nodes?.color?.legend?.display && 
+        this.visualEncoding?.nodes?.color?.scale && 
+        this.visualEncoding?.nodes?.color?.field && 
+        !this.visualEncoding?.nodes?.color?.value) {
+      // Récupérer l'échelle D3 réelle pour les couleurs
+      const nodeColorScale = this._getOrCreateScale(
+        `nodeColor-${this.visualEncoding.nodes.color.field}`, 
+        this.visualEncoding.nodes.color.scale, 
+        this.nodes, 
+        this.visualEncoding.nodes.color.field, 
+        true
+      );
+      
+      const nodeColorLegend = this.createColorLegend(
+        this.visualEncoding.nodes.color,
+        this.visualEncoding.nodes.color.legend.title || 'Node Colors',
+        false,
+        nodeColorScale
+      );
+      if (nodeColorLegend) {
+        legendContainer.appendChild(nodeColorLegend);
+        hasLegends = true;
+      }
+    }
+    
+    // Légende pour les tailles des nœuds
+    if (this.visualEncoding?.nodes?.size?.legend?.display && 
+        this.visualEncoding?.nodes?.size?.scale && 
+        this.visualEncoding?.nodes?.size?.field && 
+        !this.visualEncoding?.nodes?.size?.value) {
+      // Récupérer l'échelle D3 réelle pour les tailles
+      const nodeSizeScale = this._getOrCreateScale(
+        `nodeSize-${this.visualEncoding.nodes.size.field}`, 
+        this.visualEncoding.nodes.size.scale, 
+        this.nodes, 
+        this.visualEncoding.nodes.size.field, 
+        false
+      );
+      
+      const nodeSizeLegend = this.createSizeLegend(
+        this.visualEncoding.nodes.size,
+        this.visualEncoding.nodes.size.legend.title || 'Node Sizes',
+        nodeSizeScale
+      );
+      if (nodeSizeLegend) {
+        legendContainer.appendChild(nodeSizeLegend);
+        hasLegends = true;
+      }
+    }
+    
+
+    
+    // Ajouter le conteneur des légendes seulement s'il y a des légendes à afficher
+    if (hasLegends) {
+      container.appendChild(legendContainer);
+    }
+  }
+  
+  /**
+   * Crée une légende pour les couleurs
+   * @param {Object} colorConfig - Configuration de couleur (field, scale, etc.)
+   * @param {string} title - Titre de la légende
+   * @param {boolean} isLink - True si c'est pour les liens, false pour les nœuds
+   * @param {d3.Scale} d3Scale - Échelle D3 réelle pour récupérer les vraies couleurs
+   * @returns {HTMLElement|null} L'élément de légende ou null
+   */
+  createColorLegend(colorConfig, title, isLink = false, d3Scale = null) {
+    if (!colorConfig.scale || !colorConfig.scale.domain) {
+      return null;
+    }
+    
+    const section = document.createElement('div');
+    section.className = 'legend-section';
+    
+    const titleElement = document.createElement('div');
+    titleElement.className = 'legend-title';
+    titleElement.textContent = title;
+    section.appendChild(titleElement);
+    
+    const domain = colorConfig.scale.domain;
+    
+    // Créer les éléments de légende
+    domain.forEach((value, index) => {
+      const item = document.createElement('div');
+      item.className = 'legend-item';
+      
+      // Récupérer la couleur réelle depuis l'échelle D3 si disponible
+      let color;
+      if (d3Scale && typeof d3Scale === 'function') {
+        try {
+          color = d3Scale(value);
+        } catch (error) {
+          this._logWarn(`Error getting color from D3 scale for value "${value}":`, error);
+          color = '#cccccc'; // Couleur de fallback
+        }
+      } else if (Array.isArray(colorConfig.scale.range) && index < colorConfig.scale.range.length) {
+        // Fallback vers le range de la configuration si c'est un array
+        color = colorConfig.scale.range[index];
+      } else {
+        // Fallback final
+        color = '#cccccc';
+      }
+      
+      if (isLink) {
+        // Pour les liens, afficher une ligne
+        const line = document.createElement('div');
+        line.className = 'legend-line';
+        line.style.backgroundColor = color;
+        item.appendChild(line);
+      } else {
+        // Pour les nœuds, afficher un cercle
+        const circle = document.createElement('div');
+        circle.className = 'legend-color';
+        circle.style.backgroundColor = color;
+        item.appendChild(circle);
+      }
+      
+      const label = document.createElement('span');
+      label.className = 'legend-label';
+      label.textContent = value;
+      item.appendChild(label);
+      
+      section.appendChild(item);
+    });
+    
+    return section;
+  }
+  
+  /**
+   * Crée une légende pour les tailles
+   * @param {Object} sizeConfig - Configuration de taille (field, scale, etc.)
+   * @param {string} title - Titre de la légende
+   * @param {d3.Scale} d3Scale - Échelle D3 réelle pour récupérer les vraies tailles
+   * @returns {HTMLElement|null} L'élément de légende ou null
+   */
+  createSizeLegend(sizeConfig, title, d3Scale = null) {
+    if (!sizeConfig.scale || !sizeConfig.scale.domain) {
+      return null;
+    }
+    
+    const section = document.createElement('div');
+    section.className = 'legend-section';
+    
+    const titleElement = document.createElement('div');
+    titleElement.className = 'legend-title';
+    titleElement.textContent = title;
+    section.appendChild(titleElement);
+    
+    const domain = sizeConfig.scale.domain;
+    
+    // Pour les légendes de taille, montrer seulement quelques valeurs représentatives
+    let sampleValues;
+    if (d3Scale && typeof d3Scale === 'function') {
+      // Utiliser l'échelle D3 réelle pour calculer les tailles
+      sampleValues = this.getSampleValuesFromD3Scale(domain, d3Scale, 3);
+    } else {
+      // Fallback vers la méthode originale avec le range de la configuration
+      const range = sizeConfig.scale.range || [5, 20];
+      sampleValues = this.getSampleValues(domain, range, 3);
+    }
+    
+    sampleValues.forEach(({ value, size }) => {
+      const item = document.createElement('div');
+      item.className = 'legend-item';
+      
+      const circle = document.createElement('div');
+      circle.className = 'legend-size';
+      circle.style.width = `${Math.min(size, 20)}px`;
+      circle.style.height = `${Math.min(size, 20)}px`;
+      circle.style.backgroundColor = '#ccc';
+      item.appendChild(circle);
+      
+      const label = document.createElement('span');
+      label.className = 'legend-label';
+      label.textContent = value;
+      item.appendChild(label);
+      
+      section.appendChild(item);
+    });
+    
+    return section;
+  }
+  
+  /**
+   * Génère des valeurs d'échantillon pour les légendes de taille
+   * @param {Array} domain - Domaine de l'échelle
+   * @param {Array} range - Range de l'échelle  
+   * @param {number} count - Nombre d'échantillons à générer
+   * @returns {Array} Array d'objets {value, size}
+   */
+  getSampleValues(domain, range, count = 3) {
+    if (domain.length <= count) {
+      return domain.map((value, index) => ({
+        value,
+        size: range[Math.min(index, range.length - 1)]
+      }));
+    }
+    
+    const samples = [];
+    const step = (domain.length - 1) / (count - 1);
+    
+    for (let i = 0; i < count; i++) {
+      const index = Math.round(i * step);
+      const value = domain[index];
+      const size = range[Math.min(index, range.length - 1)];
+      samples.push({ value, size });
+    }
+    
+    return samples;
+  }
+  
+  /**
+   * Génère des valeurs d'échantillon en utilisant une échelle D3 réelle
+   * @param {Array} domain - Domaine de l'échelle
+   * @param {d3.Scale} d3Scale - Échelle D3 réelle
+   * @param {number} count - Nombre d'échantillons à générer
+   * @returns {Array} Array d'objets {value, size}
+   */
+  getSampleValuesFromD3Scale(domain, d3Scale, count = 3) {
+    if (!domain || domain.length === 0) {
+      return [];
+    }
+    
+    // Pour les domaines courts, utiliser toutes les valeurs
+    if (domain.length <= count) {
+      return domain.map(value => {
+        try {
+          const size = d3Scale(value);
+          return { value, size: typeof size === 'number' ? size : 10 };
+        } catch (error) {
+          this._logWarn(`Error getting size from D3 scale for value "${value}":`, error);
+          return { value, size: 10 };
+        }
+      });
+    }
+    
+    const samples = [];
+    
+    // Pour les domaines numériques longs, utiliser min, milieu, max
+    if (domain.length > 10 && this.isNumericDomain(domain)) {
+      const indices = [0, Math.floor(domain.length / 2), domain.length - 1];
+      
+      indices.forEach(index => {
+        const value = domain[index];
+        try {
+          const size = d3Scale(value);
+          samples.push({ 
+            value, 
+            size: typeof size === 'number' ? size : 10 
+          });
+        } catch (error) {
+          this._logWarn(`Error getting size from D3 scale for value "${value}":`, error);
+          samples.push({ value, size: 10 });
+        }
+      });
+    } else {
+      // Pour les domaines catégoriels ou courts, distribution uniforme
+      const step = (domain.length - 1) / (count - 1);
+      
+      for (let i = 0; i < count; i++) {
+        const index = Math.round(i * step);
+        const value = domain[index];
+        
+        try {
+          const size = d3Scale(value);
+          samples.push({ 
+            value, 
+            size: typeof size === 'number' ? size : 10 
+          });
+        } catch (error) {
+          this._logWarn(`Error getting size from D3 scale for value "${value}":`, error);
+          samples.push({ value, size: 10 });
+        }
+      }
+    }
+    
+    return samples;
+  }
+  
+  /**
+   * Vérifie si un domaine contient des valeurs numériques
+   * @param {Array} domain - Domaine à tester
+   * @returns {boolean} True si le domaine est numérique
+   */
+  isNumericDomain(domain) {
+    return domain.every(value => typeof value === 'number' || !isNaN(Number(value)));
   }
 
   /**

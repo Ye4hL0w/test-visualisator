@@ -111,6 +111,39 @@ Each visual property follows a consistent priority system:
 }
 ```
 
+## Legend System
+
+Add visual legends to explain your color and size encodings:
+
+```javascript
+"color": {
+  "field": "type",
+  "scale": { ... },
+  "legend": {
+    "display": true,           // Show/hide legend
+    "title": "Node Types"      // Legend title
+  }
+}
+```
+
+### Options
+- **`display`**: `true` to show, `false` to hide
+- **`title`**: Custom legend title (defaults to field name)
+
+### Global Title
+Use `description` for the main visualization title:
+
+```javascript
+{
+  "description": "My Knowledge Graph",  // Top title
+  "nodes": {
+    "color": {
+      "legend": { "display": true, "title": "Categories" }
+    }
+  }
+}
+```
+
 ## Scale Types and Ranges
 
 ### Ordinal Scales
@@ -168,6 +201,10 @@ Managed by [ColorScaleCalculator](./ColorScaleCalculator.md):
         "type": "ordinal",
         "domain": ["uri", "literal"],       // Auto-calculated
         "range": "Set1"                     // D3 palette
+      },
+      "legend": {
+        "display": true,                    // Show color legend
+        "title": "Node Types"              // Legend title
       }
     },
     
@@ -177,6 +214,10 @@ Managed by [ColorScaleCalculator](./ColorScaleCalculator.md):
         "type": "linear", 
         "domain": [0, 10],                  // Auto-calculated
         "range": [8, 25]                    // Min/max radius
+      },
+      "legend": {
+        "display": false,                   // Hide size legend by default
+        "title": "Node Size"               // Legend title
       }
     }
   },
@@ -223,6 +264,7 @@ Invalid configurations result in:
 ### Example 1: Gene-Protein Network (Directional)
 ```javascript
 const encoding = {
+  description: "Gene-Protein Interaction Network",
   nodes: {
     field: ["gene", "protein"],
     color: {
@@ -231,6 +273,10 @@ const encoding = {
         type: "ordinal",
         domain: ["gene", "protein", "complex"],
         range: "Category10"
+      },
+      legend: {
+        display: true,
+        title: "Molecule Types"
       }
     },
     size: {
@@ -239,13 +285,19 @@ const encoding = {
         type: "linear",
         domain: [1, 50],
         range: [10, 30]
+      },
+      legend: {
+        display: true,
+        title: "Interaction Count"
       }
     }
   },
   links: {
     field: {source: "gene", target: "protein"},
     distance: 150,
-    color: {value: "#666"},
+    color: {
+      value: "#666"
+    },
     width: {value: 2}
   }
 };
@@ -254,6 +306,7 @@ const encoding = {
 ### Example 2: Ontology Browser (Semantic)
 ```javascript
 const encoding = {
+  description: "Biological Ontology Network",
   nodes: {
     field: ["anatomicalEntity", "goClass"],
     color: {
@@ -261,9 +314,19 @@ const encoding = {
       scale: {
         type: "ordinal", 
         range: "Set2"                    // Auto-domain calculation
+      },
+      legend: {
+        display: true,
+        title: "Ontology Namespaces"
       }
     },
-    size: {value: 12}                    // Fixed size
+    size: {
+      value: 12,                         // Fixed size
+      legend: {
+        display: false,
+        title: "Node Size"
+      }
+    }
   },
   links: {
     field: "relationshipType",           // Semantic links
@@ -282,6 +345,7 @@ const encoding = {
 ### Example 3: Simple Publication Network
 ```javascript
 const encoding = {
+  description: "Author-Publication Network",
   nodes: {
     field: ["author", "paper"],
     color: {
@@ -290,6 +354,10 @@ const encoding = {
         type: "ordinal",
         domain: ["author", "paper"],
         range: ["#e41a1c", "#377eb8"]
+      },
+      legend: {
+        display: true,
+        title: "Entity Types"
       }
     }
   },
@@ -366,12 +434,20 @@ Domains are automatically calculated through DomainCalculator for:
 - **Use perceptually uniform palettes** (`"viridis"`, `"plasma"`) for quantitative data
 - **Test color accessibility** for your target audience
 
+### Legend Configuration
+- **Enable legends for color encodings** to improve comprehension
+- **Use descriptive legend titles** that explain the data mapping
+- **Hide size legends** unless they add significant value
+- **Consider legend space** when designing layout for small screens
+
 ### Performance Optimization
 - **Cache encoding objects** for repeated use
 - **Prefer fixed values** over scales when appropriate
 - **Limit domain sizes** for large datasets
+- **Disable unnecessary legends** to reduce visual clutter
 
 ### Error Prevention
 - **Always use array format** for `nodes.field`
 - **Validate SPARQL variable names** against your queries
-- **Test with sample data** before production deployment 
+- **Test with sample data** before production deployment
+- **Include description field** for better user understanding 

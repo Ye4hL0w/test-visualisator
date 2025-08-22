@@ -63,6 +63,10 @@
           "91"
         ],
         "range": "Blues"
+      },
+      "legend": {
+        "display": true,
+        "title": "Age Colors"
       }
     },
     "size": {
@@ -182,6 +186,10 @@
           59,
           60
         ]
+      },
+      "legend": {
+        "display": true,
+        "title": "Age Size"
       }
     }
   },
