@@ -116,10 +116,10 @@ export class DomainCalculator {
   }
 
   /**
-   * Extrait toutes les valeurs uniques d'un champ depuis les données.
-   * Gère les champs spéciaux comme 'connections' et 'type'.
+   * Extrait toutes les valeurs uniques d'un champ depuis les données brutes.
+   * Travaille uniquement avec les données issues directement des requêtes SPARQL.
    * 
-   * @param {Array} data - Les données à analyser
+   * @param {Array} data - Les données brutes à analyser
    * @param {string} field - Le nom du champ
    * @returns {Array} Les valeurs uniques trouvées
    */
@@ -127,16 +127,8 @@ export class DomainCalculator {
     const values = new Set();
     
     data.forEach((item, index) => {
-      let value = null;
-      
-      // Gestion des champs spéciaux calculés
-      if (field === 'connections' && typeof item.connections !== 'undefined') {
-        value = item.connections;
-      } else if (field === 'type' && typeof item.type !== 'undefined') {
-        value = item.type;
-      } else if (item[field] !== undefined && item[field] !== null) {
-        value = item[field];
-      }
+      // Extraction directe du champ depuis les données brutes
+      const value = item[field];
       
       if (value !== null && value !== undefined && value !== '') {
         values.add(value);
