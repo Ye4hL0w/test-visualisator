@@ -2,7 +2,7 @@
 
 ## Objective
 
-Automates domain calculation for visual encoding by handling three cases:
+Automates domain calculation for visual encoding by handling three cases with **raw SPARQL data**:
 
 1. **No domain** → `getVal(data[field])` (alphanumeric order)
 2. **Invalid domain** → `fixDomain(domain)` 
@@ -14,14 +14,14 @@ Automates domain calculation for visual encoding by handling three cases:
 Central method that automatically handles the 3 cases.
 
 **Parameters:**
-- `data` : Graph data (nodes or links)
+- `data` : Raw graph data (nodes or links from SPARQL results)
 - `field` : Field name to analyze
 - `userDomain` : User domain (optional)
 - `scaleType` : Scale type ('ordinal', 'linear', 'sqrt', 'log')
 
 ### Utility methods
 
-- `getVal(data, field)` : Extracts unique values from a field
+- `getVal(data, field)` : Extracts unique values from a field in raw data
 - `fixDomain(invalidDomain, extractedValues, scaleType)` : Fixes invalid domain
 - `completeDomain(incompleteDomain, extractedValues, scaleType)` : Completes partial domain
 - `analyzeFieldType(data, field)` : Analyzes field type and suggests scale
@@ -75,6 +75,7 @@ visGraphElement.getEncoding().nodes.color.scale.domain;
 - 💾 **Performance** : Intelligent cache and optimized processing
 - 🔧 **Flexibility** : Support for all D3 scale types
 - 🛡️ **Robustness** : Error handling and rigorous validation
+- 🗂️ **Raw data compatible** : Works directly with SPARQL results
 
 ## Use Cases
 

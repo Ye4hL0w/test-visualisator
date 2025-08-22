@@ -30,6 +30,11 @@ export class VisGraph extends HTMLElement {
     // Instance du calculateur de palettes de couleurs pour l'encoding visuel
     this.colorScaleCalculator = new ColorScaleCalculator();
     
+    // Cache pour les échelles calculées (évite les recalculs multiples)
+    this.scaleCache = new Map();
+    this.lastEncodingHash = null;
+    this.lastDataHash = null;
+    
     // Organisation des attributs privés (requête, endpoint, etc.)
     this.internalData = new WeakMap();
     this.internalData.set(this, {}); // Initialisation du stockage interne
@@ -39,6 +44,63 @@ export class VisGraph extends HTMLElement {
 
     // Encoding visuel VEGA - configuration par défaut
     this.visualEncoding = this.getDefaultEncoding();
+  }
+
+  /**
+   * Calcule un hash simple pour détecter les changements d'encoding et de données
+   */
+  _calculateEncodingHash() {
+    return JSON.stringify(this.visualEncoding);
+  }
+
+  _calculateDataHash() {
+    return `nodes:${this.nodes.length}-links:${this.links.length}`;
+  }
+
+  /**
+   * Vérifie si le cache des échelles doit être invalidé
+   */
+  _shouldInvalidateScaleCache() {
+    const currentEncodingHash = this._calculateEncodingHash();
+    const currentDataHash = this._calculateDataHash();
+    
+    const shouldInvalidate = 
+      this.lastEncodingHash !== currentEncodingHash || 
+      this.lastDataHash !== currentDataHash;
+    
+    if (shouldInvalidate) {
+      this._logDebug('Scale cache invalidated - encoding or data changed');
+      this.scaleCache.clear();
+      this.lastEncodingHash = currentEncodingHash;
+      this.lastDataHash = currentDataHash;
+    }
+    
+    return shouldInvalidate;
+  }
+
+  /**
+   * Récupère ou calcule une échelle avec cache
+   */
+  _getOrCreateScale(scaleKey, scaleConfig, data, field, isColorScale) {
+    // Vérifier si le cache doit être invalidé
+    this._shouldInvalidateScaleCache();
+    
+    // Chercher dans le cache
+    if (this.scaleCache.has(scaleKey)) {
+      this._logDebug(`Using cached scale: ${scaleKey}`);
+      return this.scaleCache.get(scaleKey);
+    }
+    
+    // Créer la nouvelle échelle
+    this._logDebug(`Creating new scale: ${scaleKey}`);
+    const scale = this.createD3Scale(scaleConfig, data, field, null, isColorScale);
+    
+    // Mettre en cache
+    if (scale) {
+      this.scaleCache.set(scaleKey, scale);
+    }
+    
+    return scale;
   }
 
   /**
@@ -743,6 +805,9 @@ export class VisGraph extends HTMLElement {
       this.colorScaleCalculator.clearCache();
     }
     
+    // Vider le cache des échelles visuelles
+    this.scaleCache.clear();
+    
     // Mettre à jour l'encoding avec les domaines calculés
     this.updateEncodingWithCalculatedDomains();
     
@@ -1167,6 +1232,9 @@ export class VisGraph extends HTMLElement {
     if (this.colorScaleCalculator) {
       this.colorScaleCalculator.clearCache();
     }
+    
+    // Vider le cache des échelles visuelles
+    this.scaleCache.clear();
     
     // Si on utilise l'encoding adaptatif, améliorer automatiquement avec détection des champs de classification
     if (usingAdaptiveEncoding) {
@@ -3039,10 +3107,10 @@ export class VisGraph extends HTMLElement {
     // --- ENCODING LOGIC ---
     // Create clear, explicit functions to get visual properties based on the encoding.
     
-    // Node Color
+    // Node Color (avec cache)
     const nodeColorConfig = mapping.nodes.color || {};
     const nodeColorScale = nodeColorConfig.scale ? 
-      this.createD3Scale(nodeColorConfig.scale, this.nodes, nodeColorConfig.field, null, true) : null;
+      this._getOrCreateScale(`nodeColor-${nodeColorConfig.field}`, nodeColorConfig.scale, this.nodes, nodeColorConfig.field, true) : null;
     const getNodeColor = d => {
       try {
         if (nodeColorScale && nodeColorConfig.field && d[nodeColorConfig.field] !== undefined) {
@@ -3062,10 +3130,10 @@ export class VisGraph extends HTMLElement {
       }
     };
 
-    // Node Size (Radius)
+    // Node Size (avec cache)
     const nodeSizeConfig = mapping.nodes.size || {};
     const nodeSizeScale = nodeSizeConfig.scale ? 
-      this.createD3Scale(nodeSizeConfig.scale, this.nodes, nodeSizeConfig.field, null, false) : null;
+      this._getOrCreateScale(`nodeSize-${nodeSizeConfig.field}`, nodeSizeConfig.scale, this.nodes, nodeSizeConfig.field, false) : null;
     const getNodeRadius = d => {
       try {
         if (nodeSizeScale && nodeSizeConfig.field && d[nodeSizeConfig.field] !== undefined) {
@@ -3083,10 +3151,10 @@ export class VisGraph extends HTMLElement {
       }
     };
 
-    // Link Color
+    // Link Color (avec cache)
     const linkColorConfig = mapping.links.color || {};
     const linkColorScale = linkColorConfig.scale ? 
-      this.createD3Scale(linkColorConfig.scale, this.links, linkColorConfig.field, null, true) : null;
+      this._getOrCreateScale(`linkColor-${linkColorConfig.field}`, linkColorConfig.scale, this.links, linkColorConfig.field, true) : null;
     const getLinkColor = d => {
       if (linkColorScale && linkColorConfig.field && d[linkColorConfig.field] !== undefined) {
         // CORRECTION: On vérifie aussi pour les liens

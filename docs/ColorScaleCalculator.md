@@ -11,18 +11,17 @@ The calculator automatically detects invalid palettes, validates color formats, 
 
 ## Main API
 
-### `createColorScale({ domain, range, dataKeys, scaleType, fallbackInterpolator, label })`
-Central method that creates D3 color scales with automatic validation and domain calculation.
+### `createColorScale({ domain, range, scaleType, fallbackInterpolator, label })`
+Central method that creates D3 color scales. Works with pre-calculated domains (from DomainCalculator).
 
 **Parameters:**
-- `domain` : Array of domain values to map to colors
+- `domain` : Array of domain values to map to colors (pre-calculated)
 - `range` : String (palette name) or Array (color list)
-- `dataKeys` : Available data values for domain validation (optional)
 - `scaleType` : Scale type ('ordinal', 'quantitative', 'sequential')
 - `fallbackInterpolator` : Custom fallback interpolator (optional)
 - `label` : Scale label for logging (optional)
 
-**Returns:** `{ scale, domain, range }` object with D3 scale and final values
+**Returns:** D3 scale function (e.g., `d3.scaleOrdinal().domain(...).range(...)`)
 
 ### Color Validation Methods
 
@@ -39,56 +38,34 @@ Central method that creates D3 color scales with automatic validation and domain
 | `getColorPalette(name, size, type)` | Simple palette extraction by name                         |
 | `rgbToHex(r, g, b)`       | Converts RGB values to hexadecimal                                  |
 | `hexToRgb(hex)`           | Converts hexadecimal to RGB format                                  |
-| `clearCache()`            | Clears internal scale cache                                          |
 
-## Range Format Rules
+## Color Input Formats
 
-### ✅ Supported Formats
-
-**Pre-existing Palettes (String):**
+### String Format (D3 Palettes)
 ```javascript
-// D3 color schemes
-"range": "Set1"           // → D3 categorical palette
-"range": "spectral"       // → D3 spectral interpolator  
-"range": "Blues"          // → D3 sequential blues
-"range": "Category10"     // → D3 10-color category palette
+// Direct palette name
+"range": "Set1"
+"range": "Blues"
+"range": "Viridis"
+
+// With specific size
+"range": "Blues[5]"
+"range": "Set1[8]"
 ```
 
-**Explicit Colors (Array):**
+### Array Format (Explicit Colors)
 ```javascript
 // Hexadecimal colors
 "range": ["#1f77b4", "#ff7f0e", "#2ca02c"]
 
-// CSS named colors
-"range": ["red", "green", "blue", "orange"]
+// CSS color names
+"range": ["red", "blue", "green"]
 
-// Mixed valid formats
-"range": ["#ff0000", "green", "#0000ff"]
+// Mixed formats
+"range": ["#ff0000", "blue", "rgb(0,255,0)"]
 ```
 
-### ❌ Unsupported Formats
-
-**Array with Palette Names:**
-```javascript
-"range": ["Set1"]         // ❌ ERROR: Use "Set1" directly
-"range": ["spectral"]     // ❌ ERROR: Use "spectral" directly
-```
-
-## Validation and Error Handling
-
-### Palette Validation
-When using string format, the calculator:
-1. **Validates palette existence** in D3 color schemes
-2. **Shows warning** if palette not found: `"Palette 'UnknownPalette' not found. Using default palette instead."`
-3. **Uses smart fallback** based on scale type and domain size
-
-### Color Validation  
-When using array format, the calculator:
-1. **Validates each color** (hex patterns, CSS named colors)
-2. **Filters invalid colors** with warning: `"Invalid colors detected and removed: [badcolor]. Valid colors kept: [#ff0000, green]"`
-3. **Uses fallback palette** if no valid colors remain
-
-### Error Cases
+### Invalid Format Warning
 ```javascript
 // Throws explicit error
 "range": ["Set1"]  
@@ -122,19 +99,19 @@ import { ColorScaleCalculator } from './components/ColorScaleCalculator.js';
 const calculator = new ColorScaleCalculator();
 
 // Create scale with D3 palette
-const result = calculator.createColorScale({
+const scale = calculator.createColorScale({
   domain: ['A', 'B', 'C'],
   range: 'Set1',
   scaleType: 'ordinal'
 });
 
-console.log(result.range); // → D3 Set1 colors
+console.log(scale('A')); // → Color for value 'A'
 ```
 
 ### Custom Color Lists
 ```javascript
 // Explicit colors with validation
-const result = calculator.createColorScale({
+const scale = calculator.createColorScale({
   domain: ['Type1', 'Type2', 'Type3'],
   range: ['#e41a1c', '#377eb8', '#4daf4a'],
   scaleType: 'ordinal'
@@ -171,30 +148,30 @@ The calculator provides intelligent fallbacks based on context:
 
 ### Ordinal Scales
 - **≤ 10 categories:** `d3.schemeCategory10` (optimal distinction)
-- **≤ 12 categories:** `d3.schemeSet3` (lighter palette)  
-- **> 12 categories:** Generated from `d3.interpolateSet1`
+- **≤ 12 categories:** `d3.schemeSet3` (softer colors for more categories)  
+- **> 12 categories:** `d3.quantize(d3.interpolateViridis, n)` (generated from interpolator)
 
-### Quantitative Scales
+### Quantitative/Sequential Scales
 - **Default:** `d3.interpolateViridis` (perceptually uniform)
-- **Alternative:** `d3.interpolateTurbo` for high-contrast needs
+- **Alternative:** Other D3 interpolators available
 
-## Performance Features
+## Performance & Caching
 
-- **Caching:** Scales are cached to avoid regeneration
-- **Validation:** Color validation prevents runtime errors
-- **Fallbacks:** Always provides working color schemes
-- **Logging:** Comprehensive debug and warning system
+- **Automatic caching** in vis-graph prevents redundant scale calculations
+- **Smart invalidation** based on encoding and data changes  
+- **Optimized color validation** with comprehensive format support
+- **Single responsibility:** Focus only on color range calculation
 
-## Logging Configuration
+## Error Handling
 
-```javascript
-const calculator = new ColorScaleCalculator();
+The calculator gracefully handles:
+- Invalid palette names → fallback palettes
+- Malformed color values → filtered out automatically
+- Empty ranges → smart defaults based on domain size
+- Mixed valid/invalid colors → keeps valid ones only
 
-// Enable detailed debug logs
-calculator.enableDebugLogs = true;
+## Compatibility
 
-// Log levels:
-// - Debug: Palette parsing, fallback selection
-// - Warning: Invalid palettes, filtered colors
-// - Error: Format violations, critical issues
-``` 
+- **D3.js:** v7+ (uses latest color schemes and interpolators)
+- **Browsers:** Modern ES6+ support required
+- **Integration:** Works seamlessly with DomainCalculator and vis-graph

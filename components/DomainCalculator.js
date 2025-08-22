@@ -85,10 +85,14 @@ export class DomainCalculator {
     if (invalidityReport.isInvalid) {
       const fixedDomain = this.fixDomain(userDomain, extractedValues, scaleType);
       
-      this._logWarn(`Invalid domain provided by user for field "${field}". Problem: ${invalidityReport.reason}. Domain corrected automatically: [${fixedDomain.join(', ')}]`);
-      this._logWarn(`User domain:`, userDomain);
-      this._logWarn(`Invalid values:`, invalidityReport.invalidValues);
-      this._logWarn(`Valid values found:`, invalidityReport.validValues);
+      // Regrouper tous les détails en un seul warning consolidé
+      const warningParts = [
+        `Invalid domain for field "${field}": ${invalidityReport.reason}`,
+        `User provided: [${userDomain.join(', ')}]`,
+        `Data contains: [${extractedValues.join(', ')}]`,
+        `Domain corrected to: [${fixedDomain.join(', ')}]`
+      ];
+      this._logWarn(warningParts.join(' | '));
       
       this._logDebug(`Domain corrected:`, fixedDomain);
       return fixedDomain;
@@ -99,10 +103,14 @@ export class DomainCalculator {
     if (incompletenessReport.isIncomplete) {
       const completedDomain = this.completeDomain(userDomain, extractedValues, scaleType);
       
-      this._logWarn(`Incomplete domain provided by user for field "${field}". Missing ${incompletenessReport.missingValues.length} values (coverage: ${Math.round(incompletenessReport.coverage * 100)}%). Domain completed automatically: [${completedDomain.join(', ')}]`);
-      this._logWarn(`User domain:`, userDomain);
-      this._logWarn(`Missing values:`, incompletenessReport.missingValues);
-      this._logWarn(`Already present values:`, incompletenessReport.existingValues);
+      // Regrouper tous les détails en un seul warning consolidé
+      const warningParts = [
+        `Incomplete domain for field "${field}": Missing ${incompletenessReport.missingValues.length} values (coverage: ${Math.round(incompletenessReport.coverage * 100)}%)`,
+        `User provided: [${userDomain.join(', ')}]`,
+        `Missing values: [${incompletenessReport.missingValues.join(', ')}]`,
+        `Domain completed to: [${completedDomain.join(', ')}]`
+      ];
+      this._logWarn(warningParts.join(' | '));
       
       this._logDebug(`Domain completed (${userDomain.length} → ${completedDomain.length} values):`, completedDomain);
       return completedDomain;
