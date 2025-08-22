@@ -68,6 +68,8 @@ You don't need to worry about the details, just provide the configuration and th
 - **[SPARQL Proxy Configuration](./docs/proxy-setup.md)** - Resolving CORS issues
 - **[Domain Calculator Guide](./docs//DomainCalculator.md)** - Automatic domain calculation for visual encodings
 - **[Color Scale Calculator Guide](./docs/ColorScaleCalculator.md)** - Smart color palette generation
+- **[Visual Encoding System](./docs/Encoding.md)** - Complete guide to the visual encoding system
+
 
 ## 📄 License
 

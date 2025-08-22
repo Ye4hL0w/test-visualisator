@@ -11,6 +11,9 @@ export class ColorScaleCalculator {
     // Cache pour les échelles générées
     this.scaleCache = new Map();
     
+    // Cache pour éviter les warnings répétés
+    this.warningCache = new Set();
+    
     // Logging configuration - set to false to show only warnings and errors
     this.enableDebugLogs = false;
   }
@@ -31,7 +34,12 @@ export class ColorScaleCalculator {
   }
 
   _logWarn(message, ...args) {
-    console.warn(`%c[ColorScaleCalculator] WARNING: ${message}`, 'color: #FF9800; font-weight: bold', ...args);
+    // Éviter les warnings répétés
+    const warningKey = message + JSON.stringify(args);
+    if (!this.warningCache.has(warningKey)) {
+      console.warn(`%c[ColorScaleCalculator] WARNING: ${message}`, 'color: #FF9800; font-weight: bold', ...args);
+      this.warningCache.add(warningKey);
+    }
   }
 
   _logError(message, ...args) {
@@ -39,23 +47,57 @@ export class ColorScaleCalculator {
   }
 
   /**
-   * Valide si une couleur est reconnue (hex, noms CSS standard)
+   * Valide si une couleur est reconnue (hex, rgb, rgba, hsl, hsla, noms CSS standard)
    * @param {string} color - Couleur à valider
    * @returns {boolean} True si la couleur est valide
    */
   isValidColor(color) {
     if (typeof color !== 'string') return false;
     
+    // Nettoyer la couleur (supprimer espaces)
+    color = color.trim();
+    
     // Valider couleurs hex (#rgb, #rrggbb)
     const hexPattern = /^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/;
     if (hexPattern.test(color)) return true;
+    
+    // Valider couleurs RGB/RGBA
+    const rgbPattern = /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*([01]|0?\.\d+))?\s*\)$/;
+    const rgbMatch = color.match(rgbPattern);
+    if (rgbMatch) {
+      const [, r, g, b, a] = rgbMatch;
+      // Vérifier que les valeurs RGB sont dans la plage 0-255
+      if (parseInt(r) <= 255 && parseInt(g) <= 255 && parseInt(b) <= 255) {
+        // Si alpha est présent, vérifier qu'il est entre 0 et 1
+        if (a === undefined || (parseFloat(a) >= 0 && parseFloat(a) <= 1)) {
+          return true;
+        }
+      }
+    }
+    
+    // Valider couleurs HSL/HSLA
+    const hslPattern = /^hsla?\(\s*(\d{1,3})\s*,\s*(\d{1,3})%\s*,\s*(\d{1,3})%\s*(?:,\s*([01]|0?\.\d+))?\s*\)$/;
+    const hslMatch = color.match(hslPattern);
+    if (hslMatch) {
+      const [, h, s, l, a] = hslMatch;
+      // Vérifier les plages HSL
+      if (parseInt(h) <= 360 && parseInt(s) <= 100 && parseInt(l) <= 100) {
+        // Si alpha est présent, vérifier qu'il est entre 0 et 1
+        if (a === undefined || (parseFloat(a) >= 0 && parseFloat(a) <= 1)) {
+          return true;
+        }
+      }
+    }
     
     // Valider couleurs CSS nommées courantes
     const cssColors = [
       'red', 'green', 'blue', 'yellow', 'orange', 'purple', 'pink', 'brown',
       'black', 'white', 'gray', 'grey', 'cyan', 'magenta', 'lime', 'navy',
       'maroon', 'olive', 'teal', 'silver', 'aqua', 'fuchsia', 'indigo',
-      'violet', 'gold', 'coral', 'salmon', 'khaki', 'crimson', 'chocolate'
+      'violet', 'gold', 'coral', 'salmon', 'khaki', 'crimson', 'chocolate',
+      'darkred', 'darkgreen', 'darkblue', 'darkorange', 'darkgray', 'darkgrey',
+      'lightred', 'lightgreen', 'lightblue', 'lightyellow', 'lightgray', 'lightgrey',
+      'steelblue', 'royalblue', 'forestgreen', 'orangered', 'tomato', 'dodgerblue'
     ];
     
     return cssColors.includes(color.toLowerCase());
@@ -180,8 +222,7 @@ export class ColorScaleCalculator {
       }
     }
 
-    this._logWarn(`D3 schema not found: ${input} for type ${scaleType}`);
-    this._logWarn(`Available D3 schemas:`, Object.keys(d3).filter(k => k.startsWith('scheme') || k.startsWith('interpolate')));
+    this._logWarn(`D3 color scheme "${input}" not found for type "${scaleType}". See available schemes at: https://d3js.org/d3-scale-chromatic`);
     return null;
   }
 
@@ -202,8 +243,8 @@ export class ColorScaleCalculator {
       } else if (domainSize <= 12) {
         return d3.schemeSet3; // Palette plus claire pour plus de catégories
       } else {
-        // Pour beaucoup de catégories, générer depuis un interpolateur
-        return d3.quantize(d3.interpolateSet1, domainSize);
+        // Pour beaucoup de catégories, générer depuis un interpolateur valide
+        return d3.quantize(d3.interpolateViridis, domainSize);
       }
     }
   }
@@ -255,6 +296,25 @@ export class ColorScaleCalculator {
     // Obtenir le meilleur fallback si pas spécifié
     const smartFallback = fallbackInterpolator || this.getBestFallback(scaleType, finalDomain.length);
     this._logDebug(`Smart fallback chosen (${label}):`, typeof smartFallback === 'function' ? smartFallback.name : smartFallback);
+    
+    // Validation de sécurité pour les interpolateurs
+    if (typeof smartFallback === 'function') {
+      try {
+        // Test rapide pour vérifier que l'interpolateur fonctionne
+        smartFallback(0.5);
+      } catch (error) {
+        this._logWarn(`Invalid interpolator detected, using Category10 instead: ${error.message}`);
+        const safeFallback = d3.schemeCategory10;
+        return this.createColorScale({
+          domain: finalDomain,
+          range: safeFallback,
+          dataKeys,
+          scaleType,
+          fallbackInterpolator: safeFallback,
+          label
+        });
+      }
+    }
 
     // Traitement du range avec la nouvelle logique de parsing
     let finalRange = range;
@@ -273,8 +333,7 @@ export class ColorScaleCalculator {
       } else if (parsed?.type === "scheme") {
         finalRange = parsed.value;
       } else {
-        // Palette non trouvée - utiliser fallback et warning
-        this._logWarn(`Palette "${range}" not found. Using default palette instead.`);
+        // Palette non trouvée - utiliser fallback (warning déjà affiché par parseD3ColorScheme)
         if (typeof smartFallback === 'function') {
           finalRange = d3.quantize(smartFallback, finalDomain.length);
         } else if (Array.isArray(smartFallback)) {
@@ -291,8 +350,21 @@ export class ColorScaleCalculator {
         const errorMessage = `Unsupported range format: ["${potentialSchemeName}"]. ` +
           `To use a pre-existing palette, use the string directly: "${potentialSchemeName}". ` +
           `Arrays are reserved for explicit hexadecimal colors like ["#1f77b4", "#ff7f0e"].`;
-        this._logError(errorMessage);
-        throw new Error(errorMessage);
+        this._logWarn(errorMessage);
+        
+        // Utiliser automatiquement la version string correcte au lieu de throw
+        if (parsed?.type === "interpolate") {
+          finalRange = d3.quantize(parsed.value, finalDomain.length);
+        } else if (parsed?.type === "scheme") {
+          finalRange = parsed.value;
+        } else {
+          // Si même la version string ne fonctionne pas, utiliser le fallback
+          if (typeof smartFallback === 'function') {
+            finalRange = d3.quantize(smartFallback, finalDomain.length);
+          } else if (Array.isArray(smartFallback)) {
+            finalRange = smartFallback;
+          }
+        }
       }
       // Si ce n'est pas un nom de palette reconnu, continuer le traitement normal
     }
@@ -366,7 +438,7 @@ export class ColorScaleCalculator {
           scale.domain = () => finalDomain;
           scale.range = () => finalColors;
         } else {
-          // Fallback vers ordinal si pas d'interpolateur
+          // Fallback vers ordinal si pas d'interpolateur (warning déjà affiché)
           scale = d3.scaleOrdinal().domain(finalDomain).range(finalColors);
         }
       } else {
@@ -422,13 +494,23 @@ export class ColorScaleCalculator {
     // Fallback intelligent basé sur le type et la taille
     const smartFallback = this.getBestFallback(scaleType, size);
     if (typeof smartFallback === 'function') {
-      return d3.quantize(smartFallback, size);
+      try {
+        return d3.quantize(smartFallback, size);
+      } catch (error) {
+        this._logWarn(`Error with interpolator in getColorPalette: ${error.message}. Using Category10.`);
+        return d3.schemeCategory10.slice(0, Math.min(size, 10));
+      }
     } else if (Array.isArray(smartFallback)) {
       return smartFallback.slice(0, size);
     }
     
     // Dernier recours
-    return d3.quantize(d3.interpolateViridis, size);
+    try {
+      return d3.quantize(d3.interpolateViridis, size);
+    } catch (error) {
+      this._logWarn(`Error with Viridis interpolator: ${error.message}. Using Category10.`);
+      return d3.schemeCategory10.slice(0, Math.min(size, 10));
+    }
   }
 
   /**
@@ -447,10 +529,11 @@ export class ColorScaleCalculator {
   }
 
   /**
-   * Vide le cache des échelles
+   * Vide le cache des échelles et des warnings
    */
   clearCache() {
     this.scaleCache.clear();
+    this.warningCache.clear();
     this._logDebug('Cache cleared');
   }
 }

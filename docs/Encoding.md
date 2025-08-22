@@ -30,6 +30,10 @@ Occurs during `createForceGraph()` and defines **visual properties** of SVG elem
 ```javascript
 "nodes": {
   "field": ["gene"]                    // Single variable
+}
+```
+```javascript
+"nodes": {
   "field": ["gene", "protein"]         // Multiple variables
 }
 ```
@@ -49,12 +53,13 @@ Creates directed links with arrows between specific source and target nodes:
 ```
 
 #### Semantic Links (String Format)
-Creates relationships based on shared semantic properties. Requires ≥2 variables in `nodes.field`:
+Creates relationships based on shared semantic properties:
 
 ```javascript
 "nodes": { "field": ["gene", "protein"] },
 "links": { "field": "goLabel" }         // Semantic relationship variable
 ```
+If nodes.field has <2 variables, co-occurrence relationships will be automatically calculated.
 
 ## Visual Property Encoding
 
@@ -73,7 +78,7 @@ Each visual property follows a consistent priority system:
   "scale": {
     "type": "ordinal",
     "domain": ["oncogene", "tumor_suppressor"],     // Auto-calculated from data
-    "range": "Set1"                                 // D3 palette or color array
+    "range": "Blues"                                 // D3 palette or color array
   }
 }
 ```
@@ -90,9 +95,9 @@ Each visual property follows a consistent priority system:
 #### Scale-Based Sizing
 ```javascript
 "size": {
-  "field": "connections",
+  "field": "links",   // Any node variable or "links"
   "scale": {
-    "type": "linear",
+    "type": "linear", 
     "domain": [1, 10],      // Auto-calculated from data
     "range": [8, 25]        // Min/max pixel radius
   }
@@ -121,7 +126,7 @@ For categorical data (types, classifications):
 }
 ```
 
-### Linear Scales  
+### Quantitative Scales  
 For continuous numerical data:
 
 ```javascript
@@ -167,7 +172,7 @@ Managed by [ColorScaleCalculator](./ColorScaleCalculator.md):
     },
     
     "size": {
-      "field": "connections",               // Data field for sizing
+      "field": "links",               // Data field for sizing
       "scale": {
         "type": "linear", 
         "domain": [0, 10],                  // Auto-calculated

@@ -1,60 +1,123 @@
 {
-    "head": {
-      "vars": ["nom", "prenom", "age"]
-    },
-    "results": {
-      "bindings": [
-        {
-          "nom": { "type": "literal", "value": "Bach" },
-          "prenom": { "type": "literal", "value": "Johann Sebastian" },
-          "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "65" }
-        },
-        {
-          "nom": { "type": "literal", "value": "Mozart" },
-          "prenom": { "type": "literal", "value": "Wolfgang Amadeus" },
-          "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "35" }
-        },
-        {
-          "nom": { "type": "literal", "value": "Beethoven" },
-          "prenom": { "type": "literal", "value": "Ludwig van" },
-          "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "56" }
-        },
-        {
-          "nom": { "type": "literal", "value": "Chopin" },
-          "prenom": { "type": "literal", "value": "Frédéric" },
-          "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "39" }
-        },
-        {
-          "nom": { "type": "literal", "value": "Coltrane" },
-          "prenom": { "type": "literal", "value": "John" },
-          "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "40" }
-        },
-        {
-          "nom": { "type": "literal", "value": "Davis" },
-          "prenom": { "type": "literal", "value": "Miles" },
-          "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "65" }
-        },
-        {
-          "nom": { "type": "literal", "value": "Ellington" },
-          "prenom": { "type": "literal", "value": "Duke" },
-          "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "75" }
-        },
-        {
-          "nom": { "type": "literal", "value": "Piazzolla" },
-          "prenom": { "type": "literal", "value": "Astor" },
-          "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "71" }
-        },
-        {
-          "nom": { "type": "literal", "value": "Wonder" },
-          "prenom": { "type": "literal", "value": "Stevie" },
-          "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "74" }
-        },
-        {
-          "nom": { "type": "literal", "value": "Gainsbourg" },
-          "prenom": { "type": "literal", "value": "Serge" },
-          "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "62" }
-        }
-      ]
-    }
+  "head": {
+    "vars": [
+      "nom",
+      "prenom",
+      "age"
+    ]
+  },
+  "results": {
+    "bindings": [
+      {
+        "nom": { "type": "literal", "value": "Bader" },
+        "prenom": { "type": "literal", "value": "Alexander" },
+        "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "60" }
+      },
+      {
+        "nom": { "type": "literal", "value": "Allen" },
+        "prenom": { "type": "literal", "value": "Stewart" },
+        "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "90" }
+      },
+      {
+        "nom": { "type": "literal", "value": "Roberts" },
+        "prenom": { "type": "literal", "value": "Matana" },
+        "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "47" }
+      },
+      {
+        "nom": { "type": "literal", "value": "LaBarbera" },
+        "prenom": { "type": "literal", "value": "Pat" },
+        "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "81" }
+      },
+      {
+        "nom": { "type": "literal", "value": "Sharp" },
+        "prenom": { "type": "literal", "value": "Elliott" },
+        "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "74" }
+      },
+      {
+        "nom": { "type": "literal", "value": "Allen" },
+        "prenom": { "type": "literal", "value": "Heywood" },
+        "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "90" }
+      },
+      {
+        "nom": { "type": "literal", "value": "Rothenberg" },
+        "prenom": { "type": "literal", "value": "Ned" },
+        "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "69" }
+      },
+      {
+        "nom": { "type": "literal", "value": "Konigsberg" },
+        "prenom": { "type": "literal", "value": "Heywood" },
+        "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "90" }
+      },
+      {
+        "nom": { "type": "literal", "value": "Ehrlich" },
+        "prenom": { "type": "literal", "value": "Marty" },
+        "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "70" }
+      },
+      {
+        "nom": { "type": "literal", "value": "Potter" },
+        "prenom": { "type": "literal", "value": "Chris" },
+        "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "54" }
+      },
+      {
+        "nom": { "type": "literal", "value": "Koch" },
+        "prenom": { "type": "literal", "value": "Hans" },
+        "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "77" }
+      },
+      {
+        "nom": { "type": "literal", "value": "Speed" },
+        "prenom": { "type": "literal", "value": "Chris" },
+        "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "58" }
+      },
+      {
+        "nom": { "type": "literal", "value": "Biscoe" },
+        "prenom": { "type": "literal", "value": "Chris" },
+        "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "78" }
+      },
+      {
+        "nom": { "type": "literal", "value": "Molden" },
+        "prenom": { "type": "literal", "value": "Ernst" },
+        "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "58" }
+      },
+      {
+        "nom": { "type": "literal", "value": "Frieß" },
+        "prenom": { "type": "literal", "value": "Erhard" },
+        "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "89" }
+      },
+      {
+        "nom": { "type": "literal", "value": "Wülfing" },
+        "prenom": { "type": "literal", "value": "Hans" },
+        "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "25" }
+      },
+      {
+        "nom": { "type": "literal", "value": "Ulrik" },
+        "prenom": { "type": "literal", "value": "Hans" },
+        "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "60" }
+      },
+      {
+        "nom": { "type": "literal", "value": "Roß" },
+        "prenom": { "type": "literal", "value": "Hans" },
+        "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "63" }
+      },
+      {
+        "nom": { "type": "literal", "value": "Puntin" },
+        "prenom": { "type": "literal", "value": "Claudio" },
+        "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "60" }
+      },
+      {
+        "nom": { "type": "literal", "value": "Harfst" },
+        "prenom": { "type": "literal", "value": "Samuel" },
+        "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "39" }
+      },
+      {
+        "nom": { "type": "literal", "value": "Duce" },
+        "prenom": { "type": "literal", "value": "Adam" },
+        "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "53" }
+      },
+      {
+        "nom": { "type": "literal", "value": "Morrison" },
+        "prenom": { "type": "literal", "value": "James" },
+        "age": { "type": "typed-literal", "datatype": "http://www.w3.org/2001/XMLSchema#integer", "value": "63" }
+      }
+    ]
   }
-  
+}

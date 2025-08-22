@@ -2978,7 +2978,7 @@ export class VisGraph extends HTMLElement {
     defs.append("marker")
       .attr("id", "arrowhead")
       .attr("viewBox", "0 -5 10 10")
-      .attr("refX", 8)
+      .attr("refX", 10) // Augmenté pour décaler la flèche
       .attr("refY", 0)
       .attr("markerWidth", 6)
       .attr("markerHeight", 6)
@@ -3042,7 +3042,7 @@ export class VisGraph extends HTMLElement {
     // Node Color
     const nodeColorConfig = mapping.nodes.color || {};
     const nodeColorScale = nodeColorConfig.scale ? 
-      this.createD3Scale(nodeColorConfig.scale, this.nodes, nodeColorConfig.field) : null;
+      this.createD3Scale(nodeColorConfig.scale, this.nodes, nodeColorConfig.field, null, true) : null;
     const getNodeColor = d => {
       try {
         if (nodeColorScale && nodeColorConfig.field && d[nodeColorConfig.field] !== undefined) {
@@ -3065,7 +3065,7 @@ export class VisGraph extends HTMLElement {
     // Node Size (Radius)
     const nodeSizeConfig = mapping.nodes.size || {};
     const nodeSizeScale = nodeSizeConfig.scale ? 
-      this.createD3Scale(nodeSizeConfig.scale, this.nodes, nodeSizeConfig.field) : null;
+      this.createD3Scale(nodeSizeConfig.scale, this.nodes, nodeSizeConfig.field, null, false) : null;
     const getNodeRadius = d => {
       try {
         if (nodeSizeScale && nodeSizeConfig.field && d[nodeSizeConfig.field] !== undefined) {
@@ -3086,7 +3086,7 @@ export class VisGraph extends HTMLElement {
     // Link Color
     const linkColorConfig = mapping.links.color || {};
     const linkColorScale = linkColorConfig.scale ? 
-      this.createD3Scale(linkColorConfig.scale, this.links, linkColorConfig.field) : null;
+      this.createD3Scale(linkColorConfig.scale, this.links, linkColorConfig.field, null, true) : null;
     const getLinkColor = d => {
       if (linkColorScale && linkColorConfig.field && d[linkColorConfig.field] !== undefined) {
         // CORRECTION: On vérifie aussi pour les liens
@@ -3197,14 +3197,52 @@ export class VisGraph extends HTMLElement {
       .attr('class', 'node-label')
       .text(d => d.label || d.id);
         
+    // Fonction pour calculer la position du lien en tenant compte du rayon du nœud
+    const calculateLinkPosition = (link) => {
+      const source = link.source;
+      const target = link.target;
+      
+      if (isNaN(source.x) || isNaN(source.y) || isNaN(target.x) || isNaN(target.y)) {
+        return { x1: 0, y1: 0, x2: 0, y2: 0 };
+      }
+      
+      const dx = target.x - source.x;
+      const dy = target.y - source.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      if (distance === 0) {
+        return { x1: source.x, y1: source.y, x2: target.x, y2: target.y };
+      }
+      
+      const sourceRadius = getNodeRadius(source);
+      const targetRadius = getNodeRadius(target);
+      
+      // Calcul des vecteurs unitaires
+      const unitX = dx / distance;
+      const unitY = dy / distance;
+      
+      // Position de départ (décalée du rayon du nœud source)
+      const x1 = source.x + unitX * sourceRadius;
+      const y1 = source.y + unitY * sourceRadius;
+      
+      // Position d'arrivée (décalée du rayon du nœud cible)
+      const x2 = target.x - unitX * targetRadius;
+      const y2 = target.y - unitY * targetRadius;
+      
+      return { x1, y1, x2, y2 };
+    };
+
     simulation.on('tick', () => {
       nodeGroup.each(constrainNode);
       
-      link
-        .attr('x1', d => isNaN(d.source.x) ? 0 : d.source.x)
-        .attr('y1', d => isNaN(d.source.y) ? 0 : d.source.y)
-        .attr('x2', d => isNaN(d.target.x) ? 0 : d.target.x)
-        .attr('y2', d => isNaN(d.target.y) ? 0 : d.target.y);
+      link.each(function(d) {
+        const positions = calculateLinkPosition(d);
+        d3.select(this)
+          .attr('x1', positions.x1)
+          .attr('y1', positions.y1)
+          .attr('x2', positions.x2)
+          .attr('y2', positions.y2);
+      });
       
       nodeGroup.attr('transform', d => {
         const x = isNaN(d.x) ? width / 2 : d.x;
@@ -3238,9 +3276,10 @@ export class VisGraph extends HTMLElement {
    * @param {Array} data - Les données à utiliser pour calculer le domaine (optionnel).
    * @param {string} field - Le champ à analyser pour calculer le domaine (optionnel).
    * @param {d3.Scale} defaultScale - L'échelle D3 à utiliser si la configuration est invalide.
+   * @param {boolean} isColorScale - True si c'est une échelle de couleur, false pour les autres propriétés.
    * @returns {d3.Scale} L'échelle D3 configurée avec domaine calculé.
    */
-  createD3Scale(scaleConfig, data = null, field = null, defaultScale = null) {
+  createD3Scale(scaleConfig, data = null, field = null, defaultScale = null, isColorScale = false) {
     this._logDebug(`Creating D3 scale for field "${field}"`);
     
     if (!scaleConfig) {
@@ -3278,35 +3317,78 @@ export class VisGraph extends HTMLElement {
       return defaultScale;
     }
     
-    // --- CRÉATION DE L'ÉCHELLE D3 AVEC COLORSCALECALCULATOR ---
-    const range = scaleConfig.range || null; // null = fallback intelligent du ColorScaleCalculator
+    // --- CRÉATION DE L'ÉCHELLE D3 ---
+    const range = scaleConfig.range || null;
     const scaleType = type === 'linear' || type === 'sqrt' || type === 'log' || type === 'quantitative' || type === 'sequential' ? 'quantitative' : 'ordinal';
     
     try {
-      // Obtenir les clés de données pour validation du domaine
-      const dataKeys = data && field ? this.domainCalculator.getVal(data, field) : [];
-      
-      const colorScaleResult = this.colorScaleCalculator.createColorScale({
-        domain: finalDomain,
-        range: range,
-        dataKeys: dataKeys,
-        scaleType: scaleType,
-        fallbackInterpolator: null, // Utiliser le système intelligent
-        label: `Color[${field}]`
-      });
-      
-      if (colorScaleResult && colorScaleResult.scale) {
-        this._logDebug(`${scaleType} scale created with ColorScaleCalculator for "${field}"`);
-        this._logDebug(`-> Final domain:`, colorScaleResult.domain);
-        this._logDebug(`-> Range:`, colorScaleResult.range);
+      if (isColorScale) {
+        // Pour les échelles de couleur, utiliser le ColorScaleCalculator
+        const dataKeys = data && field ? this.domainCalculator.getVal(data, field) : [];
         
-        return colorScaleResult.scale;
+        const colorScaleResult = this.colorScaleCalculator.createColorScale({
+          domain: finalDomain,
+          range: range,
+          dataKeys: dataKeys,
+          scaleType: scaleType,
+          fallbackInterpolator: null, // Utiliser le système intelligent
+          label: `Color[${field}]`
+        });
+        
+        if (colorScaleResult && colorScaleResult.scale) {
+          this._logDebug(`${scaleType} color scale created with ColorScaleCalculator for "${field}"`);
+          this._logDebug(`-> Final domain:`, colorScaleResult.domain);
+          this._logDebug(`-> Range:`, colorScaleResult.range);
+          
+          return colorScaleResult.scale;
+        } else {
+          this._logDebug(`ColorScaleCalculator returned no scale, using fallback`);
+          return defaultScale;
+        }
       } else {
-        this._logWarn(`ColorScaleCalculator failed, using fallback`);
-        return defaultScale;
+        // Pour les autres échelles (taille, largeur, etc.), utiliser D3 directement
+        const finalRange = range || [5, 20]; // Range par défaut pour les tailles
+        
+        let scale;
+        if (type === 'linear') {
+          scale = d3.scaleLinear()
+            .domain(finalDomain)
+            .range(finalRange);
+        } else if (type === 'sqrt') {
+          scale = d3.scaleSqrt()
+            .domain(finalDomain)
+            .range(finalRange);
+        } else if (type === 'log') {
+          scale = d3.scaleLog()
+            .domain(finalDomain)
+            .range(finalRange);
+        } else if (type === 'pow') {
+          scale = d3.scalePow()
+            .exponent(2) // Exposant par défaut (carré)
+            .domain(finalDomain)
+            .range(finalRange);
+        } else if (type === 'quantitative' || type === 'sequential') {
+          scale = d3.scaleLinear()
+            .domain(finalDomain)
+            .range(finalRange);
+        } else {
+          // Pour ordinal, utiliser scaleOrdinal avec range numérique
+          scale = d3.scaleOrdinal()
+            .domain(finalDomain)
+            .range(finalRange);
+        }
+        
+        this._logDebug(`${type} scale created directly with D3 for "${field}"`);
+        this._logDebug(`-> Final domain:`, finalDomain);
+        this._logDebug(`-> Range:`, finalRange);
+        
+        return scale;
       }
     } catch (error) {
-              this._logError(`Error while creating scale with ColorScaleCalculator:`, error.message);
+      // Ne pas re-logger les erreurs déjà traitées par ColorScaleCalculator
+      if (!error.message.includes('Unsupported range format')) {
+        this._logError(`Error while creating scale:`, error.message);
+      }
       return defaultScale;
     }
   }
