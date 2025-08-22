@@ -3324,23 +3324,21 @@ export class VisGraph extends HTMLElement {
     try {
       if (isColorScale) {
         // Pour les échelles de couleur, utiliser le ColorScaleCalculator
-        const dataKeys = data && field ? this.domainCalculator.getVal(data, field) : [];
-        
-        const colorScaleResult = this.colorScaleCalculator.createColorScale({
+        // Le domaine est déjà calculé par le DomainCalculator
+        const colorScale = this.colorScaleCalculator.createColorScale({
           domain: finalDomain,
           range: range,
-          dataKeys: dataKeys,
           scaleType: scaleType,
           fallbackInterpolator: null, // Utiliser le système intelligent
           label: `Color[${field}]`
         });
         
-        if (colorScaleResult && colorScaleResult.scale) {
+        if (colorScale) {
           this._logDebug(`${scaleType} color scale created with ColorScaleCalculator for "${field}"`);
-          this._logDebug(`-> Final domain:`, colorScaleResult.domain);
-          this._logDebug(`-> Range:`, colorScaleResult.range);
+          this._logDebug(`-> Domain:`, finalDomain);
+          this._logDebug(`-> Range:`, range);
           
-          return colorScaleResult.scale;
+          return colorScale;
         } else {
           this._logDebug(`ColorScaleCalculator returned no scale, using fallback`);
           return defaultScale;

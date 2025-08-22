@@ -251,209 +251,205 @@ export class ColorScaleCalculator {
 
   /**
    * Méthode principale pour créer une échelle de couleurs
-   * @param {object} config - Configuration {domain, range, dataKeys, scaleType, fallbackInterpolator, label}
-   * @returns {object} {scale, domain, range}
+   * Travaille uniquement avec le domaine fourni (calculé par DomainCalculator)
+   * et se concentre sur le calcul du range pour générer l'échelle de couleur.
+   * 
+   * @param {object} config - Configuration {domain, range, scaleType, fallbackInterpolator, label}
+   * @returns {Function} Fonction d'échelle de couleur D3 (ex: d3.scaleOrdinal().domain(...).range(...))
    */
   createColorScale({ 
     domain, 
     range, 
-    dataKeys = [], 
     scaleType = 'ordinal',
-    fallbackInterpolator = null, // Sera calculé automatiquement si null
+    fallbackInterpolator = null,
     label = "Color" 
   }) {
-    const isDomainArray = Array.isArray(domain) && domain.length > 0;
-
-    // Validation du domaine
-    if (isDomainArray) {
-      const duplicates = domain.filter((item, index) => domain.indexOf(item) !== index);
-      if (duplicates.length > 0) {
-        this._logWarn(`Duplicate domain values (${label}): ${[...new Set(duplicates)].join(', ')}`);
-      }
+    // Validation du domaine fourni
+    if (!Array.isArray(domain) || domain.length === 0) {
+      this._logWarn(`Invalid or empty domain provided (${label}). Cannot create color scale.`);
+      return null;
     }
 
-    // Finalisation du domaine
-    let finalDomain;
-    if (isDomainArray) {
-      const validDomain = domain.filter(d => dataKeys.includes(d));
-      const extraDomain = domain.filter(d => !dataKeys.includes(d));
-      const missingDomain = dataKeys.filter(d => !validDomain.includes(d));
-      
-      if (extraDomain.length > 0) {
-        this._logWarn(`Extra domain values not in data (${label}): ${extraDomain.join(', ')}`);
-      }
-      if (missingDomain.length > 0) {
-        this._logWarn(`Missing domain values from data (${label}): ${missingDomain.join(', ')}`);
-      }
-      
-      missingDomain.sort((a, b) => a.localeCompare(b));
-      finalDomain = [...validDomain, ...missingDomain];
-    } else {
-      this._logWarn(`Invalid or empty domain (${label}). Using dataset values.`);
-      finalDomain = [...dataKeys].sort((a, b) => a.localeCompare(b));
-    }
+    this._logDebug(`Creating color scale (${label}) with domain:`, domain);
+    this._logDebug(`Scale type: ${scaleType}, Range input:`, range);
 
     // Obtenir le meilleur fallback si pas spécifié
-    const smartFallback = fallbackInterpolator || this.getBestFallback(scaleType, finalDomain.length);
+    const smartFallback = fallbackInterpolator || this.getBestFallback(scaleType, domain.length);
     this._logDebug(`Smart fallback chosen (${label}):`, typeof smartFallback === 'function' ? smartFallback.name : smartFallback);
     
-    // Validation de sécurité pour les interpolateurs
-    if (typeof smartFallback === 'function') {
-      try {
-        // Test rapide pour vérifier que l'interpolateur fonctionne
-        smartFallback(0.5);
-      } catch (error) {
-        this._logWarn(`Invalid interpolator detected, using Category10 instead: ${error.message}`);
-        const safeFallback = d3.schemeCategory10;
-        return this.createColorScale({
-          domain: finalDomain,
-          range: safeFallback,
-          dataKeys,
-          scaleType,
-          fallbackInterpolator: safeFallback,
-          label
-        });
-      }
+    // Calculer le range final à partir de l'input utilisateur
+    let finalRange = this._computeColorRange(range, scaleType, domain.length, smartFallback, label);
+
+    // Validation finale du range
+    if (!Array.isArray(finalRange) || finalRange.length === 0) {
+      this._logWarn(`Could not compute valid color range (${label}). Using smart fallback.`);
+      finalRange = this._getFallbackRange(smartFallback, domain.length);
     }
 
-    // Traitement du range avec la nouvelle logique de parsing
-    let finalRange = range;
+    // Avertissements sur les tailles
+    if (finalRange.length < domain.length) {
+      this._logWarn(`Color range shorter than domain (${label}): ${finalRange.length} < ${domain.length}. Colors will repeat.`);
+    } else if (finalRange.length > domain.length) {
+      this._logWarn(`Color range longer than domain (${label}): ${finalRange.length} > ${domain.length}. Extra colors ignored.`);
+    }
+
+    // Création de l'échelle selon le type
+    return this._createD3Scale(domain, finalRange, scaleType, range, label);
+  }
+
+  /**
+   * Calcule le range de couleurs à partir de l'input utilisateur
+   * @private
+   */
+  _computeColorRange(range, scaleType, domainLength, smartFallback, label) {
+    // Cas 1: Pas de range spécifié → utiliser le fallback intelligent
     if (range === null || range === undefined) {
-      // Pas de range spécifié → utiliser le fallback intelligent
-      if (typeof smartFallback === 'function') {
-        finalRange = d3.quantize(smartFallback, finalDomain.length);
-      } else if (Array.isArray(smartFallback)) {
-        finalRange = smartFallback;
-      }
-      this._logDebug(`Auto-generated range (${label} - smart fallback):`, finalRange);
-    } else if (typeof range === 'string') {
-      const parsed = this.parseD3ColorScheme(range, scaleType);
-      if (parsed?.type === "interpolate") {
-        finalRange = d3.quantize(parsed.value, finalDomain.length);
-      } else if (parsed?.type === "scheme") {
-        finalRange = parsed.value;
-      } else {
-        // Palette non trouvée - utiliser fallback (warning déjà affiché par parseD3ColorScheme)
-        if (typeof smartFallback === 'function') {
-          finalRange = d3.quantize(smartFallback, finalDomain.length);
-        } else if (Array.isArray(smartFallback)) {
-          finalRange = smartFallback;
-        }
-      }
-    } else if (Array.isArray(range) && range.length === 1 && typeof range[0] === 'string') {
-      // Vérifier si c'est un nom de palette D3 dans un array (erreur)
+      this._logDebug(`No range specified (${label}), using smart fallback`);
+      return this._getFallbackRange(smartFallback, domainLength);
+    }
+
+    // Cas 2: Range de type string (nom de palette D3)
+    if (typeof range === 'string') {
+      return this._parseStringRange(range, scaleType, domainLength, smartFallback, label);
+    }
+
+    // Cas 3: Range de type array (couleurs explicites)
+    if (Array.isArray(range)) {
+      return this._parseArrayRange(range, scaleType, domainLength, smartFallback, label);
+    }
+
+    // Cas 4: Type de range non supporté
+    this._logWarn(`Unsupported range type (${label}): ${typeof range}. Using smart fallback.`);
+    return this._getFallbackRange(smartFallback, domainLength);
+  }
+
+  /**
+   * Parse un range de type string (palette D3)
+   * @private
+   */
+  _parseStringRange(range, scaleType, domainLength, smartFallback, label) {
+    const parsed = this.parseD3ColorScheme(range, scaleType);
+    
+    if (parsed?.type === "interpolate") {
+      return d3.quantize(parsed.value, domainLength);
+    } else if (parsed?.type === "scheme") {
+      return parsed.value;
+    } else {
+      // Palette non trouvée - utiliser fallback (warning déjà affiché par parseD3ColorScheme)
+      this._logDebug(`String range parsing failed (${label}), using smart fallback`);
+      return this._getFallbackRange(smartFallback, domainLength);
+    }
+  }
+
+  /**
+   * Parse un range de type array (couleurs explicites)
+   * @private
+   */
+  _parseArrayRange(range, scaleType, domainLength, smartFallback, label) {
+    // Cas spécial: array avec un seul élément string (erreur courante)
+    if (range.length === 1 && typeof range[0] === 'string') {
       const potentialSchemeName = range[0];
       const parsed = this.parseD3ColorScheme(potentialSchemeName, scaleType);
       
       if (parsed !== null) {
-        // C'est un nom de palette valide dans un array - lever une erreur explicite
         const errorMessage = `Unsupported range format: ["${potentialSchemeName}"]. ` +
           `To use a pre-existing palette, use the string directly: "${potentialSchemeName}". ` +
           `Arrays are reserved for explicit hexadecimal colors like ["#1f77b4", "#ff7f0e"].`;
         this._logWarn(errorMessage);
         
-        // Utiliser automatiquement la version string correcte au lieu de throw
-        if (parsed?.type === "interpolate") {
-          finalRange = d3.quantize(parsed.value, finalDomain.length);
-        } else if (parsed?.type === "scheme") {
-          finalRange = parsed.value;
-        } else {
-          // Si même la version string ne fonctionne pas, utiliser le fallback
-          if (typeof smartFallback === 'function') {
-            finalRange = d3.quantize(smartFallback, finalDomain.length);
-          } else if (Array.isArray(smartFallback)) {
-            finalRange = smartFallback;
-          }
-        }
-      }
-      // Si ce n'est pas un nom de palette reconnu, continuer le traitement normal
-    }
-
-    // Validation des couleurs dans les arrays
-    if (Array.isArray(finalRange) && finalRange.length > 0) {
-      const validColors = [];
-      const invalidColors = [];
-      
-      finalRange.forEach(color => {
-        if (this.isValidColor(color)) {
-          validColors.push(color);
-        } else {
-          invalidColors.push(color);
-        }
-      });
-      
-      if (invalidColors.length > 0) {
-        this._logWarn(`Invalid colors detected and removed: [${invalidColors.join(', ')}]. Valid colors kept: [${validColors.join(', ')}]`);
-        if (validColors.length > 0) {
-          finalRange = validColors;
-        } else {
-          this._logWarn(`No valid colors found in range. Using default palette.`);
-          finalRange = null; // Sera traité par la validation finale
-        }
+        // Corriger automatiquement en utilisant la version string
+        return this._parseStringRange(potentialSchemeName, scaleType, domainLength, smartFallback, label);
       }
     }
 
-    // Validation du range final
-    if (!Array.isArray(finalRange) || finalRange.length === 0) {
-      this._logWarn(`Invalid color range (${label}). Using smart fallback.`);
-      if (typeof smartFallback === 'function') {
-        // Si c'est un interpolateur, quantize
-        finalRange = d3.quantize(smartFallback, finalDomain.length);
-      } else if (Array.isArray(smartFallback)) {
-        // Si c'est déjà un scheme array, utiliser directement
-        finalRange = smartFallback;
+    // Validation des couleurs dans l'array
+    const validColors = [];
+    const invalidColors = [];
+    
+    range.forEach(color => {
+      if (this.isValidColor(color)) {
+        validColors.push(color);
       } else {
-        // Fallback de dernier recours
-        finalRange = d3.quantize(d3.interpolateViridis, finalDomain.length);
+        invalidColors.push(color);
       }
+    });
+    
+    if (invalidColors.length > 0) {
+      this._logWarn(`Invalid colors detected and removed (${label}): [${invalidColors.join(', ')}]. Valid colors kept: [${validColors.join(', ')}]`);
     }
 
-    if (finalRange.length < finalDomain.length) {
-      this._logWarn(`Color range shorter than domain (${label}): ${finalRange.length} < ${finalDomain.length}. Colors will repeat.`);
-    } else if (finalRange.length > finalDomain.length) {
-      this._logWarn(`Color range longer than domain (${label}): ${finalRange.length} > ${finalDomain.length}. Extra colors ignored.`);
+    if (validColors.length > 0) {
+      return validColors;
+    } else {
+      this._logWarn(`No valid colors found in array range (${label}). Using smart fallback.`);
+      return this._getFallbackRange(smartFallback, domainLength);
     }
+  }
 
-    // Mapping final des couleurs
-    const finalColors = finalDomain.map((_, i) => finalRange[i % finalRange.length]);
+  /**
+   * Obtient le range de fallback
+   * @private
+   */
+  _getFallbackRange(smartFallback, domainLength) {
+    if (typeof smartFallback === 'function') {
+      try {
+        return d3.quantize(smartFallback, domainLength);
+      } catch (error) {
+        this._logWarn(`Error with fallback interpolator: ${error.message}. Using Category10.`);
+        return d3.schemeCategory10.slice(0, Math.min(domainLength, 10));
+      }
+    } else if (Array.isArray(smartFallback)) {
+      return smartFallback;
+    } else {
+      // Dernier recours
+      return d3.quantize(d3.interpolateViridis, domainLength);
+    }
+  }
+
+  /**
+   * Crée l'échelle D3 finale
+   * @private
+   */
+  _createD3Scale(domain, finalRange, scaleType, originalRange, label) {
+    // Mapping final des couleurs selon la taille du domaine
+    const finalColors = domain.map((_, i) => finalRange[i % finalRange.length]);
 
     // Création de l'échelle selon le type
     let scale;
+    
     if (scaleType === 'quantitative' || scaleType === 'sequential') {
-      // Pour quantitative, préférer scaleSequential si on a un interpolateur
-      if (typeof range === 'string') {
-        const parsed = this.parseD3ColorScheme(range, scaleType);
+      // Pour quantitative, essayer d'utiliser scaleSequential si on a un interpolateur
+      if (typeof originalRange === 'string') {
+        const parsed = this.parseD3ColorScheme(originalRange, scaleType);
         if (parsed?.type === "interpolate") {
-          // Créer un domaine numérique pour scaleSequential
-          const numericDomain = finalDomain.map((_, i) => i);
+          // Créer une échelle sequential avec interpolateur
           scale = d3.scaleSequential(parsed.value)
-            .domain([0, finalDomain.length - 1]);
+            .domain([0, domain.length - 1]);
           
           // Wrapper pour retourner la couleur par index du domaine
           const originalScale = scale;
           scale = (value) => {
-            const index = finalDomain.indexOf(value);
+            const index = domain.indexOf(value);
             return index !== -1 ? originalScale(index) : originalScale(0);
           };
-          scale.domain = () => finalDomain;
+          scale.domain = () => domain;
           scale.range = () => finalColors;
-        } else {
-          // Fallback vers ordinal si pas d'interpolateur (warning déjà affiché)
-          scale = d3.scaleOrdinal().domain(finalDomain).range(finalColors);
+          
+          this._logDebug(`Sequential scale created (${label}) with interpolator`);
+          return scale;
         }
-      } else {
-        scale = d3.scaleOrdinal().domain(finalDomain).range(finalColors);
       }
+      
+      // Fallback vers ordinal pour quantitative si pas d'interpolateur
+      scale = d3.scaleOrdinal().domain(domain).range(finalColors);
+      this._logDebug(`Ordinal scale created (${label}) as fallback for quantitative`);
     } else {
       // Pour ordinal (défaut)
-      scale = d3.scaleOrdinal().domain(finalDomain).range(finalColors);
+      scale = d3.scaleOrdinal().domain(domain).range(finalColors);
+      this._logDebug(`Ordinal scale created (${label})`);
     }
 
-    return {
-      scale: scale,
-      domain: finalDomain,
-      range: finalRange
-    };
+    return scale;
   }
 
   /**
@@ -544,8 +540,9 @@ export function parseD3ColorScheme(schemeName, scaleType = 'ordinal') {
   return calculator.parseD3ColorScheme(schemeName, scaleType);
 }
 
-// Fonction utilitaire pour créer une échelle de couleurs (compatible avec le code existant)
-export function createColorScale({ domain, range, dataKeys, fallbackInterpolator = null, label = "Color" }) {
+// Fonction utilitaire pour créer une échelle de couleurs
+// Retourne directement la fonction d'échelle D3 (ex: d3.scaleOrdinal().domain(...).range(...))
+export function createColorScale({ domain, range, scaleType = 'ordinal', fallbackInterpolator = null, label = "Color" }) {
   const calculator = new ColorScaleCalculator();
-  return calculator.createColorScale({ domain, range, dataKeys, scaleType: 'ordinal', fallbackInterpolator, label });
+  return calculator.createColorScale({ domain, range, scaleType, fallbackInterpolator, label });
 }
